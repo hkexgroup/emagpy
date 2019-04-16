@@ -33,7 +33,7 @@ API structure:
 
 UI structure:
 - tab1: data import (choice of sensors)
-- tab2: calibration + error model
+- tab2: calibration + error model + co location
 - tab3: inversion settings
     - model definition (layer, initial model)
     - inversion (smoothing, lateral constrain, full or CS, choice of method for minimize)
