@@ -5,10 +5,12 @@ Created on Tue Apr 16 20:29:19 2019
 
 @author: jkl
 """
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from invertHelper import fCS, fMaxwellECa, fMaxwell, getQs
+from invertHelper import fCS, fMaxwellECa, fMaxwellQ#, getQs
+from scipy.optimize import minimize
 from Survey import Survey
 '''
 API structure:
@@ -40,24 +42,49 @@ class Problem(object):
     ''' Class defining an inversion problem.
     '''
     def __init__(self):
-        self.depths = np.array([1, 2]) # depths of the bottom of each layer (last one is -inf)
-        self.conds = np.array([20, 20, 20]) # initial conductivity for each layer
+        self.depths0 = np.array([1, 2]) # initial depths of the bottom of each layer (last one is -inf)
+        self.conds0 = np.array([20, 20, 20]) # initial conductivity for each layer
 #        self.fixedConds = []
 #        self.fixedDepths = []
         self.surveys = []
         self.models = []
+        self.rmses = []
         
         
-    def createSurvey(self, fname):
+        
+    def createSurvey(self, fname, freq=None, hx=None):
         ''' Create a survey object.
+        
+        Parameters
+        ----------
+        fname : str
+            Path to the csv file with the data.
+        freq : float, optional
+            Frequency for all the coils (can also be specified for each coil in the file).
+        hx : float, optional
+            Height of the instrument above the ground (can also be specified for each coil in the file).
         '''
-        self.surveys.append(Survey(fname))
+        survey = Survey(fname)
+        if len(self.surveys) == 0:
+            self.coils = survey.coils
+            self.freqs = survey.freqs
+            self.cspacing = survey.cspacing
+            self.cpos = survey.cpos
+            self.hx = survey.hx
+            self.surveys.append(survey)
+        else: # check we have the same configuration
+            check = [a == b for a,b, in zip(self.coils, survey.coils)]
+            if all(check) is True:
+                self.surveys.append(survey)
         
         
     def createTimeLapseSurvey(self, dirname):
         ''' Create a list of surveys object.
         '''
-        pass
+        files = sorted(os.listdir(dirname))
+        for f in files:
+            self.createSurvey(os.path.join(dirname, f))
+        
     
         
     def setDepths(self, depths):
@@ -71,45 +98,286 @@ class Problem(object):
         self.depths = np.array(depths)
         
         
-    def invert(self, method='solve', **kwargs):
-        self.invertMinimize(**kwargs)
+    def invert(self, forwardModel='CS', regularization='l2', smoothing='1d',
+               alpha=0.07, dump=None, **kwargs):
+        '''Invert the apparent conductivity measurements.
+        
+        Parameters
+        ----------
+        forwardModel : str, optional
+            Type of forward model:
+                - CS : Cumulative sensitivity (default)
+                - FS : Full Maxwell solution with low-induction number (LIN) approximation
+                - FSandrade : Full Maxwell solution without LIN approximation (see Andrade 2016)
+                - CSfast : Cumulative sensitivity with jacobian matrix (not minimize) - NOT IMPLEMENTED YET
+                - CSdiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
+        regularization : str, optional
+            Type of regularization, either l1 (blocky model) or l2 (smooth model)
+        smoothing : str, optional
+            Smoothing used (either 1d, 2d, or 3d).
+        alpha : float, optional
+            Smoothing factor for the inversion.
+        dump : function, optional
+            Function to print the progression. Default is `print`.
+        **kwargs : optional
+            Additional keyword arguments will be passed to `scipy.optimize.minimize()`.
+        '''
+        if dump is None:
+            dump = print
+        
+        if forwardModel in ['CS','FS','FSandrade']:
+            # define the forward model
+            if forwardModel == 'CS':
+                def fmodel(p):
+                    return fCS(p, self.depths0, self.cspacing, self.cpos, hx=self.hx[0])
+            elif forwardModel == 'FS':
+                def fmodel(p):
+                    return fMaxwellECa(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+            elif forwardModel == 'FSandrade':
+                def fmodel(p):
+                    return fMaxwellQ(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+            
+            # build objective function (RMSE based)
+            def buildSecondDiff(ndiag):
+                x=np.ones(ndiag)
+                a=np.diag(x[:-1]*-1,k=-1)+np.diag(x*2,k=0)+np.diag(x[:-1]*-1,k=1)
+                a[0,0]=1
+                a[-1,-1]=1
+                return a
+            L = buildSecondDiff(len(self.conds0)) # L is used inside the smooth objective fct
+
+            def dataMisfit(p, app):
+                return fmodel(p) - app
+            def modelMisfit(p):
+                return np.dot(L, p)
+            
+            if regularization  == 'l1':
+                if smoothing == '1d':
+                    def objfunc(p, app):
+                        return np.sqrt(np.sum(np.abs(dataMisfit(p, app)))/len(app)
+                                       + alpha*np.sum(np.abs(modelMisfit(p)))/len(p))
+            elif regularization == 'l2':
+                if smoothing == '1d':
+                    def objfunc(p, app):
+                        return np.sqrt(np.sum(dataMisfit(p, app)**2)/len(app)
+                                       + alpha*np.sum(modelMisfit(p)**2)/len(p))
+            # not sure about the division by len(app) for modelMisfit
+                    
+            # inversion row by row
+            for i, survey in enumerate(self.surveys):
+                apps = survey.df[self.coils].values
+                rmse = np.zeros(apps.shape[0])*np.nan
+                model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
+                dump('Survey', i+1, '/', len(self.surveys))
+                for j in range(survey.df.shape[0]):
+                    app = apps[j,:]
+#                    try:
+                    res = minimize(objfunc, self.conds0, args=(app), **kwargs)
+                    out = res.x
+#                    except:
+#                        out = np.ones(len(self.conds0))*np.nan
+                    model[j,:] = out
+                    rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/len(app))
+                    dump(j+1, '/', apps.shape[0], 'inverted')
+                self.models.append(model)
+                self.rmses.append(rmse)
+                    
+                    # TODO can add bounds
+                            
+            
+                    
+    def forward(self, forwardModel='CS'):
+        '''Forward model.
+        
+        Parameters
+        ----------
+        forwardModel : str, optional
+            Type of forward model:
+                - CS : Cumulative sensitivity (default)
+                - FS : Full Maxwell solution with low-induction number (LIN) approximation
+                - FSandrade : Full Maxwell solution without LIN approximation (see Andrade 2016)
+                - CSfast : Cumulative sensitivity with jacobian matrix (not minimize) - NOT IMPLEMENTED YET
+                - CSdiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
+        
+        Returns
+        -------
+        df : pandas.DataFrame
+            With the apparent ECa in the same format as input for the Survey class.
+        '''
+        if forwardModel in ['CS','FS','FSandrade']:
+            # define the forward model
+            if forwardModel == 'CS':
+                def fmodel(p):
+                    return fCS(p, self.depths0, self.cspacing, self.cpos, hx=self.hx[0])
+            elif forwardModel == 'FS':
+                def fmodel(p):
+                    return fMaxwellECa(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+            elif forwardModel == 'FSandrade':
+                def fmodel(p):
+                    return fMaxwellQ(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+        
+        dfs = []
+        for i, model in enumerate(self.models):
+            apps = np.zeros((model.shape[0], len(self.coils)))*np.nan
+            for j in range(model.shape[0]):
+                conds = model[j,:]
+                apps[j,:] = fmodel(conds)
+        
+            df = pd.DataFrame(apps, columns=self.coils)
+            dfs.append(df)
+        
+        return dfs
     
     
-    def invertMinimize(self):
-        ''' Invert using the minimize function of scipy and an objective
-        function (by default the RMS).
+    def show(self, index=0, **kwargs):
+        '''Show the raw data of the survey.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Survey number, by default, the first survey is chosen.
+        '''
+        self.surveys[index].show(**kwargs)
+    
+    
+    
+    def showMap(self, index=0, **kwargs):
+        '''Show spatial map of the selected survey.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Survey number, by default, the first survey is chosen.
+        '''
+        self.surveys[index].showMap(**kwargs)
+        
+    
+    def gridData(self, nx=100, ny=100, method='nearest'):
+        ''' Grid data (for 3D).
+        
+        Parameters
+        ----------
+        nx : int, optional
+            Number of points in x direction.
+        ny : int, optional
+            Number of points in y direction.
+        method : str, optional
+            Interpolation method (nearest, cubic or linear see
+            `scipy.interpolate.griddata`). Default is `nearest`.
         '''
         
+        for survey in self.surveys:
+            survey.gridData(nx=nx, ny=ny, method=method)
         
-    def forwardCS(self):
-        ''' Forward modelling using the cumulative sensitivity function.
+        
+    def convertFromNMEA(self,  targetProjection='EPSG:27700'): # British Grid 1936
+        ''' Convert NMEA string to selected CRS projection.
+        
+        Parameters
+        ----------
+        targetProjection : str, optional
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            for the British Grid.
         '''
-        return
-        fCS(sigma, depths, cspacing, cpos, hx=1)
+        for survey in self.surveys:
+            survey.convertFromNMEA(targetProjection=targetProjection)
+    
+    
+    def showResults(self, index=0, ax=None, vmin=None, vmax=None,
+                    maxDepth=None, padding=0, cm='viridis'):
+        '''Show invertd model.
         
-        sigma = np.array([30, 30, 30, 30]) # layers conductivity [mS/m]
-depths = np.array([0.3, 0.7, 2]) # thickness of each layer (last is infinite)
-f = 30000 # Hz frequency of the coil
-cpos = np.array(['hcp','hcp','hcp','vcp','vcp','vcp']) # coil orientation
-#cpos = np.array(['hcp','hcp','hcp','prp','prp','prp']) # coil orientation
-#cspacing = np.array([0.32, 0.71, 1.18, 0.32, 0.71, 1.18])
-cspacing = np.array([1.48, 2.82, 4.49, 1.48, 2.82, 4.49]) # explorer
-
-print('fCS:', fCS(sigma, depths, cspacing, cpos))
-print('fMaxwellECa:', fMaxwellECa(sigma, depths, cspacing, cpos))
-print('fMaxwellQ:', fMaxwellQ(sigma, depths, cspacing, cpos))
-print('fCSandrade:', fCSandrade(sigma, depths, cspacing, cpos, hx=0))
-
-print('fCS:', fCS(sigma, depths, cspacing, cpos, hx=1))
-print('fCS:', fCS(sigma, depths, cspacing, cpos, hx=1, rescaled=True))
-print('fCSandrade:', fCSandrade(sigma, depths, cspacing, cpos, hx=1))
+        Parameters
+        ----------
+        index : int, optional
+            Index of the survey to plot.
+        '''            
+        sig = self.models[index]
+        x = np.arange(sig.shape[0])
+        depths = np.repeat(self.depths0[:,None], sig.shape[0], axis=1).T
+                
+        if depths[0,0] != 0:
+            depths = np.c_[np.zeros(depths.shape[0]), depths]
+        if vmin is None:
+            vmin = np.nanpercentile(sig, 5)
+        if vmax is None:
+            vmax = np.nanpercentile(sig, 95)
+        cmap = plt.get_cmap(cm)
+        norm = plt.Normalize(vmin=vmin, vmax=vmax)
+        if maxDepth is None:
+            maxDepth = np.max(depths) + padding
+        depths = np.c_[depths, np.ones(depths.shape[0])*maxDepth]
+        h = np.diff(depths, axis=1)
+        h = np.c_[np.zeros(h.shape[0]), h]
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
+        for i in range(1, h.shape[1]):
+            ax.bar(x, -h[:,i], bottom=-np.sum(h[:,:i], axis=1),
+                   color=cmap(norm(sig[:,i-1])), edgecolor='none', width=1)
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        fig.colorbar(sm, label='Conductivity [mS/m]')
+        ax.set_xlabel('X position')
+        ax.set_ylabel('Depth [m]')
+        ax.set_title(self.surveys[index].name)
+        ax.set_ylim([-maxDepth, 0])
+#        ax.set_aspect('equal')
+        def format_coord(i,j):
+            col=int(np.floor(i))+1
+            if col < sig.shape[0]:
+                row = int(np.where(-depths[col,:] < j)[0].min())-1
+                return 'x={0:.4f}, y={1:.4f}, value={2:.4f}'.format(col, row, sig[col, row])
+            else:
+                return ''
+        ax.format_coord = format_coord
+        fig.tight_layout()
 
 
     
-    def fowardFS(self):
-        ''' Forward modelling using the full Maxwell-based solution.
+    def showMisfit(self, index=0, coil='all', ax=None):
+        '''Show Misfit after inversion.
+            
+        Parameters
+        ----------
+        index : int, optional
+            Index of the survey to plot.
+        coil : str, optional
+            Which coil to plot. Default is all.
+        ax : matplotlib.Axes, optional
+            If specified the graph will be plotted on this axis.
         '''
-        
-        
+        dfsForward = self.forward()
+        survey = self.surveys[index]
+        cols = survey.coils
+        obsECa = survey.df[cols].values
+        simECa = dfsForward[index][cols].values
+        if ax is None:
+            fig, ax = plt.subplots()
+        xx = np.arange(survey.df.shape[0])
+        ax.plot(xx, obsECa, '.')
+        ax.set_prop_cycle(None)
+        ax.plot(xx, simECa, '-')
+        ax.legend(cols)
     
-    
+            
+            
+# cover crop example
+k = Problem()
+k.depths0 = np.linspace(0.5, 2, 10) # not starting at 0 !
+k.conds0 = np.ones(len(k.depths0)+1)*20
+k.createSurvey('test/coverCrop.csv')
+k.surveys[0].df 
+#k.show()
+k.invert(method='TNC')
+k.showMisfit()
+k.showResults()
+
+
+#%% mapping example
+k = Problem()
+k.createSurvey('test/potatoesLo.csv')
+k.convertFromNMEA()
+k.show()
+k.showMap()

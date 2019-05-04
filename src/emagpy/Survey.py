@@ -7,31 +7,68 @@ Created on Tue Apr 16 20:27:12 2019
 """
 import pandas as pd
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from pykrige.ok import OrdinaryKriging
+from scipy import stats
 from scipy.spatial.distance import cdist
+from scipy.interpolate import griddata
+from scipy.spatial import Delaunay
+from scipy.spatial import ConvexHull
 
+
+def clipConvexHull(xdata,ydata,x,y,z):
+    """ set to nan data outside the convex hull of xdata, yxdata
+    
+    Parameters:
+        xdata, ydata (arrays) : x and y position of the data collected
+        x, y (arrays) : x and y position of the computed interpolation points
+        z (arrays) : value of the interpolation
+    
+    Return:
+        znew (array) : a copy of z with nan when outside convexHull
+    """
+    knownPoints = np.array([xdata, ydata]).T
+    newPoints = np.array([x,y]).T
+    _, idx = np.unique(xdata+ydata, return_index=1)
+    q = ConvexHull(knownPoints[idx,:])
+    hull = Delaunay(q.points[q.vertices, :])
+#    qq = q.points[q.vertices,:]
+        
+    znew = np.copy(z)
+    for i in range(0, len(z)):
+        if hull.find_simplex(newPoints[i,:])<0:
+            znew[i] = np.nan
+    return znew
+        
 
 
 class Survey(object):
     ''' Create a Survey object containing the raw EMI data.
     Raw EMI file is
     '''
-    def __init__(self, fname=None):
+    def __init__(self, fname=None, freq=None, hx=None):
         self.df = None # main dataframe
-        self.freq = None # how to handle different frequencies ?
+        self.freqs = [] # frequency of each coil [Hz]
         self.errorModel = None # a function that returns an error
         self.sensor = None # sensor name (+ company)
         self.coils = [] # columns with the coils names and configuration
         self.cpos = [] # orientation of the coils
         self.cspacing = [] # spacing between Tx and Rx [m]
         self.coilsInph = [] # name of the coils with inphase value in [ppt]
+        self.hx = [] # height of the instrument above the ground [m]
+        self.name = ''
         if fname is not None:
             self.readFile(fname)
+            if freq is not None:
+                self.freqs = np.ones(len(self.coils))*freq
+            if hx is not None:
+                self.hx = np.ones(len(self.coils))*hx
 
         
     
     def readFile(self, fname, sensor=None):
+        self.name = os.path.basename(fname)[:-4]
         df = pd.read_csv(fname)
         for c in df.columns:
             orientation = c[:3]
@@ -50,15 +87,33 @@ class Survey(object):
             df['x'] = 0
         if 'y' not in df.columns:
             df['y'] = 0 # maybe not needed
-        self.freqs = df[self.coils].values[0,:] # first row for frequency (Hz)
-        self.hx = df[self.coils].values[1,:] # second for height (m)
-        self.df = df[2:]
+        coilInfo = [self.getCoilInfo(c) for c in self.coils]
+        self.freqs = [a['freq'] for a in coilInfo]
+        self.hx = [a['height'] for a in coilInfo]
+        self.cspacing = [a['coilSeparation'] for a in coilInfo]
+        self.cpos = [a['orientation'] for a in coilInfo]
+        self.df = df
         self.sensor = sensor
-        for c in self.coils:
-            self.cspacing.append(float(c[3:]))
-            self.cpos.append(c[:3].lower())
-        # TODO if inphase is present we can parse it _inph or _quad
+
         
+    def getCoilInfo(self, arg):
+        orientation = arg[:3].lower()
+        b = arg[3:].split('f')
+        coilSeparation = float(b[0])
+        if len(b) > 1:
+            c = b[1].split('@')
+            freq = float(c[0])
+            if len(c) > 1:
+                height = float(c[1])
+            else:
+                height = 0
+        else:
+            freq = None
+            height = 0
+        return {'orientation': orientation,
+                'coilSeparation': coilSeparation,
+                'freq': freq,
+                'height': height}
         
         
     def show(self, coils='all', attr='ECa', ax=None):
@@ -71,8 +126,6 @@ class Survey(object):
         
         if ax is None:
             fig, ax = plt.subplots()
-        else:
-            fig = ax.figure
        
         ax.plot(self.df[cols].values, 'o-')
         ax.legend(cols)
@@ -82,9 +135,17 @@ class Survey(object):
 
     def convertFromNMEA(self, targetProjection='EPSG:27700'): # British Grid 1936
         ''' Convert NMEA string to selected CRS projection.
+        
+        Parameters
+        ----------
+        targetProjection : str, optional
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            for the British Grid.
         '''
-        '''
-                def func(arg):
+        import pyproj
+        
+        df = self.df
+        def func(arg):
             """ Convert NMEA string to WGS84 (GPS) decimal degree.
             """
             letter = arg[-1]
@@ -99,15 +160,15 @@ class Survey(object):
             return (a + b/60)*sign
         gps2deg = np.vectorize(func)
         
+        df['lat'] = gps2deg(df['Latitude'].values)
+        df['lon'] = gps2deg(df['Longitude'].values)
         
-        wgs84=pyproj.Proj("+init=EPSG:4326") # LatLon with WGS84 datum used by GPS units and Google Earth
-        osgb36=pyproj.Proj("+init=EPSG:27700") # UK Ordnance Survey, 1936 datum
+        wgs84 = pyproj.Proj("+init=EPSG:4326") # LatLon with WGS84 datum used by GPS units and Google Earth
+        osgb36 = pyproj.Proj("+init=" + targetProjection) # UK Ordnance Survey, 1936 datum
         
-        df['easting'], df['northing'] = pyproj.transform(wgs84, osgb36, 
+        df['x'], df['y'] = pyproj.transform(wgs84, osgb36, 
                                               df['lon'].values, df['lat'].values)
         
-        '''
-
 
     
     def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None):
@@ -131,17 +192,15 @@ class Survey(object):
         x = self.df['x'].values
         y = self.df['y'].values
         val = self.df[coil].values
-        if ax is not None:
-            figure = ax.figure
-        else:
+        if ax is None:
             fig, ax = plt.subplots()
-        
+        if vmin is None:
+            vmin = np.nanpercentile(val, 5)
+        if vmax is None:
+            vmax = np.nanpercentile(val, 95)
         if contour is True:
-            if vmin is not None:
-                val[val < vmin] = vmin # TODO might be not needed
-            if vmax is not None:
-                val[val > vmax] = vmax
-            cax = ax.tricontourf(x, y, val, vmin=vmin, vmax=vmax)
+            levels = np.linspace(vmin, vmax, 7)
+            cax = ax.tricontourf(x, y, val, levels=levels, extend='both')
             ax.plot(x, y, 'k+')
         else:
             cax = ax.scatter(x, y, s=15, c=val, vmin=vmin, vmax=vmax)
@@ -149,90 +208,123 @@ class Survey(object):
         ax.set_ylabel('y')
         fig.colorbar(cax, ax=ax, label='Conductivity [mS/m]')
         
+
+    
+    def pointsKiller(self):
+        '''Interactively kill points. Then save df after that.
+        '''
+        pass
         
-        '''
-            # clip with convexHull of data
-        def clipConvexHull(xdata,ydata,x,y,z):
-            """ set to nan data outside the convex hull of xdata, yxdata
-            
-            Parameters:
-                xdata, ydata (arrays) : x and y position of the data collected
-                x, y (arrays) : x and y position of the computed interpolation points
-                z (arrays) : value of the interpolation
-            
-            Return:
-                znew (array) : a copy of z with nan when outside convexHull
-            """
-            knownPoints = np.array([xdata, ydata]).T
-            newPoints = np.array([x,y]).T
-            from scipy.spatial import ConvexHull
-            _, idx = np.unique(xdata+ydata, return_index=1)
-            q = ConvexHull(knownPoints[idx,:])
-            from scipy.spatial import Delaunay
-            hull = Delaunay(q.points[q.vertices, :])
-        #    qq = q.points[q.vertices,:]
-                
-            znew = np.copy(z)
-            for i in range(0, len(z)):
-                if hull.find_simplex(newPoints[i,:])<0:
-                    znew[i] = np.nan
-            return znew
-        '''
     
     
-    def gridData(self, cellx=None, celly=None):
+    def gridData(self, nx=100, ny=100, method='nearest'):
         ''' Grid data (for 3D).
         
         Parameters
         ----------
-        cellx : float, optional
-            Size of the x cell grid (default is the median of the spacings).
-        celly : float, optional
-            Size of the y cell grid (default is the median of the spacings).
+        nx : int, optional
+            Number of points in x direction.
+        ny : int, optional
+            Number of points in y direction.
+        method : str, optional
+            Interpolation method (nearest, cubic or linear see
+            `scipy.interpolate.griddata`). Default is `nearest`.
         '''
         x = self.df['x'].values
         y = self.df['y'].values
-        if cellx is None:
-            cellx = np.median(self.df['x'].values)
-        if celly is None:
-            celly = np.median(self.df['y'].values)
-        print(cellx, celly)
-        X, Y = np.meshgrid(np.arange(np.min(x), np.max(x), cellx),
-                           np.arange(np.min(y), np.max(y), celly))
-        
+        X, Y = np.meshgrid(np.linspace(np.min(x), np.max(x), nx),
+                           np.linspace(np.min(y), np.max(y), ny))
+        inside = np.ones(nx*ny)
+        inside2 = clipConvexHull(self.df['x'].values,
+                                 self.df['y'].values,
+                                 X.flatten(), Y.flatten(), inside)
+        ie = ~np.isnan(inside2)
+        df = pd.DataFrame()
+        df['x'] = X.flatten()
+        df['y'] = Y.flatten()
+        for coil in self.coils:
+            values = self.df[coil].values
+            z = griddata(np.c_[x, y], values, (X, Y), method=method)
+            df[coil] = z.flatten()
+        self.dfg = df[ie]
+        # TODO add OK kriging ?
         
     
-    def crossOverPoints(self):
+    def crossOverPoints(self, coil=None, ax=None, ax1=None, iplot=True):
         ''' Build an error model based on the cross-over points.
-        '''
-        '''       
-                modes = ['lo', 'hi']
-        for i, couple in enumerate(dfs[:1]):
-            for k, df in enumerate(couple[:1]):
-                dist = cdist(df[['northing', 'easting']].values,
-                             df[['northing', 'easting']].values)
-                minDist = 1 # points at less than 1 m from each other are identical
-                ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
-                ifar = (ix - iy) > 200 # they should be at least 40 measuremens apart
-                ix, iy = ix[ifar], iy[ifar]
-                print('found', len(ix), '/', df.shape[0], 'crossing points')
-                
-                # plot cross-over points
-                xcoord = df['easting'].values
-                ycoord = df['northing'].values
-                icross = np.unique(np.r_[ix, iy])
-                fig, ax = plt.subplots()
-                ax.set_title(dates[i] + ' ' + modes[k])
-                ax.plot(xcoord, ycoord, '.')
-                ax.plot(xcoord[icross], ycoord[icross], 'ro', label='crossing points')
-                ax.set_xlabel('Easing [m]')
-                ax.set_ylabel('Northing [m]')
-                fig.tight_layout()
-                fig.savefig(outputdir + 'crossOverPoints-' + dates[i] + modes[k] + '.png')
-        #        fig.show()
         
+        Parameters
+        ----------
+        coil : str, optional
+            Name of the coil.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
         '''
+        if coil is None:
+            coil = self.coils[0]
+        df = self.df
+        dist = cdist(df[['x', 'y']].values,
+                     df[['x', 'y']].values)
+        minDist = 1 # points at less than 1 m from each other are identical
+        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
+        ifar = (ix - iy) > 200 # they should be at least 40 measuremens apart
+        ix, iy = ix[ifar], iy[ifar]
+        print('found', len(ix), '/', df.shape[0], 'crossing points')
+        
+        # plot cross-over points
+        xcoord = df['x'].values
+        ycoord = df['y'].values
+        icross = np.unique(np.r_[ix, iy])
+        
+        if iplot is True:
+            if ax1 is None:
+                fig1, ax1 = plt.subplots()
+            ax1.set_title(coil)
+            ax1.plot(xcoord, ycoord, '.')
+            ax1.plot(xcoord[icross], ycoord[icross], 'ro', label='crossing points')
+            ax1.set_xlabel('x [m]')
+            ax1.set_ylabel('y [m]')
 
+            
+        val = df[coil].values
+        x = val[ix]
+        y = val[iy]
+        means = np.mean(np.c_[x,y], axis=1)
+        error = np.abs(x - y)
+        
+        # bin data (constant number)
+        nbins = 30 # number of data per bin
+        end = int(np.floor(len(means)/nbins)*nbins)
+        errorBinned = error[:end].reshape((-1, nbins)).mean(axis=1)
+        meansBinned = means[:end].reshape((-1, nbins)).mean(axis=1)
+        
+        # bin data (constant width)
+        errorBinned, binEdges, _ = stats.binned_statistic(
+                means, error, 'mean', bins=20)
+        meansBinned = binEdges[:-1] + np.diff(binEdges)
+
+        # compute model
+        inan = ~np.isnan(meansBinned) & ~np.isnan(errorBinned)
+        inan = inan & (meansBinned > 0) & (errorBinned > 0)
+        slope, intercept, r_value, p_value, std_err = stats.linregress(
+                np.log10(meansBinned[inan]), np.log10(errorBinned[inan]))
+        
+        self.df[coil + '_err'] = intercept + slope * self.df[coil]
+            
+        # plot
+        if iplot is True:
+            if ax is None:
+                fig, ax = plt.subplots()
+            ax.set_title(coil)
+            ax.loglog(means, error, '.')
+            ax.loglog(meansBinned, errorBinned, 'o')
+            predError = 10**(intercept + slope * np.log10(means))
+            eq = r'$\epsilon = {:.2f} \times \sigma^{{{:.2f}}}$'.format(10**intercept, slope)
+            ax.loglog(means, predError, 'k.', label=eq)
+            ax.legend()
+            ax.set_xlabel(r'Mean $\sigma$ [mS/m]')
+            ax.set_ylabel(r'Error $\epsilon$ [mS/m]')
+     
 
     
     def gfCorrection(self):
@@ -249,7 +341,22 @@ join lo and hi based on measurements numbers or regridding data
 
 '''
 
-s = Survey('test/testCoverCrop.csv')
-s.show(coils='HCP0.32')
-s.showMap(contour=True, vmax=40)
+
+if __name__ == '__main__':
+    #s = Survey('test/coverCrop.csv')
+    #s.show(coils='HCP0.32')
+    #s.showMap(contour=True, vmax=40)
+    
+    s = Survey('test/potatoesLo.csv')
+    s.show(s.coils[1])
+    s.convertFromNMEA()
+    s.showMap(contour=True)
+    s.crossOverPoints()
+    s.gridData()
+    s.showMap(s.coils[1])
+    s.df = s.dfg
+    s.showMap(s.coils[1])
+
+
+
 #%%
