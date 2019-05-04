@@ -526,6 +526,14 @@ def fCSandrade(cond,depths,s,cpos, hx=None):
     return out
 
 
+def buildSecondDiff(ndiag):
+    x=np.ones(ndiag)
+    a=np.diag(x[:-1]*-1,k=-1)+np.diag(x*2,k=0)+np.diag(x[:-1]*-1,k=1)
+    a[0,0]=1
+    a[-1,-1]=1
+    return a
+
+
 #%% test bench
 #sigma = np.array([30, 30, 30, 30]) # layers conductivity [mS/m]
 #depths = np.array([0.3, 0.7, 2]) # thickness of each layer (last is infinite)
@@ -545,3 +553,33 @@ def fCSandrade(cond,depths,s,cpos, hx=None):
 #print('fCSandrade:', fCSandrade(sigma, depths, cspacing, cpos, hx=1))
 
 
+#%% usefull functions for the direct inversion
+def buildJacobian(depths, s, cpos):
+    '''Build Jacobian matrix for Cumulative Sensitivity based inversion.
+    
+    Parameters
+    ----------
+    cond : array
+        Conductivities of the model layer.
+    depths : array
+        Depths of the lower layer bound.
+    s : array
+        Array of coil separation [m].
+    cpos : array of str
+        Array of coil orientation.
+    
+    Returns
+    -------
+    A matrix with each row per coil spacing/orientation and each column per
+    model parameters (per layer).
+    '''
+    depths = np.r_[0, depths]
+    jacob = np.zeros((len(s),len(depths)))*np.nan
+    for i in range(0,len(s)):      
+        cs = emSens(depths, s[i], cpos[i])         
+        jacob[i,:-1] = cs[:-1]-cs[1:]
+        jacob[i,-1] = cs[-1]
+    return jacob
+
+# test
+#J = buildJacobian([0.5, 0.7],[0.32, 0.72, 1.14],['vcp','vcp','vcp'])

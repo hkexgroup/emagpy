@@ -11,7 +11,7 @@ import os
 import matplotlib.pyplot as plt
 from pykrige.ok import OrdinaryKriging
 from scipy import stats
-from scipy.spatial.distance import cdist
+from scipy.spatial.distance import cdist, pdist
 from scipy.interpolate import griddata
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
@@ -40,7 +40,17 @@ def clipConvexHull(xdata,ydata,x,y,z):
         if hull.find_simplex(newPoints[i,:])<0:
             znew[i] = np.nan
     return znew
-        
+
+
+def idw(xnew, ynew, xknown, yknown, zknown):
+    znew = np.zeros(len(xnew))
+    for i,(x,y) in enumerate(zip(xnew, ynew)):
+#        dist = pdist(x, y, xknown, yknown)
+        dist = np.sqrt((x-xknown)**2+(y-yknown)**2)
+        # if we consider all the points (might be not good)
+        w = (1/dist)**2 # exponent to be chosen
+        znew[i] = np.sum(zknown*w)/np.sum(w)
+    return znew
 
 
 class Survey(object):
@@ -101,7 +111,7 @@ class Survey(object):
         b = arg[3:].split('f')
         coilSeparation = float(b[0])
         if len(b) > 1:
-            c = b[1].split('@')
+            c = b[1].split('h')
             freq = float(c[0])
             if len(c) > 1:
                 height = float(c[1])
@@ -171,7 +181,8 @@ class Survey(object):
         
 
     
-    def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None):
+    def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None,
+                pts=False):
         ''' Display a map of the measurements.
         
         Parameters
@@ -186,6 +197,8 @@ class Survey(object):
             Minimum of the colorscale.
         vmax : float, optional
             Maximum of the colorscale.
+        pts : bool, optional
+            If `True` the measurements location will be plotted on the graph.
         '''
         if coil is None:
             coil = self.coils[0]
@@ -194,6 +207,8 @@ class Survey(object):
         val = self.df[coil].values
         if ax is None:
             fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
         if vmin is None:
             vmin = np.nanpercentile(val, 5)
         if vmax is None:
@@ -201,7 +216,8 @@ class Survey(object):
         if contour is True:
             levels = np.linspace(vmin, vmax, 7)
             cax = ax.tricontourf(x, y, val, levels=levels, extend='both')
-            ax.plot(x, y, 'k+')
+            if pts is True:
+                ax.plot(x, y, 'k+')
         else:
             cax = ax.scatter(x, y, s=15, c=val, vmin=vmin, vmax=vmax)
         ax.set_xlabel('x')
@@ -217,7 +233,7 @@ class Survey(object):
         
     
     
-    def gridData(self, nx=100, ny=100, method='nearest'):
+    def gridData(self, nx=100, ny=100, method='idw'):
         ''' Grid data (for 3D).
         
         Parameters
@@ -228,7 +244,7 @@ class Survey(object):
             Number of points in y direction.
         method : str, optional
             Interpolation method (nearest, cubic or linear see
-            `scipy.interpolate.griddata`). Default is `nearest`.
+            `scipy.interpolate.griddata`) or IDW (default).
         '''
         x = self.df['x'].values
         y = self.df['y'].values
@@ -244,7 +260,10 @@ class Survey(object):
         df['y'] = Y.flatten()
         for coil in self.coils:
             values = self.df[coil].values
-            z = griddata(np.c_[x, y], values, (X, Y), method=method)
+            if method == 'idw':
+                z = idw(X.flatten(), Y.flatten(), x, y, values)
+            else:
+                z = griddata(np.c_[x, y], values, (X, Y), method=method)
             df[coil] = z.flatten()
         self.dfg = df[ie]
         # TODO add OK kriging ?
@@ -267,7 +286,7 @@ class Survey(object):
                      df[['x', 'y']].values)
         minDist = 1 # points at less than 1 m from each other are identical
         ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
-        ifar = (ix - iy) > 200 # they should be at least 40 measuremens apart
+        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
         ix, iy = ix[ifar], iy[ifar]
         print('found', len(ix), '/', df.shape[0], 'crossing points')
         
@@ -320,9 +339,10 @@ class Survey(object):
             ax.loglog(meansBinned, errorBinned, 'o')
             predError = 10**(intercept + slope * np.log10(means))
             eq = r'$\epsilon = {:.2f} \times \sigma^{{{:.2f}}}$'.format(10**intercept, slope)
-            ax.loglog(means, predError, 'k.', label=eq)
+            isort = np.argsort(means)
+            ax.loglog(means[isort], predError[isort], 'k-', label=eq)
             ax.legend()
-            ax.set_xlabel(r'Mean $\sigma$ [mS/m]')
+            ax.set_xlabel(r'Mean $\sigma_a$ [mS/m]')
             ax.set_ylabel(r'Error $\epsilon$ [mS/m]')
      
 
@@ -351,11 +371,11 @@ if __name__ == '__main__':
     s.show(s.coils[1])
     s.convertFromNMEA()
     s.showMap(contour=True)
-    s.crossOverPoints()
-    s.gridData()
+    s.crossOverPoints(s.coils[1])
+    s.gridData(method='idw')
     s.showMap(s.coils[1])
     s.df = s.dfg
-    s.showMap(s.coils[1])
+    s.showMap(s.coils[1], contour=True)
 
 
 
