@@ -528,7 +528,14 @@ class Problem(object):
         for i in range(dfec.shape[0]):
             simECa[i,:] = fmodel(dfec.values[i,:])
         
-        #TODO plot graph with subplots
+        # graph
+        obsECa = survey.df[survey.coils].values
+        if ax is None:
+            fig, ax = plt.subplots()
+        ax.plot(obsECa, simECa, '.')
+        ax.legend(survey.coils)
+        
+        
         # plot equation, apply it or not directly
                     
         
