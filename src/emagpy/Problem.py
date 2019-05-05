@@ -9,9 +9,9 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from invertHelper import fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff, buildJacobian#, getQs
+from emagpy.invertHelper import fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff, buildJacobian#, getQs
 from scipy.optimize import minimize
-from Survey import Survey
+from emagpy.Survey import Survey
 '''
 API structure:
 - Survey class (coil specific)

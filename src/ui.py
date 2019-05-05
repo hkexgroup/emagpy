@@ -11,6 +11,8 @@ import os
 import sys
 import time
 
+from emagpy import Problem
+
 from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButton, QWidget,
     QTabWidget, QVBoxLayout, QGridLayout, QLabel, QLineEdit, QMessageBox,
     QFileDialog, QCheckBox, QComboBox, QTextEdit, QSlider, QHBoxLayout,
@@ -212,6 +214,8 @@ class App(QMainWindow):
         layout = QVBoxLayout()
         tabs = QTabWidget()
         
+        self.problem = Problem()
+        
         
         #%% tab 1 importing data
         ''' STRUCTURE OF A TAB
@@ -227,6 +231,8 @@ class App(QMainWindow):
         def importBtnFunc():
             #TODO code when parsing the file
             # create instance of emagpy
+            fname, _ = QFileDialogue.getOpenFileName(importTab, 'Select data file', self.datadir, '.csv')
+            print(fname)
             print('Hello well imported !')
         importBtn = QPushButton('Import Data')
         importBtn.clicked.connect(importBtnFunc)
