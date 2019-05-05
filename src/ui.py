@@ -229,13 +229,10 @@ class App(QMainWindow):
         
         # import data
         def importBtnFunc():
-            #TODO code when parsing the file
-            # create instance of emagpy
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
-            print(fname)
             self.problem.createSurvey(fname)
             mwRaw.plot(self.problem.show)
-            print('Hello well imported !')
+            infoDump(fname, 'well imported')
         importBtn = QPushButton('Import Data')
         importBtn.clicked.connect(importBtnFunc)
         
@@ -252,6 +249,22 @@ class App(QMainWindow):
             sensorCombo.addItem(sensor)
         sensorCombo.currentIndexChanged.connect(sensorComboFunc)
         
+        
+        #TODO add two buttons to switch between the .show() and .showMap()
+        '''
+        TODO options:
+        - select coils -> QComboBox
+        - vmin/vmax as QLineEdit() with double validator and QLabel
+        - apply button to apply the vmin/vmax
+        - QCombox to change the colorscale (showMap only)
+        some options needs to hidden (.setVisible(False)) is show() or showMap is done
+        > API: add options for point killer (filtering out measurements)
+        > add a filtering a tab with:
+            - point killer
+            - vmin/vmax filtering out
+            - rolling mean ?
+            - regridding
+        '''
         # display it
         mwRaw = MatplotlibWidget()
         
@@ -286,7 +299,19 @@ class App(QMainWindow):
         calibTab = QTabWidget()
         tabs.addTab(calibTab, 'Calibration and error model')
         
-        
+        '''
+        TODO as subtabs ? in a QHBoxLayout ?
+        calibration:
+            - QPushButton for importing calibration data (ECa)
+            - QPushButton for importing calibration data (EC profiles)
+            - QCombox for which forward model to use for the EC->ECa
+            - QPushButton for plotting the calibration (Problem.calibrate())
+            -> this plot the calibration graph
+            - QPushButton to apply the calibration
+        error model:
+            - QPushButton to fit error model
+            -> this plot the error model graph
+        '''
         
         
         
@@ -294,23 +319,23 @@ class App(QMainWindow):
         calibLayout = QVBoxLayout()
         
         calibTab.setLayout(calibLayout)
-
-        
-        #%% inversion settings
-        settingsTab = QTabWidget()
-        tabs.addTab(settingsTab, 'Inversion settings')
-        
-        
-        # layout
-        settingsLayout = QVBoxLayout()
-        
-        settingsTab.setLayout(settingsLayout)
         
         
         #%% inverted section + export
         invTab = QTabWidget()
         tabs.addTab(invTab, 'Inversion')
         
+        '''TODO
+        - combobox with forward choice
+        - combobox with l1/l2
+        - combobox with 1d, 2d, 3d or 4d inversion
+        - qlineedit with damping factor
+        - qpushbutton for lcurve ?
+        - multi-tab or qstacked layout with:
+            - .showResults() + surveyCombo vmin/vmax apply cmap exportModels
+            - .lcurve() ?
+            - current log while doing inversion
+        '''
         
         # layout
         invLayout = QVBoxLayout()
@@ -321,6 +346,10 @@ class App(QMainWindow):
         #%% goodness of fit
         postTab = QTabWidget()
         tabs.addTab(postTab, 'Post-processing')
+        
+        '''TODO
+        - .showMisfit()
+        '''
         
         # layout
         postLayout = QVBoxLayout()
@@ -345,33 +374,33 @@ class App(QMainWindow):
 
 #%% updater function and wine check
     # based on https://kushaldas.in/posts/pyqt5-thread-example.html
-    def updateChecker(self): # check for new updates on gitlab
-        version = ResIPy_version
-        try:
-            versionSource = urlRequest.urlopen('https://gitlab.com/hkex/pyr2/raw/master/src/version.txt?inline=false')
-            versionCheck = versionSource.read().decode()
-            version = versionCheck.split()[1] # assuming version number is in 2nd line of version.txt
-            print('online version :', version)
-        except:
-            pass
-        return version
-    
-    def updateCheckerShow(self, version):
-        if ResIPy_version != version:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Information)
-            msg.setText('''<b>ResIPy version %s is available</b>''' % (version))
-            msg.setInformativeText('''Please download the latest version of ResIPy at:<p><a href='https://gitlab.com/hkex/pyr2#gui-for-r2-family-code'>https://gitlab.com/hkex/pyr2</a></p><br>''')
-            msg.setWindowTitle("New version available")
-            bttnUpY = msg.addButton(QMessageBox.Yes)
-            bttnUpY.setText('Update')
-            bttnUpN = msg.addButton(QMessageBox.No)
-            bttnUpN.setText('Ignore')
-            msg.setDefaultButton(bttnUpY)
-            msg.exec_()
-            if msg.clickedButton() == bttnUpY:
-                webbrowser.open('https://gitlab.com/hkex/pyr2#gui-for-r2-family-code') # can add download link, when we have a direct dl link
-    
+#    def updateChecker(self): # check for new updates on gitlab
+#        version = ResIPy_version
+#        try:
+#            versionSource = urlRequest.urlopen('https://gitlab.com/hkex/pyr2/raw/master/src/version.txt?inline=false')
+#            versionCheck = versionSource.read().decode()
+#            version = versionCheck.split()[1] # assuming version number is in 2nd line of version.txt
+#            print('online version :', version)
+#        except:
+#            pass
+#        return version
+#    
+#    def updateCheckerShow(self, version):
+#        if ResIPy_version != version:
+#            msg = QMessageBox()
+#            msg.setIcon(QMessageBox.Information)
+#            msg.setText('''<b>ResIPy version %s is available</b>''' % (version))
+#            msg.setInformativeText('''Please download the latest version of ResIPy at:<p><a href='https://gitlab.com/hkex/pyr2#gui-for-r2-family-code'>https://gitlab.com/hkex/pyr2</a></p><br>''')
+#            msg.setWindowTitle("New version available")
+#            bttnUpY = msg.addButton(QMessageBox.Yes)
+#            bttnUpY.setText('Update')
+#            bttnUpN = msg.addButton(QMessageBox.No)
+#            bttnUpN.setText('Ignore')
+#            msg.setDefaultButton(bttnUpY)
+#            msg.exec_()
+#            if msg.clickedButton() == bttnUpY:
+#                webbrowser.open('https://gitlab.com/hkex/pyr2#gui-for-r2-family-code') # can add download link, when we have a direct dl link
+#    
 
 
 #%% main function
@@ -382,7 +411,7 @@ if __name__ == '__main__':
     app.setWindowIcon(QIcon(os.path.join(bundle_dir, 'logo.png'))) # that's the true app icon
     
     # initiate splash screen when loading libraries    
-    splash_pix = QPixmap(os.path.join(bundle_dir, 'loadingLogo.png'))
+    splash_pix = QPixmap(os.path.join(bundle_dir, 'loadingLogo.jpg'))
     splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
     splash.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
     splash.setEnabled(False)
@@ -401,7 +430,7 @@ if __name__ == '__main__':
     from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
     from matplotlib.figure import Figure
     from matplotlib import rcParams
-    rcParams.update({'font.size': 13}) # CHANGE HERE for graph font size
+    rcParams.update({'font.size': 12}) # CHANGE HERE for graph font size
     progressBar.setValue(2)
     app.processEvents()
 
