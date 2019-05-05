@@ -6,7 +6,7 @@ Created on Wed Apr 24 07:52:50 2019
 @author: jkl
 """
 
-
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 #from multiprocessing import Pool, Manager
@@ -19,7 +19,8 @@ from scipy.optimize import minimize, curve_fit, newton, brent
 # useful functions for Hankel transform
 
 # load this important variables once (to speed up) -> do not overwrite them !
-hankel_w0 = np.loadtxt('j1_140.txt')
+dirname = os.path.basename(__file__)
+hankel_w0 = np.loadtxt(os.path.join(dirname, 'j1_140.txt))
 hankel_w1 = np.loadtxt('j0_120.txt')
 hankel5_w0 = np.loadtxt('hankelwts0.txt')
 hankel5_w1 = np.loadtxt('hankelwts1.txt')

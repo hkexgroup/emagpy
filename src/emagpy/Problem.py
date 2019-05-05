@@ -490,7 +490,7 @@ class Problem(object):
 
 
 
-    def calibrate(self, fnameECa, fnameEC, forwardModel='CS'):
+    def calibrate(self, fnameECa, fnameEC, forwardModel='CS', ax=None):
         '''Calibrate ECa with given EC profile.
         
         Parameters
@@ -503,6 +503,8 @@ class Problem(object):
             corresponding depths in meters positive downards.
         forwardModel : str, optional
             Forward model to use. Either CS (default), FS or FSandrade.
+        ax : matplotlib.Axes
+            If specified the graph will be plotted against this axis.
         '''
         survey = Survey(fnameECa)
         dfec = pd.read_csv(fnameEC)
