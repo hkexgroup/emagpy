@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButt
     QTabWidget, QVBoxLayout, QGridLayout, QLabel, QLineEdit, QMessageBox,
     QFileDialog, QCheckBox, QComboBox, QTextEdit, QSlider, QHBoxLayout,
     QTableWidget, QFormLayout, QTableWidgetItem, QHeaderView, QProgressBar,
-    QStackedLayout, QRadioButton, QGroupBox)#, QAction, QButtonGroup, QListWidget, QShortcut)
+    QStackedLayout, QRadioButton, QGroupBox, QFileDialog)#, QAction, QButtonGroup, QListWidget, QShortcut)
 from PyQt5.QtGui import QIcon, QPixmap, QIntValidator, QDoubleValidator#, QKeySequence
 from PyQt5.QtCore import QThread, pyqtSignal#, QProcess, QSize
 from PyQt5.QtCore import Qt
@@ -231,8 +231,10 @@ class App(QMainWindow):
         def importBtnFunc():
             #TODO code when parsing the file
             # create instance of emagpy
-            fname, _ = QFileDialogue.getOpenFileName(importTab, 'Select data file', self.datadir, '.csv')
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
             print(fname)
+            self.problem.createSurvey(fname)
+            mwRaw.plot(self.problem.show)
             print('Hello well imported !')
         importBtn = QPushButton('Import Data')
         importBtn.clicked.connect(importBtnFunc)
