@@ -10,7 +10,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from pykrige.ok import OrdinaryKriging
-from scipy import stats
+from scipy.stats import linregress, binned_statistic
 from scipy.spatial.distance import cdist, pdist
 from scipy.interpolate import griddata
 from scipy.spatial import Delaunay
@@ -318,14 +318,14 @@ class Survey(object):
         meansBinned = means[:end].reshape((-1, nbins)).mean(axis=1)
         
         # bin data (constant width)
-        errorBinned, binEdges, _ = stats.binned_statistic(
+        errorBinned, binEdges, _ = binned_statistic(
                 means, error, 'mean', bins=20)
         meansBinned = binEdges[:-1] + np.diff(binEdges)
 
         # compute model
         inan = ~np.isnan(meansBinned) & ~np.isnan(errorBinned)
         inan = inan & (meansBinned > 0) & (errorBinned > 0)
-        slope, intercept, r_value, p_value, std_err = stats.linregress(
+        slope, intercept, r_value, p_value, std_err = linregress(
                 np.log10(meansBinned[inan]), np.log10(errorBinned[inan]))
         
         self.df[coil + '_err'] = intercept + slope * self.df[coil]

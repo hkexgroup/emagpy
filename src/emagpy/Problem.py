@@ -9,9 +9,12 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from emagpy.invertHelper import fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff, buildJacobian#, getQs
 from scipy.optimize import minimize
+from scipy.stats import linregress
+
+from emagpy.invertHelper import fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff, buildJacobian#, getQs
 from emagpy.Survey import Survey
+
 '''
 API structure:
 - Survey class (coil specific)
@@ -510,7 +513,8 @@ class Problem(object):
         dfec = pd.read_csv(fnameEC)
         if survey.df.shape[0] != dfec.shape[0]:
             raise ValueError('input ECa and inputEC should have the same number of rows so the measurements can be paired.')
-        depths = dfec.columns.values.astype(float)
+        depths = np.abs(dfec.columns.values.astype(float)) # those are the depths of at mid layer
+        depths = depths[:-1] + np.diff(depths) # those are depths of the bottom of the layer
         
         # define the forward model
         if forwardModel == 'CS':
@@ -533,10 +537,26 @@ class Problem(object):
         if ax is None:
             fig, ax = plt.subplots()
         ax.plot(obsECa, simECa, '.')
+        vmin, vmax = np.min(obsECa), np.max(obsECa)
+        ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
+        ax.set_xlim([vmin, vmax])
+        ax.set_ylim([vmin, vmax])
+        ax.set_xlabel('ECa(EM) [mS/m]')
+        ax.set_ylabel('ECa(ER) [mS/m]')
         ax.legend(survey.coils)
         
-        
         # plot equation, apply it or not directly
+        predECa = np.zeros(obsECa.shape)
+        for i, coil in enumerate(survey.coils):
+            slope, intercept, r_value, p_value, std_err = linregress(obsECa[:,i], simECa[:,i])
+            print(coil, '{:.3f}x+{:.3f}'.format(slope, intercept))
+            predECa[:,i] = obsECa[:,i]*slope + intercept
+        ax.set_prop_cycle(None)
+        ax.plot(obsECa, predECa, '-')
+        
+            
+            
+
                     
         
         
@@ -556,6 +576,7 @@ if __name__ == '__main__':
 #    k.showResults()
     k.showOne2one()
 #    k.forward()
+    k.calibrate('test/dfeca.csv', 'test/dfec.csv')
     
     
     # mapping example (potatoes)
