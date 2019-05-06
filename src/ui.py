@@ -233,8 +233,35 @@ class App(QMainWindow):
             self.problem.createSurvey(fname)
             mwRaw.plot(self.problem.show)
             infoDump(fname, 'well imported')
+        
         importBtn = QPushButton('Import Data')
         importBtn.clicked.connect(importBtnFunc)
+        
+        def plotmwRawFunc(index):
+            print('ploting raw data of', coils[index])
+        plotmwRaw = QComboBox()
+        coils = ['all','coil1', 'coil2']
+        for coil in coils:
+            plotmwRaw.addItem(coil)
+        plotmwRaw.currentIndexChanged.connect(plotmwRawFunc)
+        
+        def plotScatMapFunc(index):
+            print('ploting scatter map of', coils[index])
+        plotScatMap = QComboBox()
+        coils = ['coil1', 'coil2']
+        for coil in coils:
+            plotScatMap.addItem(coil)
+        plotScatMap.currentIndexChanged.connect(plotScatMapFunc)
+
+        
+        def plotContMapFunc(index):
+            print('ploting contour map of', coils[index])
+        plotContMap = QComboBox()
+        coils = ['coil1', 'coil2']
+        for coil in coils:
+            plotContMap.addItem(coil)
+        plotContMap.currentIndexChanged.connect(plotContMapFunc)
+
         
         # selecte type of sensors
         def sensorComboFunc(index):
@@ -278,7 +305,17 @@ class App(QMainWindow):
         topLayout.addWidget(importBtn)
         topLayout.addWidget(sensorCombo)
         
+        midLayout = QHBoxLayout()
+        midLayout.addWidget(QLabel('Plot Raw Data'))
+        midLayout.addWidget(plotmwRaw)
+        midLayout.addWidget(QLabel('Plot Scatter Map'))
+        midLayout.addWidget(plotScatMap)
+        midLayout.addWidget(QLabel('Plot Contour Map'))
+        midLayout.addWidget(plotContMap)
+        
+        
         importLayout.addLayout(topLayout)
+        importLayout.addLayout(midLayout)
         importLayout.addWidget(mwRaw)
         
         importTab.setLayout(importLayout)
