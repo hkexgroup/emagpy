@@ -93,22 +93,21 @@ print( 'os.getcwd is', os.getcwd() )
 class MatplotlibWidget(QWidget):
     ''' Class to put matplotlibgraph into QWidget.
     '''
-    def __init__(self, parent=None, figure=None, navi=False, itight=False, threed=False):
+    def __init__(self, parent=None, navi=False, itight=False, threed=False):
         super(MatplotlibWidget, self).__init__(parent) # we can pass a figure but we can replot on it when
         # pushing on a button (I didn't find a way to do it) while with the axes, you can still clear it and
         # plot again on them
         self.itight = itight
-        if figure is None:
-            figure = Figure()
-            self.canvas = FigureCanvasQTAgg(figure)
-            if threed is True:
-                axes = figure.add_subplot(111, projection='3d')
-            else:
-                axes = figure.add_subplot(111)
+        figure = Figure()
+        self.canvas = FigureCanvasQTAgg(figure)
+        if threed is True:
+            ax = figure.add_subplot(111, projection='3d')
+            ax.set_aspect('auto')
         else:
-            axes = figure.get_axes()
+            ax = figure.add_subplot(111)
+            ax.set_aspect('equal')
         self.figure = figure
-        self.axis = axes
+        self.axis = ax
 
         self.layoutVertical = QVBoxLayout(self)
         self.layoutVertical.addWidget(self.canvas)
@@ -136,39 +135,37 @@ class MatplotlibWidget(QWidget):
         self.canvas.draw()
 
 
-    def plot(self, callback, threed=False):
-        ''' call a callback plot function and give it the ax to plot to
+    def plot(self, callback, **kwargs):
+        ''' Plot on the canvas, given a function and it's arguments.
+        
+        Parameters
+        ----------
+        callback : function
+            Function of the API that accept an 'ax' argument.
+        **kwargs : keyword arguments
+            Key word arguments to be passed to the API function.
         '''
-#        print('plot is called')
         self.figure.clear() # need to clear the figure with the colorbar as well
-        if threed is False:
-            ax = self.figure.add_subplot(111)
-        else:
-            ax = self.figure.add_subplot(111, projection='3d')
-        self.callback = callback
-        callback(ax=ax)
-        if threed is False:
-            ax.set_aspect('auto')
-            ax.set_autoscale_on(False)
+        callback(ax=self.ax, **kwargs)
         if self.itight is True:
             self.figure.tight_layout()
         self.canvas.draw()
-
-    def setCallback(self, callback):
-        self.callback = callback
-
-    def replot(self, threed=False, **kwargs):
-        self.figure.clear()
-        if threed is False:
-            ax = self.figure.add_subplot(111)
-        else:
-            ax = self.figure.add_subplot(111, projection='3d')
-        self.axis = ax
-        self.callback(ax=ax, **kwargs)
-        ax.set_aspect('auto')
-        if self.itight is True:
-            self.figure.tight_layout()
-        self.canvas.draw()
+#
+#    def setCallback(self, callback):
+#        self.callback = callback
+#
+#    def replot(self, threed=False, **kwargs):
+#        self.figure.clear()
+#        if threed is False:
+#            ax = self.figure.add_subplot(111)
+#        else:
+#            ax = self.figure.add_subplot(111, projection='3d')
+#        self.axis = ax
+#        self.callback(ax=ax, **kwargs)
+#        ax.set_aspect('auto')
+#        if self.itight is True:
+#            self.figure.tight_layout()
+#        self.canvas.draw()
 
     def clear(self):
         self.axis.clear()
@@ -232,7 +229,11 @@ class App(QMainWindow):
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
             self.problem.createSurvey(fname)
             mwRaw.plot(self.problem.show)
+            # fill the combobox with survey and coil names
+            for coil in self.problem.coils:
+                
             infoDump(fname, 'well imported')
+            
         
         importBtn = QPushButton('Import Data')
         importBtn.clicked.connect(importBtnFunc)
@@ -256,7 +257,7 @@ class App(QMainWindow):
         def plotmwRawFunc(index):
             print('ploting raw data of', coils[index])
         plotmwRaw = QComboBox()
-        coils = ['all','coil1', 'coil2']
+        coils = ['all']
         for coil in coils:
             plotmwRaw.addItem(coil)
         plotmwRaw.currentIndexChanged.connect(plotmwRawFunc)
@@ -283,13 +284,13 @@ class App(QMainWindow):
         
         def showRadioFunc(state):
             print('show:', state)
-            # TODO change callback of mw widget
+            mwRaw.plot(self.problem.show) # add arguments for vmin/vmax
         showRadio = QRadioButton('Raw')
         showRadio.setChecked(True)
         showRadio.toggled.connect(showRadioFunc)
         def mapRadioFunc(state):
             print('map:', state)
-            # TODO change callback of mw widget
+            mwRaw.plot(self.problem.showMap) # add arguments for vmin/vmax
         mapRadio = QRadioButton('Map')
         mapRadio.setChecked(False)
         mapRadio.toggled.connect(mapRadioFunc)
@@ -314,12 +315,6 @@ class App(QMainWindow):
         - apply button to apply the vmin/vmax
         - QCombox to change the colorscale (showMap only, disable for show)
         some options needs to hidden (.setVisible(False)) is show() or showMap is done
-        > API: add options for point killer (filtering out measurements)
-        > add a filtering a tab with:
-            - point killer
-            - vmin/vmax filtering out
-            - rolling mean ?
-            - regridding
         '''
         # display it
         mwRaw = MatplotlibWidget()
