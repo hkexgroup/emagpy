@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButt
     QTabWidget, QVBoxLayout, QGridLayout, QLabel, QLineEdit, QMessageBox,
     QFileDialog, QCheckBox, QComboBox, QTextEdit, QSlider, QHBoxLayout,
     QTableWidget, QFormLayout, QTableWidgetItem, QHeaderView, QProgressBar,
-    QStackedLayout, QRadioButton, QGroupBox, QFileDialog)#, QAction, QButtonGroup, QListWidget, QShortcut)
+    QStackedLayout, QRadioButton, QGroupBox, QButtonGroup)#, QAction, QListWidget, QShortcut)
 from PyQt5.QtGui import QIcon, QPixmap, QIntValidator, QDoubleValidator#, QKeySequence
 from PyQt5.QtCore import QThread, pyqtSignal#, QProcess, QSize
 from PyQt5.QtCore import Qt
@@ -237,33 +237,7 @@ class App(QMainWindow):
         importBtn = QPushButton('Import Data')
         importBtn.clicked.connect(importBtnFunc)
         
-        def plotmwRawFunc(index):
-            print('ploting raw data of', coils[index])
-        plotmwRaw = QComboBox()
-        coils = ['all','coil1', 'coil2']
-        for coil in coils:
-            plotmwRaw.addItem(coil)
-        plotmwRaw.currentIndexChanged.connect(plotmwRawFunc)
-        
-        def plotScatMapFunc(index):
-            print('ploting scatter map of', coils[index])
-        plotScatMap = QComboBox()
-        coils = ['coil1', 'coil2']
-        for coil in coils:
-            plotScatMap.addItem(coil)
-        plotScatMap.currentIndexChanged.connect(plotScatMapFunc)
-
-        
-        def plotContMapFunc(index):
-            print('ploting contour map of', coils[index])
-        plotContMap = QComboBox()
-        coils = ['coil1', 'coil2']
-        for coil in coils:
-            plotContMap.addItem(coil)
-        plotContMap.currentIndexChanged.connect(plotContMapFunc)
-
-        
-        # selecte type of sensors
+        # select type of sensors
         def sensorComboFunc(index):
             print('sensor selected is:', sensors[index])
         sensorCombo = QComboBox()
@@ -276,14 +250,69 @@ class App(QMainWindow):
             sensorCombo.addItem(sensor)
         sensorCombo.currentIndexChanged.connect(sensorComboFunc)
         
+        # TODO add a QCombBox for the the surveys (see self.problem.surveys)
+        # for each survey, get the name using Survey.name
         
-        #TODO add two buttons to switch between the .show() and .showMap()
+        def plotmwRawFunc(index):
+            print('ploting raw data of', coils[index])
+        plotmwRaw = QComboBox()
+        coils = ['all','coil1', 'coil2']
+        for coil in coils:
+            plotmwRaw.addItem(coil)
+        plotmwRaw.currentIndexChanged.connect(plotmwRawFunc)
+        
+        
+        def plotScatMapFunc(index): # in the radio buttons
+            print('ploting scatter map of', coils[index])
+        plotScatMap = QComboBox()
+        coils = ['coil1', 'coil2']
+        for coil in coils:
+            plotScatMap.addItem(coil)
+        plotScatMap.currentIndexChanged.connect(plotScatMapFunc)
+
+        
+        def plotContMapFunc(index): # make contour as a checkbox no ?
+            print('ploting contour map of', coils[index])
+        plotContMap = QComboBox()
+        coils = ['coil1', 'coil2']
+        for coil in coils:
+            plotContMap.addItem(coil)
+        plotContMap.currentIndexChanged.connect(plotContMapFunc)
+
+        
+        
+        def showRadioFunc(state):
+            print('show:', state)
+            # TODO change callback of mw widget
+        showRadio = QRadioButton('Raw')
+        showRadio.setChecked(True)
+        showRadio.toggled.connect(showRadioFunc)
+        def mapRadioFunc(state):
+            print('map:', state)
+            # TODO change callback of mw widget
+        mapRadio = QRadioButton('Map')
+        mapRadio.setChecked(False)
+        mapRadio.toggled.connect(mapRadioFunc)
+        showGroup = QGroupBox()
+        showGroupLayout = QHBoxLayout()
+        showGroupLayout.addWidget(showRadio)
+        showGroupLayout.addWidget(mapRadio)
+        showGroup.setLayout(showGroupLayout)
+        showGroup.setFlat(True)
+        showGroup.setContentsMargins(0,0,0,0)
+        showGroup.setStyleSheet('QGroupBox{border: 0px;'
+                                'border-style:inset;}')
+    
+        
+        
         '''
         TODO options:
-        - select coils -> QComboBox
+        - select coils -> QComboBox (get the coil list from self.problem.coils)
+            - two buttons one for show() one for showMap() all inside a QGroupButton with setExclusive(True
+            see https://stackoverflow.com/questions/12472817/qt-squared-radio-button)
         - vmin/vmax as QLineEdit() with double validator and QLabel
         - apply button to apply the vmin/vmax
-        - QCombox to change the colorscale (showMap only)
+        - QCombox to change the colorscale (showMap only, disable for show)
         some options needs to hidden (.setVisible(False)) is show() or showMap is done
         > API: add options for point killer (filtering out measurements)
         > add a filtering a tab with:
@@ -312,6 +341,7 @@ class App(QMainWindow):
         midLayout.addWidget(plotScatMap)
         midLayout.addWidget(QLabel('Plot Contour Map'))
         midLayout.addWidget(plotContMap)
+        midLayout.addWidget(showGroup)
         
         
         importLayout.addLayout(topLayout)
@@ -332,6 +362,15 @@ class App(QMainWindow):
         - tab5: goodness of fit (1:1) and 2D graph
         '''
         
+        
+        '''TODO add filtering tab ?
+        - add filtering tab with vmin/vmax filtering
+        - pointsKiller
+        - regridding of spatial data
+        - rolling mean
+        - how replace point by :
+        
+        '''
         #%% calibration and error model
         calibTab = QTabWidget()
         tabs.addTab(calibTab, 'Calibration and error model')
