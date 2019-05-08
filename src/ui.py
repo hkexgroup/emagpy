@@ -146,7 +146,7 @@ class MatplotlibWidget(QWidget):
             Key word arguments to be passed to the API function.
         '''
         self.figure.clear() # need to clear the figure with the colorbar as well
-        callback(ax=self.ax, **kwargs)
+        callback(ax=self.axis, **kwargs)
         if self.itight is True:
             self.figure.tight_layout()
         self.canvas.draw()
@@ -231,8 +231,8 @@ class App(QMainWindow):
             mwRaw.plot(self.problem.show)
             # fill the combobox with survey and coil names
             for coil in self.problem.coils:
-                
-            infoDump(fname, 'well imported')
+                plotmwRaw.addItem(coil)
+            infoDump(fname + ' well imported')
             
         
         importBtn = QPushButton('Import Data')
