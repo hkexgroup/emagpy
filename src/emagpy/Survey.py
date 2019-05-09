@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from pykrige.ok import OrdinaryKriging
+#from pykrige.ok import OrdinaryKriging
 from scipy.stats import linregress, binned_statistic
 from scipy.spatial.distance import cdist, pdist
 from scipy.interpolate import griddata
@@ -125,7 +125,41 @@ class Survey(object):
                 'freq': freq,
                 'height': height}
         
+    
+    def keepBetween(self, vmin=None, vmax=None):
+        '''Filter out measurements that are not between vmin and vmax.
         
+        Parameters
+        ----------
+        vmin : float, optional
+            Minimal ECa value, default is minimum observed.
+        vmax : float, optional
+            Maximum ECa value, default is maximum observed.
+        '''
+        if vmin is not None:
+            ie1 = self.df[self.coils].values > vmin
+        else:
+            ie1 = np.ones(self.df.shape[0], dtype=bool)
+        if vmax is not None:
+            ie2 = self.df[self.coils].values < vmax
+        else:
+            ie2 = np.ones(self.df.shape[0], dtype=bool)
+        ie = ie1 & ie2
+        print('Deleted {:d}/{:d} measurements'.format(np.sum(~ie), len(ie)))
+        self.df = self.df[ie]
+        
+        
+    def rollingMean(self, window=3):
+        '''Perform a rolling mean on the data.
+        
+        Parameters
+        ----------
+        window : int, optional
+            Size of the windows for rolling mean.
+        '''
+        self.df = self.df.rolling(window).mean()
+        
+    
     def show(self, coil='all', attr='ECa', ax=None, contour=False, vmin=None, 
              vmax=None, pts=False):
         ''' Show the data.
@@ -371,13 +405,16 @@ if __name__ == '__main__':
     
     s = Survey('test/potatoesLo.csv')
     s.show(s.coils[1])
-    s.convertFromNMEA()
-    s.showMap(contour=True)
-    s.crossOverPoints(s.coils[1])
-    s.gridData(method='idw')
-    s.showMap(s.coils[1])
-    s.df = s.dfg
-    s.showMap(s.coils[1], contour=True)
+    s.keepBetween(0,5)
+    s.show()
+    
+#    s.convertFromNMEA()
+#    s.showMap(contour=True)
+#    s.crossOverPoints(s.coils[1])
+#    s.gridData(method='idw')
+#    s.showMap(s.coils[1])
+#    s.df = s.dfg
+#    s.showMap(s.coils[1], contour=True)
 
 
 

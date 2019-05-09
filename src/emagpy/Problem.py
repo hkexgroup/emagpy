@@ -15,6 +15,8 @@ from scipy.stats import linregress
 from emagpy.invertHelper import fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff, buildJacobian#, getQs
 from emagpy.Survey import Survey
 
+EMagPy_version = '0.0.1'
+
 '''
 API structure:
 - Survey class (coil specific)

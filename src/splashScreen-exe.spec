@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['splashScreen.py'],
-             pathex=['./resipy'],
+             pathex=['./emagpy'],
              binaries=[],
              datas=[('./ui.zip','.'),
                     ('./loadingLogo.png','.')],
@@ -22,7 +22,7 @@ exe = EXE(pyz,
           a.binaries,
           a.zipfiles,
           a.datas,
-          name='ResIPy-launch',
+          name='EMagPy-launch',
           debug=False,
           strip=False,
           upx=True,

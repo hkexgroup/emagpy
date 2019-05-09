@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['splashScreen.py'],
-             pathex=['./resipy/'],
+             pathex=['./emagpy/'],
              binaries=[],
              datas=[('./ui.zip','.'),
                     ('./loadingLogo.png','.')],
@@ -20,7 +20,7 @@ pyz = PYZ(a.pure, a.zipped_data,
 exe = EXE(pyz,
           a.scripts,
           exclude_binaries=True,
-          name='ResIPy-launch',
+          name='EMagPy-launch',
           debug=False,
           strip=False,
           upx=True,
@@ -31,4 +31,4 @@ coll = COLLECT(exe,
                a.datas,
                strip=False,
                upx=True,
-               name='ResIPy-launch')
+               name='EMagPy-launch')
