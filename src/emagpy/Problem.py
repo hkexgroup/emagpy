@@ -67,7 +67,7 @@ class Problem(object):
         hx : float, optional
             Height of the instrument above the ground (can also be specified for each coil in the file).
         '''
-        survey = Survey(fname)
+        survey = Survey(fname, freq=freq, hx=hx)
         if len(self.surveys) == 0:
             self.coils = survey.coils
             self.freqs = survey.freqs
@@ -510,6 +510,9 @@ class Problem(object):
             If specified the graph will be plotted against this axis.
         '''
         survey = Survey(fnameECa)
+        if survey.freqs[0] is None: # fallback in case the use doesn't specify the frequency in the headers
+            print('EMI frequency not specified in headers, will use the one from the main data:' + str(self.freqs[0]) + 'Hz')
+            survey.freqs = np.ones(len(survey.freqs))*self.freqs[0]
         dfec = pd.read_csv(fnameEC)
         if survey.df.shape[0] != dfec.shape[0]:
             raise ValueError('input ECa and inputEC should have the same number of rows so the measurements can be paired.')
@@ -537,7 +540,8 @@ class Problem(object):
         if ax is None:
             fig, ax = plt.subplots()
         ax.plot(obsECa, simECa, '.')
-        vmin, vmax = np.min(obsECa), np.max(obsECa)
+        x = np.r_[obsECa.flatten(), simECa.flatten()]
+        vmin, vmax = np.min(x), np.max(x)
         ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
         ax.set_xlim([vmin, vmax])
         ax.set_ylim([vmin, vmax])
@@ -549,7 +553,7 @@ class Problem(object):
         predECa = np.zeros(obsECa.shape)
         for i, coil in enumerate(survey.coils):
             slope, intercept, r_value, p_value, std_err = linregress(obsECa[:,i], simECa[:,i])
-            print(coil, '{:.3f}x+{:.3f}'.format(slope, intercept))
+            print(coil, '{:.2f} * x + {:.2f} (R={:.2f})'.format(slope, intercept, r_value))
             predECa[:,i] = obsECa[:,i]*slope + intercept
         ax.set_prop_cycle(None)
         ax.plot(obsECa, predECa, '-')
@@ -559,33 +563,35 @@ class Problem(object):
 
                     
         
-        
+#%%  
 
 if __name__ == '__main__':
     # cover crop example
     k = Problem()
-    k.depths0 = np.linspace(0.5, 2, 10) # not starting at 0 !
-    k.conds0 = np.ones(len(k.depths0)+1)*20
-    k.createSurvey('test/coverCrop.csv')
-    k.surveys[0].df 
+#    k.depths0 = np.linspace(0.5, 2, 10) # not starting at 0 !
+#    k.conds0 = np.ones(len(k.depths0)+1)*20
+    k.createSurvey('test/coverCrop.csv', freq=30000)
+#    k.surveys[0].df 
     #k.show()
-#    k.lcurve()
+    k.lcurve()
     k.invertGN()
 #    k.invert()
 #    k.showMisfit()
 #    k.showResults()
-    k.showOne2one()
-#    k.forward()
-    k.calibrate('test/dfeca.csv', 'test/dfec.csv')
+#    k.showOne2one()
+#    k.forward(forwardModel='FS')
+    k.calibrate('test/dfeca.csv', 'test/dfec.csv', forwardModel='FS') # TODO
+    
     
     
     # mapping example (potatoes)
 #    k = Problem()
-#    k.createSurvey('test/potatoesLo.csv')
+#    k.createSurvey('test/regolith.csv')
 #    k.convertFromNMEA()
+#    k.showMap(contour=True, pts=True)
 #    k.show()
-#    k.gridData()
+#    k.gridData(method='cubic')
 #    k.surveys[0].df = k.surveys[0].dfg
 #    k.showMap(coil = k.coils[1])
-    
+#    
 

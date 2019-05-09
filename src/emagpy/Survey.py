@@ -180,7 +180,7 @@ class Survey(object):
         
         df['x'], df['y'] = pyproj.transform(wgs84, osgb36, 
                                               df['lon'].values, df['lat'].values)
-        
+        self.df = df
 
     
     def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None,
