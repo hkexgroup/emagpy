@@ -230,9 +230,13 @@ class App(QMainWindow):
             self.problem.createSurvey(fname)
             mwRaw.plot(self.problem.show)
             # fill the combobox with survey and coil names
+            coilCombo.clear()
             for coil in self.problem.coils:
-                plotmwRaw.addItem(coil)
+                coilCombo.addItem(coil)
             infoDump(fname + ' well imported')
+            coilCombo.setEnabled(True)
+            showRadio.setEnabled(True)
+            mapRadio.setEnabled(True)
             
         
         importBtn = QPushButton('Import Data')
@@ -254,44 +258,29 @@ class App(QMainWindow):
         # TODO add a QCombBox for the the surveys (see self.problem.surveys)
         # for each survey, get the name using Survey.name
         
-        def plotmwRawFunc(index):
-            print('ploting raw data of', coils[index])
-        plotmwRaw = QComboBox()
-        coils = ['all']
-        for coil in coils:
-            plotmwRaw.addItem(coil)
-        plotmwRaw.currentIndexChanged.connect(plotmwRawFunc)
+        def coilComboFunc(index):
+            print('ploting raw data of', self.problem.coils[index])
+            showParams['coil'] = self.problem.coils[index]
+            mwRaw.plot(self.problem.show, **showParams) # add arguments for vmin/vmax
+        coilCombo = QComboBox()
+        coilCombo.currentIndexChanged.connect(coilComboFunc)
+        coilCombo.setEnabled(False)
         
-        
-        def plotScatMapFunc(index): # in the radio buttons
-            print('ploting scatter map of', coils[index])
-        plotScatMap = QComboBox()
-        coils = ['coil1', 'coil2']
-        for coil in coils:
-            plotScatMap.addItem(coil)
-        plotScatMap.currentIndexChanged.connect(plotScatMapFunc)
-
-        
-        def plotContMapFunc(index): # make contour as a checkbox no ?
-            print('ploting contour map of', coils[index])
-        plotContMap = QComboBox()
-        coils = ['coil1', 'coil2']
-        for coil in coils:
-            plotContMap.addItem(coil)
-        plotContMap.currentIndexChanged.connect(plotContMapFunc)
-
-        
-        
+        showParams = {'coil':None, 'contour':False, 'vmin':None, 'vmax':None,
+                'pts':False} 
+  
         def showRadioFunc(state):
             print('show:', state)
-            mwRaw.plot(self.problem.show) # add arguments for vmin/vmax
+            mwRaw.plot(self.problem.show, **showParams) # add arguments for vmin/vmax
         showRadio = QRadioButton('Raw')
         showRadio.setChecked(True)
         showRadio.toggled.connect(showRadioFunc)
+        showRadio.setEnabled(False)
         def mapRadioFunc(state):
             print('map:', state)
-            mwRaw.plot(self.problem.showMap) # add arguments for vmin/vmax
+            mwRaw.plot(self.problem.showMap, **showParams) # add arguments for vmin/vmax
         mapRadio = QRadioButton('Map')
+        mapRadio.setEnabled(False)
         mapRadio.setChecked(False)
         mapRadio.toggled.connect(mapRadioFunc)
         showGroup = QGroupBox()
@@ -331,11 +320,8 @@ class App(QMainWindow):
         
         midLayout = QHBoxLayout()
         midLayout.addWidget(QLabel('Plot Raw Data'))
-        midLayout.addWidget(plotmwRaw)
-        midLayout.addWidget(QLabel('Plot Scatter Map'))
-        midLayout.addWidget(plotScatMap)
-        midLayout.addWidget(QLabel('Plot Contour Map'))
-        midLayout.addWidget(plotContMap)
+        midLayout.addWidget(coilCombo)
+      
         midLayout.addWidget(showGroup)
         
         

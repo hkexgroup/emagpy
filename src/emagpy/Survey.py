@@ -126,19 +126,21 @@ class Survey(object):
                 'height': height}
         
         
-    def show(self, coils='all', attr='ECa', ax=None):
+    def show(self, coil='all', attr='ECa', ax=None, contour=False, vmin=None, 
+             vmax=None, pts=False):
         ''' Show the data.
         '''
-        if coils == 'all':
+        if coil == 'all':
             cols = self.coils
         else:
-            cols = coils
+            cols = coil
         
         if ax is None:
             fig, ax = plt.subplots()
        
         ax.plot(self.df[cols].values, 'o-')
         ax.legend(cols)
+        ax.set_ylim([vmin, vmax])
         ax.set_xlabel('Measurements')
         ax.set_ylabel('Apparent Conductivity [mS/m]')
         
