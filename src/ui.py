@@ -105,7 +105,7 @@ class MatplotlibWidget(QWidget):
             ax.set_aspect('auto')
         else:
             ax = figure.add_subplot(111)
-            ax.set_aspect('equal')
+            ax.set_aspect('auto')
         self.figure = figure
         self.axis = ax
 
@@ -146,26 +146,28 @@ class MatplotlibWidget(QWidget):
             Key word arguments to be passed to the API function.
         '''
         self.figure.clear() # need to clear the figure with the colorbar as well
-        callback(ax=self.axis, **kwargs)
+        ax = self.figure.add_subplot(111)
+        ax.set_aspect('auto')
+        callback(ax=ax, **kwargs)
         if self.itight is True:
             self.figure.tight_layout()
         self.canvas.draw()
-#
-#    def setCallback(self, callback):
-#        self.callback = callback
-#
-#    def replot(self, threed=False, **kwargs):
-#        self.figure.clear()
-#        if threed is False:
-#            ax = self.figure.add_subplot(111)
-#        else:
-#            ax = self.figure.add_subplot(111, projection='3d')
-#        self.axis = ax
-#        self.callback(ax=ax, **kwargs)
-#        ax.set_aspect('auto')
-#        if self.itight is True:
-#            self.figure.tight_layout()
-#        self.canvas.draw()
+
+    def setCallback(self, callback):
+        self.callback = callback
+
+    def replot(self, threed=False, **kwargs):
+        self.figure.clear()
+        if threed is False:
+            ax = self.figure.add_subplot(111)
+        else:
+            ax = self.figure.add_subplot(111, projection='3d')
+        self.axis = ax
+        self.callback(ax=ax, **kwargs)
+        ax.set_aspect('auto')
+        if self.itight is True:
+            self.figure.tight_layout()
+        self.canvas.draw()
 
     def clear(self):
         self.axis.clear()
@@ -228,7 +230,8 @@ class App(QMainWindow):
         def importBtnFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
             self.problem.createSurvey(fname)
-            mwRaw.plot(self.problem.show)
+            mwRaw.setCallback(self.problem.show)
+            mwRaw.replot()
             # fill the combobox with survey and coil names
             coilCombo.clear()
             for coil in self.problem.coils:
@@ -261,7 +264,7 @@ class App(QMainWindow):
         def coilComboFunc(index):
             print('ploting raw data of', self.problem.coils[index])
             showParams['coil'] = self.problem.coils[index]
-            mwRaw.plot(self.problem.show, **showParams) # add arguments for vmin/vmax
+            mwRaw.replot(**showParams)
         coilCombo = QComboBox()
         coilCombo.currentIndexChanged.connect(coilComboFunc)
         coilCombo.setEnabled(False)
@@ -271,14 +274,16 @@ class App(QMainWindow):
   
         def showRadioFunc(state):
             print('show:', state)
-            mwRaw.plot(self.problem.show, **showParams) # add arguments for vmin/vmax
+            mwRaw.setCallback(self.problem.show)
+            mwRaw.replot(**showParams)
         showRadio = QRadioButton('Raw')
         showRadio.setChecked(True)
         showRadio.toggled.connect(showRadioFunc)
         showRadio.setEnabled(False)
         def mapRadioFunc(state):
             print('map:', state)
-            mwRaw.plot(self.problem.showMap, **showParams) # add arguments for vmin/vmax
+            mwRaw.setCallback(self.problem.showMap)
+            mwRaw.replot(**showParams)
         mapRadio = QRadioButton('Map')
         mapRadio.setEnabled(False)
         mapRadio.setChecked(False)
