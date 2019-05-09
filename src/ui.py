@@ -240,6 +240,7 @@ class App(QMainWindow):
             coilCombo.setEnabled(True)
             showRadio.setEnabled(True)
             mapRadio.setEnabled(True)
+            contourCheck.setEnabled(True)
             
         
         importBtn = QPushButton('Import Data')
@@ -298,7 +299,15 @@ class App(QMainWindow):
         showGroup.setStyleSheet('QGroupBox{border: 0px;'
                                 'border-style:inset;}')
     
-        
+        def contourCheckFunc(state):
+            if state is True:
+                showParams['contour'] = True
+            else:
+                showParams['contour'] = False
+            mwRaw.replot(**showParams)
+        contourCheck = QCheckBox()
+        contourCheck.setEnabled(False)
+        contourCheck.clicked.connect(contourCheckFunc)
         
         '''
         TODO options:
@@ -326,7 +335,7 @@ class App(QMainWindow):
         midLayout = QHBoxLayout()
         midLayout.addWidget(QLabel('Plot Raw Data'))
         midLayout.addWidget(coilCombo)
-      
+        midLayout.addWidget(contourCheck)
         midLayout.addWidget(showGroup)
         
         
