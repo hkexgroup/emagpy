@@ -229,18 +229,19 @@ class App(QMainWindow):
         # import data
         def importBtnFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
-            self.problem.createSurvey(fname)
-            mwRaw.setCallback(self.problem.show)
-            mwRaw.replot()
-            # fill the combobox with survey and coil names
-            coilCombo.clear()
-            for coil in self.problem.coils:
-                coilCombo.addItem(coil)
-            infoDump(fname + ' well imported')
-            coilCombo.setEnabled(True)
-            showRadio.setEnabled(True)
-            mapRadio.setEnabled(True)
-            contourCheck.setEnabled(True)
+            if fname != '':
+                self.problem.createSurvey(fname)
+                mwRaw.setCallback(self.problem.show)
+                mwRaw.replot()
+                # fill the combobox with survey and coil names
+                coilCombo.clear()
+                for coil in self.problem.coils:
+                    coilCombo.addItem(coil)
+                infoDump(fname + ' well imported')
+                coilCombo.setEnabled(True)
+                showRadio.setEnabled(True)
+                mapRadio.setEnabled(True)
+                contourCheck.setEnabled(True)
             
         
         importBtn = QPushButton('Import Data')
