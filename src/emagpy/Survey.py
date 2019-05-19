@@ -137,11 +137,11 @@ class Survey(object):
             Maximum ECa value, default is maximum observed.
         '''
         if vmin is not None:
-            ie1 = self.df[self.coils].values > vmin
+            ie1 = (self.df[self.coils].values > vmin).all(1)
         else:
             ie1 = np.ones(self.df.shape[0], dtype=bool)
         if vmax is not None:
-            ie2 = self.df[self.coils].values < vmax
+            ie2 = (self.df[self.coils].values < vmax).all(1)
         else:
             ie2 = np.ones(self.df.shape[0], dtype=bool)
         ie = ie1 & ie2
@@ -157,7 +157,8 @@ class Survey(object):
         window : int, optional
             Size of the windows for rolling mean.
         '''
-        self.df = self.df.rolling(window).mean()
+        for coil in self.coils:
+            self.df[coil] = self.df[coil].rolling(window).mean()
         
     
     def show(self, coil='all', attr='ECa', ax=None, contour=False, vmin=None, 
@@ -387,9 +388,22 @@ class Survey(object):
         ''' Apply the correction due to the 1m calibration.
         '''
         
+    def importGF(self, fnameLo, fnameHi):
+        '''Import GF instrument data with Lo and Hi file mode. If spatial data
+        a regridding will be performed to match the data.
+        
+        Parameters
+        ----------
+        fnameLo : str
+            Name of the file with the Lo settings.
+        fnameHi : str
+            Name of the file with the Hi settings.
+        '''
+        #TODO either write a proper file and do self.readFile() or join after import here
+        
 
 
-# test
+#%% test
 '''
 import a well formatted text file
 import two field dataset after selecting the instrument
@@ -405,14 +419,15 @@ if __name__ == '__main__':
     
     s = Survey('test/potatoesLo.csv')
     s.show(s.coils[1])
-    s.keepBetween(0,5)
+    s.keepBetween(-5,11)
+    s.rollingMean(10)
     s.show()
     
-#    s.convertFromNMEA()
-#    s.showMap(contour=True)
-#    s.crossOverPoints(s.coils[1])
-#    s.gridData(method='idw')
-#    s.showMap(s.coils[1])
+    s.convertFromNMEA()
+    s.showMap(contour=True)
+    s.crossOverPoints(s.coils[1])
+    s.gridData(method='idw')
+    s.showMap(s.coils[1])
 #    s.df = s.dfg
 #    s.showMap(s.coils[1], contour=True)
 

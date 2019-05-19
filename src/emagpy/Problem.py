@@ -130,6 +130,9 @@ class Problem(object):
         **kwargs : optional
             Additional keyword arguments will be passed to `scipy.optimize.minimize()`.
         '''
+        self.models = []
+        self.rmses = []
+        
         if dump is None:
             dump = print
         
@@ -199,13 +202,16 @@ class Problem(object):
             Only used for difference inversion to contrain the bottom of
             the profile to not changing (see Annex in Whalley et al., 2017).
         '''
+        self.models = []
+        self.rmses = []
         J = buildJacobian(self.depths0, self.cspacing, self.cpos)
         L = buildSecondDiff(J.shape[1])
         def fmodel(p):
             return fCS(p, self.depths0, self.cspacing, self.cpos, hx=self.hx[0])
         
+        # fCS is automatically adding a leading 0 but not buildJacobian
         def dataMisfit(p, app):
-            return fmodel(p) - app
+            return app - fmodel(p)
         def modelMisfit(p):
             return np.dot(L, p)
         
@@ -216,11 +222,12 @@ class Problem(object):
             print('Survey', i+1, '/', len(self.surveys))
             for j in range(survey.df.shape[0]):
                 app = apps[j,:]
-                cond = np.ones((len(self.conds0),1))*np.nanmean(app) # initial EC is the mean of the apparent
-                for l in range(3): # FIXME this is diverging with time ..;
+                cond = np.ones((len(self.conds0),1))*np.nanmean(app) # initial EC is the mean of the apparent (doesn't matter)
+                # OR search for best starting model here
+                for l in range(1): # FIXME this is diverging with time ..;
                     d = dataMisfit(cond, app)
                     LHS = np.dot(J.T, J) + alpha*L
-                    RHS = np.dot(J.T, d[:,None]) + alpha*np.dot(L, cond)
+                    RHS = np.dot(J.T, d[:,None]) - alpha*np.dot(L, cond) # minux or plus doesn't matter here ?!
                     if alpha_ref is not None: # constraint the change of the last element of the profile
                         LHS[-1:,-1:] = alpha_ref
                         RHS[-1:] = alpha_ref*cond[i,-1]
@@ -233,7 +240,7 @@ class Problem(object):
             self.models.append(model)
             self.rmses.append(rmse)
 
-            
+
                     
     def forward(self, forwardModel='CS'):
         '''Forward model.
@@ -334,8 +341,9 @@ class Problem(object):
             survey.convertFromNMEA(targetProjection=targetProjection)
     
     
+    
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
-                    maxDepth=None, padding=0, cm='viridis'):
+                    maxDepth=None, padding=0, cm='viridis_r'):
         '''Show invertd model.
         
         Parameters
@@ -387,6 +395,28 @@ class Problem(object):
 
 
     
+    def getRMSE(self):
+        '''Returns RMSE for all coils (columns) and all surveys (row).
+        '''
+        dfsForward = self.forward()
+        def rmse(x, y):
+            return np.sqrt(np.sum((x - y)**2)/len(x))
+        
+        dfrmse = pd.DataFrame(columns=np.r_[self.coils, ['all']])
+        for i in range(len(self.surveys)):
+            survey = self.surveys[i]
+            for coil in self.coils:
+                obsECa = survey.df[coil].values
+                simECa = dfsForward[i][coil].values
+                dfrmse.loc[i, coil] = rmse(obsECa, simECa)
+            obsECa = survey.df[self.coils].values.flatten()
+            simECa = dfsForward[i][self.coils].values.flatten()
+            dfrmse.loc[i, 'all'] = rmse(obsECa, simECa)
+        
+        return dfrmse
+        
+        
+        
     def showMisfit(self, index=0, coil='all', ax=None):
         '''Show Misfit after inversion.
             
@@ -409,8 +439,9 @@ class Problem(object):
         xx = np.arange(survey.df.shape[0])
         ax.plot(xx, obsECa, '.')
         ax.set_prop_cycle(None)
-        ax.plot(xx, simECa, '-')
+        ax.plot(xx, simECa, '^-')
         ax.legend(cols)
+        
         
         
     def showOne2one(self, index=0, coil='all', ax=None, vmin=None, vmax=None):
@@ -570,19 +601,20 @@ class Problem(object):
 if __name__ == '__main__':
     # cover crop example
     k = Problem()
-#    k.depths0 = np.linspace(0.5, 2, 10) # not starting at 0 !
-#    k.conds0 = np.ones(len(k.depths0)+1)*20
-    k.createSurvey('test/coverCrop.csv', freq=30000)
-#    k.surveys[0].df 
-    #k.show()
-    k.lcurve()
-    k.invertGN()
+    k.depths0 = np.linspace(0.5, 2, 10) # not starting at 0 !
+    k.conds0 = np.ones(len(k.depths0)+1)*20
+#    k.createSurvey('test/coverCrop.csv', freq=30000)
+    k.createSurvey('test/warren170316.csv', freq=30000)
+#    k.surveys[0].df = k.surveys[0].df[:10]
+#    k.show()
+#    k.lcurve()
+    k.invertGN(alpha=0.07)
 #    k.invert()
 #    k.showMisfit()
-#    k.showResults()
+    k.showResults() # TODO replace with a polycollection faster ? or pcolormesh if no depth change ?
 #    k.showOne2one()
 #    k.forward(forwardModel='FS')
-    k.calibrate('test/dfeca.csv', 'test/dfec.csv', forwardModel='FS') # TODO
+#    k.calibrate('test/dfeca.csv', 'test/dfec.csv', forwardModel='FS') # TODO
     
     
     
