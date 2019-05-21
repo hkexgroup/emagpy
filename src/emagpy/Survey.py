@@ -173,11 +173,15 @@ class Survey(object):
         if ax is None:
             fig, ax = plt.subplots()
        
+        ax.set_title(coil)
         ax.plot(self.df[cols].values, 'o-')
         ax.legend(cols)
         ax.set_ylim([vmin, vmax])
         ax.set_xlabel('Measurements')
-        ax.set_ylabel('Apparent Conductivity [mS/m]')
+        if coil[-5:] == '_inph':
+            ax.set_ylabel('Inphase [ppt]')
+        else:
+            ax.set_ylabel('Apparent Conductivity [mS/m]')
         
 
     def convertFromNMEA(self, targetProjection='EPSG:27700'): # British Grid 1936
@@ -250,6 +254,7 @@ class Survey(object):
             vmin = np.nanpercentile(val, 5)
         if vmax is None:
             vmax = np.nanpercentile(val, 95)
+        ax.set_title(coil)
         if contour is True:
             levels = np.linspace(vmin, vmax, 7)
             cax = ax.tricontourf(x, y, val, levels=levels, extend='both')
@@ -259,7 +264,10 @@ class Survey(object):
             cax = ax.scatter(x, y, s=15, c=val, vmin=vmin, vmax=vmax)
         ax.set_xlabel('x')
         ax.set_ylabel('y')
-        fig.colorbar(cax, ax=ax, label='Conductivity [mS/m]')
+        if coil[-5:] == '_inph':
+            fig.colorbar(cax, ax=ax, label='Inphase [ppt]')
+        else:
+            fig.colorbar(cax, ax=ax, label='Conductivity [mS/m]')
         
 
     

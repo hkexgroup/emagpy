@@ -104,8 +104,8 @@ class Problem(object):
         
         
         
-    def invert(self, forwardModel='CS', regularization='l2', smoothing='1d',
-               alpha=0.07, dump=None, method='L-BFGS-B', **kwargs):
+    def invert(self, forwardModel='CS', regularization='l2', alpha=0.07,
+               beta=0, dump=None, method='Nelder-Mead', bnds=None, **kwargs):
         '''Invert the apparent conductivity measurements.
         
         Parameters
@@ -123,10 +123,15 @@ class Problem(object):
             Smoothing used (either 1d, 2d, or 3d).
         alpha : float, optional
             Smoothing factor for the inversion.
+        beta : float, optional
+            Smoothing factor for neightbouring profile.
         dump : function, optional
             Function to print the progression. Default is `print`.
         method : str, optional
             Name of the optimization method for `scipy.optimize.minimize`.
+        bnds : list of float, optional
+            If specified, will create bounds for the inversion. Doesn't work with
+            Nelder-Mead solver.
         **kwargs : optional
             Additional keyword arguments will be passed to `scipy.optimize.minimize()`.
         '''
@@ -135,6 +140,13 @@ class Problem(object):
         
         if dump is None:
             dump = print
+        
+        if bnds is not None:
+            top = np.ones(len(self.conds0))*bnds[1]
+            bot = np.ones(len(self.conds0))*bnds[0]
+            bounds = list(tuple(zip(bot, top)))
+        else:
+            bounds = None
         
         if forwardModel in ['CS','FS','FSandrade']:
             # define the forward model
@@ -157,15 +169,15 @@ class Problem(object):
                 return np.dot(L, p)
             
             if regularization  == 'l1':
-                if smoothing == '1d':
-                    def objfunc(p, app):
-                        return np.sqrt(np.sum(np.abs(dataMisfit(p, app)))/len(app)
-                                       + alpha*np.sum(np.abs(modelMisfit(p)))/len(p))
+                def objfunc(p, app, pn):
+                    return np.sqrt(np.sum(np.abs(dataMisfit(p, app)))/len(app)
+                                   + alpha*np.sum(np.abs(modelMisfit(p)))/len(p)
+                                   + beta*np.sum(np.abs(p - pn))/len(p))
             elif regularization == 'l2':
-                if smoothing == '1d':
-                    def objfunc(p, app):
-                        return np.sqrt(np.sum(dataMisfit(p, app)**2)/len(app)
-                                       + alpha*np.sum(modelMisfit(p)**2)/len(p))
+                def objfunc(p, app, pn):
+                    return np.sqrt(np.sum(dataMisfit(p, app)**2)/len(app)
+                                   + alpha*np.sum(modelMisfit(p)**2)/len(p)
+                                   + beta*np.sum((p - pn)**2)/len(p))
             # not sure about the division by len(app) for modelMisfit
                     
             # inversion row by row
@@ -176,9 +188,13 @@ class Problem(object):
                 dump('Survey', i+1, '/', len(self.surveys))
                 for j in range(survey.df.shape[0]):
                     app = apps[j,:]
+                    if j == 0:
+                        pn = np.zeros(len(self.conds0))
+                    else:
+                        pn = model[j-1,:]
 #                    try:
-                    res = minimize(objfunc, self.conds0, args=(app),
-                                   method=method, **kwargs)
+                    res = minimize(objfunc, self.conds0, args=(app, pn),
+                                   method=method, bounds=bounds, **kwargs)
                     out = res.x
 #                    except:
 #                        out = np.ones(len(self.conds0))*np.nan
@@ -480,6 +496,20 @@ class Problem(object):
         ax.legend(cols)
     
     
+    def keepBetween(self, vmin=None, vmax=None):
+        '''Filter out measurements that are not between vmin and vmax.
+        
+        Parameters
+        ----------
+        vmin : float, optional
+            Minimal ECa value, default is minimum observed.
+        vmax : float, optional
+            Maximum ECa value, default is maximum observed.
+        '''
+        for s in self.surveys:
+            s.keepBetween(vmin=vmin, vmax=vmax)
+    
+    
     
     def lcurve(self, isurvey=0, irow=0, alphas=None, ax=None):
         '''Compute an L-curve given different values of alphas.
@@ -601,22 +631,56 @@ class Problem(object):
 if __name__ == '__main__':
     # cover crop example
     k = Problem()
-    k.depths0 = np.linspace(0.5, 2, 10) # not starting at 0 !
+    k.depths0 = np.linspace(0.5, 2, 3) # not starting at 0 !
     k.conds0 = np.ones(len(k.depths0)+1)*20
 #    k.createSurvey('test/coverCrop.csv', freq=30000)
     k.createSurvey('test/warren170316.csv', freq=30000)
-#    k.surveys[0].df = k.surveys[0].df[:10]
+    k.surveys[0].df = k.surveys[0].df[:3]
 #    k.show()
 #    k.lcurve()
-    k.invertGN(alpha=0.07)
-#    k.invert()
+#    k.invertGN(alpha=0.07)
+    k.invert(forwardModel='FSandrade', alpha=0.07, method='Nelder-Mead') # this doesn't work well
 #    k.showMisfit()
     k.showResults() # TODO replace with a polycollection faster ? or pcolormesh if no depth change ?
-#    k.showOne2one()
-#    k.forward(forwardModel='FS')
+    k.showOne2one()
+    k.showMisfit()
+#    k.models[0] = np.ones(k.models[0].shape)*20
+#    k.forward(forwardModel='FSandrade')
 #    k.calibrate('test/dfeca.csv', 'test/dfec.csv', forwardModel='FS') # TODO
     
     
+    
+    #%% test for inversion with FSandrade
+    cond = np.array([10, 20, 30, 30])
+#    app = fMaxwellQ(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])
+#    app = fMaxwellECa(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])
+    app = k.surveys[0].df[k.coils].values[0,:]
+    L = buildSecondDiff(len(cond))
+    def objfunc(p, app):
+        return np.sqrt((np.sum((app - fMaxwellECa(p, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0]))**2)
+                              + 0.07*np.sum(np.dot(L, p[:,None])**2))/len(app))
+    res = minimize(objfunc, k.conds0, args=(app,), method='Nelder-Mead')
+    print(res)
+    
+    #%%
+    solvers = ['Nelder-Mead', 'Powell', 'CG', 'BFGS',
+               'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP']
+    tt = []
+    import time
+    for solver in solvers:
+        print(solver)
+        t0 = time.time()
+        res = minimize(objfunc, k.conds0, args=(app,), method=solver)
+        tt.append([time.time() - t0, res.nfev, res.fun])
+    
+    tt = np.vstack(tt)
+    xx = np.arange(len(solvers))
+    fig, ax = plt.subplots()
+    ax.plot(xx, tt)
+    ax.set_xticks(xx)
+    ax.set_xticklabels(solvers, rotation=90)
+    fig.tight_layout()
+    fig.show()
     
     # mapping example (potatoes)
 #    k = Problem()
