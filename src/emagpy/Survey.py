@@ -184,6 +184,21 @@ class Survey(object):
             ax.set_ylabel('Apparent Conductivity [mS/m]')
         
 
+    def tcorrECa(self, tdepths, tprofile):
+        '''Temperature correction using XXXX formula.
+        
+        Parameters
+        ----------
+        tdepths : array-like
+            Depths in meters of the temperature sensors (negative downards).
+        tprofile : array-like
+            Temperature values corresponding in degree Celsius.
+        '''
+        # TODO if ECa -> compute an 'apparent' temperature
+        # TODO what about per survey ?
+        pass
+
+
     def convertFromNMEA(self, targetProjection='EPSG:27700'): # British Grid 1936
         ''' Convert NMEA string to selected CRS projection.
         
@@ -396,7 +411,7 @@ class Survey(object):
         ''' Apply the correction due to the 1m calibration.
         '''
         
-    def importGF(self, fnameLo, fnameHi):
+    def importGF(self, fnameLo, fnameHi, device='Mini-Explorer', hx=0):
         '''Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
@@ -406,8 +421,55 @@ class Survey(object):
             Name of the file with the Lo settings.
         fnameHi : str
             Name of the file with the Hi settings.
+        device : str, optional
+            Type of device. Default is Mini-Explorer.
+        hx : float, optional
+            Height of the device above the ground in meters.
         '''
-        #TODO either write a proper file and do self.readFile() or join after import here
+        self.name = os.path.basename(fnameLo)[:-4]
+        loFile = pd.read_csv(fnameLo, sep='\t')
+        hiFile = pd.read_csv(fnameHi, sep='\t')
+
+        if device == 'Mini-Explorer':
+            freq = 30000
+            csep = [0.32, 0.71, 1.18]
+        elif device == 'Explorer':
+            freq = 10000
+            csep = []# TODO
+        else:
+            raise ValueError('Device ' + device + ' unknown.')
+
+        loCols = ['VCP{:.2f}'.format(a) for a in csep]
+        hiCols = ['HCP{:.2f}'.format(a) for a in csep]
+        loCols += [a + '_inph' for a in loCols]
+        hiCols += [a + '_inph' for a in hiCols]
+        cols = ['Cond.1[mS/m]', 'Cond.2[mS/m]', 'Cond.3[mS/m]',
+                'Inph.1[ppt]', 'Inph.2[ppt]', 'Inph.3[ppt]']
+        loFile = loFile.rename(columns=dict(zip(cols, loCols)))
+        hiFile = hiFile.rename(columns=dict(zip(cols, hiCols)))
+        
+        if 'Latitude' not in loFile.columns and 'Latitude' not in hiFile.columns:
+            if loFile.shape[0] == hiFile.shape[0]:
+                print('importGF: joining on rows.')
+                df = loFile[loCols].join(hiFile[hiCols])
+                df['x'] = np.arange(df.shape[0])
+                df['y'] = 0
+            else:
+                raise ValueError('Can not join the dataframe as they have different lengths: {:d} {:d}'.format(loFile.shape[0], hiFile.shape[0]))
+        else:
+            pass
+            # TODO regridding here :/
+        
+        self.coils = loCols[:3] + hiCols[:3]
+        self.coilsInph = loCols[3:] + hiCols[3:]
+        coilInfo = [self.getCoilInfo(c) for c in self.coils]
+        self.freqs = np.repeat([freq], len(self.coils))
+        self.hx = np.repeat([hx], len(self.coils))
+        self.cspacing = [a['coilSeparation'] for a in coilInfo]
+        self.cpos = [a['orientation'] for a in coilInfo]
+        self.df = df
+        self.sensor = device
+        
         
 
 
@@ -425,20 +487,24 @@ if __name__ == '__main__':
     #s.show(coils='HCP0.32')
     #s.showMap(contour=True, vmax=40)
     
-    s = Survey('test/potatoesLo.csv')
-    s.show(s.coils[1])
-    s.keepBetween(-5,11)
-    s.rollingMean(10)
-    s.show()
+#    s = Survey('test/potatoesLo.csv')
+#    s.show(s.coils[1])
+#    s.keepBetween(-5,11)
+#    s.rollingMean(10)
+#    s.show()
     
-    s.convertFromNMEA()
-    s.showMap(contour=True)
-    s.crossOverPoints(s.coils[1])
-    s.gridData(method='idw')
-    s.showMap(s.coils[1])
+#    s.convertFromNMEA()
+#    s.showMap(contour=True)
+#    s.crossOverPoints(s.coils[1])
+#    s.gridData(method='idw')
+#    s.showMap(s.coils[1])
 #    s.df = s.dfg
 #    s.showMap(s.coils[1], contour=True)
 
 
 
 #%%
+
+    s = Survey()
+    s.importGF('test/coverCropLo.dat', 'test/coverCropHi.dat')
+    

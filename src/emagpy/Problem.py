@@ -204,7 +204,8 @@ class Problem(object):
                 self.models.append(model)
                 self.rmses.append(rmse)
                     
-                    # TODO can add bounds
+    # TODO add smoothing 3D: maybe invert all profiles once with GN and then
+    # invert them again with a constrain on the 5 nearest profiles by distance
                     
     
     def invertGN(self, alpha=0.07, alpha_ref=None):
@@ -256,6 +257,42 @@ class Problem(object):
             self.models.append(model)
             self.rmses.append(rmse)
 
+    def tcorrECa(self, tdepths, tprofile):
+        '''Temperature correction using XXXX formula.
+        
+        Parameters
+        ----------
+        tdepths : list of arrays
+            Depths in meters of the temperature sensors (negative downards).
+        tprofile : list of arrays
+            Temperature values corresponding in degree Celsius.
+        '''
+        for i, s in enumerate(self.surveys):
+            s.tcorr(tdepths[i], tprofile[i])
+
+
+            
+    def tcorrEC(self, tdepths, tprofile):
+        '''Temperature correction for inverted models using XXXX formula.
+        
+        Parameters
+        ----------
+        tdepths : array-like
+            Depths in meters of the temperature sensors (negative downards).
+        tprofile : array-like
+            Temperature values corresponding in degree Celsius.
+        '''
+        for i, model in enumerate(self.models):
+            pass
+        #TODO
+
+
+    def write2vtk(self):
+        '''Write .vtk cloud points with the inverted models.
+        '''
+        for i, m in enumerate(self.models):
+            
+            pass
 
                     
     def forward(self, forwardModel='CS'):
@@ -656,7 +693,8 @@ if __name__ == '__main__':
 #    app = fMaxwellECa(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])
     app = k.surveys[0].df[k.coils].values[0,:]
     L = buildSecondDiff(len(cond))
-    def objfunc(p, app):
+    def objfunc(p):
+        print(p)
         return np.sqrt((np.sum((app - fMaxwellECa(p, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0]))**2)
                               + 0.07*np.sum(np.dot(L, p[:,None])**2))/len(app))
     res = minimize(objfunc, k.conds0, args=(app,), method='Nelder-Mead')
