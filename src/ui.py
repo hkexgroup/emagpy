@@ -93,7 +93,7 @@ print( 'os.getcwd is', os.getcwd() )
 class MatplotlibWidget(QWidget):
     ''' Class to put matplotlibgraph into QWidget.
     '''
-    def __init__(self, parent=None, navi=False, itight=False, threed=False):
+    def __init__(self, parent=None, navi=True, itight=False, threed=False):
         super(MatplotlibWidget, self).__init__(parent) # we can pass a figure but we can replot on it when
         # pushing on a button (I didn't find a way to do it) while with the axes, you can still clear it and
         # plot again on them
@@ -235,8 +235,13 @@ class App(QMainWindow):
                 mwRaw.replot()
                 # fill the combobox with survey and coil names
                 coilCombo.clear()
+                coilCombo.addItem('all')
                 for coil in self.problem.coils:
                     coilCombo.addItem(coil)
+                for survey in self.problem.surveys:
+                    surveyCombo.addItem(survey.name)
+                showRadio.setChecked(True)
+                contourCheck.setChecked(False)
                 infoDump(fname + ' well imported')
                 coilCombo.setEnabled(True)
                 showRadio.setEnabled(True)
@@ -260,22 +265,31 @@ class App(QMainWindow):
             sensorCombo.addItem(sensor)
         sensorCombo.currentIndexChanged.connect(sensorComboFunc)
         
-        # TODO add a QCombBox for the the surveys (see self.problem.surveys)
-        # for each survey, get the name using Survey.name
+        def surveyComboFunc(index):
+            showParams['index'] = index
+            mwRaw.replot(**showParams)
+        surveyCombo = QComboBox()
+        surveyCombo.currentIndexChanged.connect(surveyComboFunc)
         
         def coilComboFunc(index):
-            print('ploting raw data of', self.problem.coils[index])
-            showParams['coil'] = self.problem.coils[index]
+            showParams['coil'] = coilCombo.itemText(index)
             mwRaw.replot(**showParams)
         coilCombo = QComboBox()
         coilCombo.currentIndexChanged.connect(coilComboFunc)
         coilCombo.setEnabled(False)
         
-        showParams = {'coil':None, 'contour':False, 'vmin':None, 'vmax':None,
-                'pts':False} 
+        showParams = {'index': 0, 'coil':None, 'contour':False, 'vmin':None,
+                      'vmax':None,'pts':False} 
   
+        def ptsCheckFunc(state):
+            if state is True:
+                showParams['pts'] = True
+            else:
+                showParams['pts'] = False
+            mwRaw.replot(**showParams)
+        ptsCheck = QCheckBox()
+    
         def showRadioFunc(state):
-            print('show:', state)
             mwRaw.setCallback(self.problem.show)
             mwRaw.replot(**showParams)
         showRadio = QRadioButton('Raw')
@@ -283,7 +297,6 @@ class App(QMainWindow):
         showRadio.toggled.connect(showRadioFunc)
         showRadio.setEnabled(False)
         def mapRadioFunc(state):
-            print('map:', state)
             mwRaw.setCallback(self.problem.showMap)
             mwRaw.replot(**showParams)
         mapRadio = QRadioButton('Map')
@@ -310,6 +323,18 @@ class App(QMainWindow):
         contourCheck.setEnabled(False)
         contourCheck.clicked.connect(contourCheckFunc)
         
+        vminEdit = QLineEdit('')
+        vminEdit.setValidator(QDoubleValidator())
+        vmaxEdit = QLineEdit('')
+        vmaxEdit.setValidator(QDoubleValidator())
+        
+        def applyBtnFunc():
+            showParams['vmin'] = float(vminEdit.text()) if vminEdit.text() != '' else None
+            showParams['vmax'] = float(vmaxEdit.text()) if vmaxEdit.text() != '' else None
+            mwRaw.replot(**showParams)
+        applyBtn = QPushButton('Apply')
+        applyBtn.clicked.connect(applyBtnFunc)
+        
         '''
         TODO options:
         - select coils -> QComboBox (get the coil list from self.problem.coils)
@@ -334,10 +359,19 @@ class App(QMainWindow):
         topLayout.addWidget(sensorCombo)
         
         midLayout = QHBoxLayout()
-        midLayout.addWidget(QLabel('Plot Raw Data'))
+        midLayout.addWidget(surveyCombo)
+        midLayout.addWidget(QLabel('Select coil'))
         midLayout.addWidget(coilCombo)
+        midLayout.addWidget(QLabel('Contour'))
         midLayout.addWidget(contourCheck)
+        midLayout.addWidget(QLabel('Points'))
+        midLayout.addWidget(ptsCheck)
         midLayout.addWidget(showGroup)
+        midLayout.addWidget(QLabel('Vmin:'))
+        midLayout.addWidget(vminEdit)
+        midLayout.addWidget(QLabel('Vmax:'))
+        midLayout.addWidget(vmaxEdit)
+        midLayout.addWidget(applyBtn)
         
         
         importLayout.addLayout(topLayout)

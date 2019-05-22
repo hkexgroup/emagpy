@@ -455,7 +455,7 @@ class Survey(object):
                 df['x'] = np.arange(df.shape[0])
                 df['y'] = 0
             else:
-                raise ValueError('Can not join the dataframe as they have different lengths: {:d} {:d}'.format(loFile.shape[0], hiFile.shape[0]))
+                raise ValueError('Can not join the dataframe as they have different lengths: {:d} and {:d}'.format(loFile.shape[0], hiFile.shape[0]))
         else:
             pass
             # TODO regridding here :/
@@ -474,12 +474,6 @@ class Survey(object):
 
 
 #%% test
-'''
-import a well formatted text file
-import two field dataset after selecting the instrument
-join lo and hi based on measurements numbers or regridding data
-
-'''
 
 
 if __name__ == '__main__':
