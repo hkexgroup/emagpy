@@ -162,7 +162,7 @@ class Survey(object):
         
     
     def show(self, coil='all', attr='ECa', ax=None, contour=False, vmin=None, 
-             vmax=None, pts=False):
+             vmax=None, pts=False, cmap=None):
         ''' Show the data.
         '''
         if coil == 'all':
@@ -238,7 +238,7 @@ class Survey(object):
 
     
     def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None,
-                pts=False):
+                pts=False, cmap='viridis_r'):
         ''' Display a map of the measurements.
         
         Parameters
@@ -272,11 +272,11 @@ class Survey(object):
         ax.set_title(coil)
         if contour is True:
             levels = np.linspace(vmin, vmax, 7)
-            cax = ax.tricontourf(x, y, val, levels=levels, extend='both')
+            cax = ax.tricontourf(x, y, val, levels=levels, extend='both', cmap=cmap)
             if pts is True:
                 ax.plot(x, y, 'k+')
         else:
-            cax = ax.scatter(x, y, s=15, c=val, vmin=vmin, vmax=vmax)
+            cax = ax.scatter(x, y, s=15, c=val, vmin=vmin, vmax=vmax, cmap=cmap)
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         if coil[-5:] == '_inph':
@@ -411,7 +411,7 @@ class Survey(object):
         ''' Apply the correction due to the 1m calibration.
         '''
         
-    def importGF(self, fnameLo, fnameHi, device='Mini-Explorer', hx=0):
+    def importGF(self, fnameLo, fnameHi, device='CMD Mini-Explorer', hx=0):
         '''Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
@@ -430,12 +430,12 @@ class Survey(object):
         loFile = pd.read_csv(fnameLo, sep='\t')
         hiFile = pd.read_csv(fnameHi, sep='\t')
 
-        if device == 'Mini-Explorer':
+        if device == 'CMD Mini-Explorer':
             freq = 30000
             csep = [0.32, 0.71, 1.18]
-        elif device == 'Explorer':
+        elif device == 'CMD Explorer':
             freq = 10000
-            csep = []# TODO
+            csep = [1.48, 2.82, 4.49]
         else:
             raise ValueError('Device ' + device + ' unknown.')
 

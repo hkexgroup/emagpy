@@ -235,7 +235,6 @@ class App(QMainWindow):
                 mwRaw.replot()
                 # fill the combobox with survey and coil names
                 coilCombo.clear()
-                coilCombo.addItem('all')
                 for coil in self.problem.coils:
                     coilCombo.addItem(coil)
                 for survey in self.problem.surveys:
@@ -252,15 +251,48 @@ class App(QMainWindow):
         importBtn = QPushButton('Import Data')
         importBtn.clicked.connect(importBtnFunc)
         
+        def importGFLoFunc():
+            self.fnameLo, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)
+        importGFLo = QPushButton('Select Lo')
+        importGFLo.clicked.connect(importGFLoFunc)
+        def importGFHiFunc():
+            self.fnameHi, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)            
+        importGFHi = QPushButton('Select Hi')
+        importGFHi.clicked.connect(importGFHiFunc)
+        hxLabel = QLabel('Height above the ground [m]:')
+        hxEdit = QLineEdit('0')
+        hxEdit.setValidator(QDoubleValidator())
+        def importGFApplyFunc():
+            hx = float(hxEdit.text()) if hxEdit.text() != '' else 0
+            device = sensorCombo.itemText(sensorCombo.currentIndex())
+            print(device)
+            self.problem.importGF(self.fnameLo, self.fnameHi, device, hx)
+        importGFApply = QPushButton('Import')
+        importGFApply.clicked.connect(importGFApplyFunc)
+        
+        def showGF(arg):
+            visibles = np.array([True, False, False, False, False, False])
+            objs = [importBtn, importGFLo, importGFHi, hxLabel, hxEdit, importGFApply]
+            if arg is True:
+                [o.setVisible(~v) for o,v in zip(objs, visibles)]
+            else:
+                [o.setVisible(v) for o,v in zip(objs, visibles)]
+        showGF(False)
+
+        
         # select type of sensors
         def sensorComboFunc(index):
             print('sensor selected is:', sensors[index])
+            if index == 1 or index == 2:
+                showGF(True)
+            else:
+                showGF(False)
         sensorCombo = QComboBox()
-        sensors = ['CMD Mini-Explorer (GF-Instruments)',
-                   'CMD Explorer (GF-Instruments)'
+        sensors = ['CMD Mini-Explorer',
+                   'CMD Explorer'
                    ]
         sensors = sorted(sensors)
-        sensors = ['Other'] + sensors
+        sensors = ['All'] + sensors
         for sensor in sensors:
             sensorCombo.addItem(sensor)
         sensorCombo.currentIndexChanged.connect(sensorComboFunc)
@@ -279,7 +311,7 @@ class App(QMainWindow):
         coilCombo.setEnabled(False)
         
         showParams = {'index': 0, 'coil':None, 'contour':False, 'vmin':None,
-                      'vmax':None,'pts':False} 
+                      'vmax':None,'pts':False, 'cmap':'viridis_r'} 
   
         def ptsCheckFunc(state):
             if state is True:
@@ -335,6 +367,24 @@ class App(QMainWindow):
         applyBtn = QPushButton('Apply')
         applyBtn.clicked.connect(applyBtnFunc)
         
+        projEdit = QLineEdit('27700')
+        projEdit.setValidator(QDoubleValidator())
+        def projBtnFunc():
+            val = float(projEdit.text()) if projEdit.text() != '' else None
+            self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
+            mwRaw.replot(**showParams)
+        projBtn = QPushButton('Convert NMEA')
+        projBtn.clicked.connect(projBtnFunc)
+        
+        def cmapComboFunc(index):
+            showParams['cmap'] = cmaps[index]
+            mwRaw.replot(**showParams)
+        cmapCombo = QComboBox()
+        cmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow']
+        for cmap in cmaps:
+            cmapCombo.addItem(cmap)
+        cmapCombo.currentIndexChanged.connect(cmapComboFunc)
+        
         '''
         TODO options:
         - select coils -> QComboBox (get the coil list from self.problem.coils)
@@ -348,23 +398,28 @@ class App(QMainWindow):
         # display it
         mwRaw = MatplotlibWidget()
         
-                                   
-        
-        
         # layout
         importLayout = QVBoxLayout()
         
         topLayout = QHBoxLayout()
-        topLayout.addWidget(importBtn)
         topLayout.addWidget(sensorCombo)
+        topLayout.addWidget(importBtn)
+        topLayout.addWidget(importGFLo)
+        topLayout.addWidget(importGFHi)
+        topLayout.addWidget(hxLabel)
+        topLayout.addWidget(hxEdit)
+        topLayout.addWidget(importGFApply)
+        topLayout.addWidget(QLabel('EPSG:'))
+        topLayout.addWidget(projEdit)
+        topLayout.addWidget(projBtn)
         
         midLayout = QHBoxLayout()
         midLayout.addWidget(surveyCombo)
-        midLayout.addWidget(QLabel('Select coil'))
+        midLayout.addWidget(QLabel('Select coil:'))
         midLayout.addWidget(coilCombo)
-        midLayout.addWidget(QLabel('Contour'))
+        midLayout.addWidget(QLabel('Contour:'))
         midLayout.addWidget(contourCheck)
-        midLayout.addWidget(QLabel('Points'))
+        midLayout.addWidget(QLabel('Points:'))
         midLayout.addWidget(ptsCheck)
         midLayout.addWidget(showGroup)
         midLayout.addWidget(QLabel('Vmin:'))
@@ -372,6 +427,7 @@ class App(QMainWindow):
         midLayout.addWidget(QLabel('Vmax:'))
         midLayout.addWidget(vmaxEdit)
         midLayout.addWidget(applyBtn)
+        midLayout.addWidget(cmapCombo)
         
         
         importLayout.addLayout(topLayout)
@@ -391,8 +447,15 @@ class App(QMainWindow):
         - tab4: display of inverted section + export graph/data
         - tab5: goodness of fit (1:1) and 2D graph
         '''
+        # TODO all for show but not for showMap ?
         
         
+
+        
+        #%% filtering data
+        filterTab = QTabWidget()
+        tabs.addTab(filterTab, 'Filtering')
+
         '''TODO add filtering tab ?
         - add filtering tab with vmin/vmax filtering
         - pointsKiller
@@ -400,7 +463,15 @@ class App(QMainWindow):
         - rolling mean
         - how replace point by :
         
-        '''
+        '''        
+        
+        # layout
+        filterLayout = QVBoxLayout()
+        
+        filterTab.setLayout(filterLayout)
+        
+        
+        
         #%% calibration and error model
         calibTab = QTabWidget()
         tabs.addTab(calibTab, 'Calibration and error model')
@@ -442,9 +513,46 @@ class App(QMainWindow):
             - .lcurve() ?
             - current log while doing inversion
         '''
+#        def forwardComboFunc(index):
+#            print('model = ', forwardCombo.itemText(index))
+        forwardCombo = QComboBox()
+        forwardModels = ['CS', 'FS', 'FSandrade']
+        for forwardModel in forwardModels:
+            forwardCombo.addItem(forwardModel)
+        
+        def invertBtnFunc():
+            forwardModel = forwardCombo.itemText(forwardCombo.currentIndex())
+            print(forwardModel)
+            self.problem.invert(forwardModel=forwardModel)
+            mwInv.plot(self.problem.showResults)
+        invertBtn = QPushButton('Invert Minimize')
+        invertBtn.clicked.connect(invertBtnFunc)
+        
+        def invertGNBtnFunc():
+            self.problem.invertGN()
+            mwInv.plot(self.problem.showResults)
+        invertGNBtn = QPushButton('Invert GN')
+        invertGNBtn.clicked.connect(invertGNBtnFunc)
+        
+        showInvParams = {'vmin':None, 'vmax':None, 'cmap':'viridis_r'}
+        
+        
+        
+        # graph
+        mwInv = MatplotlibWidget()
+        
         
         # layout
         invLayout = QVBoxLayout()
+        
+        invOptions = QHBoxLayout()
+        invOptions.addWidget(forwardCombo)
+        invOptions.addWidget(invertBtn)
+        invOptions.addWidget(invertGNBtn)
+        
+        invLayout.addLayout(invOptions)
+        invLayout.addWidget(mwInv)
+        
         
         invTab.setLayout(invLayout)
         
@@ -511,7 +619,7 @@ class App(QMainWindow):
 
 #%% main function
 if __name__ == '__main__':
-    catchErrors()
+#    catchErrors()
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     app.setWindowIcon(QIcon(os.path.join(bundle_dir, 'logo.png'))) # that's the true app icon

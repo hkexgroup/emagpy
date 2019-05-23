@@ -91,6 +91,29 @@ class Problem(object):
             self.createSurvey(os.path.join(dirname, f))
         
     
+    def importGF(self, fnameLo, fnameHi, device='Mini-Explorer', hx=0):
+        '''Import GF instrument data with Lo and Hi file mode. If spatial data
+        a regridding will be performed to match the data.
+        
+        Parameters
+        ----------
+        fnameLo : str
+            Name of the file with the Lo settings.
+        fnameHi : str
+            Name of the file with the Hi settings.
+        device : str, optional
+            Type of device. Default is Mini-Explorer.
+        hx : float, optional
+            Height of the device above the ground in meters.
+        '''
+        survey = Survey()
+        survey.importGF(fnameLo, fnameHi, device, hx)
+        self.coils = survey.coils
+        self.freqs = survey.freqs
+        self.cspacing = survey.cspacing
+        self.cpos = survey.cpos
+        self.hx = survey.hx
+        self.surveys.append(survey)
         
     def setDepths(self, depths):
         ''' Set the depths of the bottom of each layer. Last layer goes to -inf.
