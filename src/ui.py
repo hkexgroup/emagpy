@@ -280,6 +280,40 @@ class App(QMainWindow):
         showGF(False)
 
         
+        
+        # filtering options
+        vminfLabel = QLabel('Vmin')
+        vminfEdit = QLineEdit()
+        vminfEdit.setValidator(QDoubleValidator())
+        vmaxfLabel = QLabel('Vmax')
+        vmaxfEdit = QLineEdit()
+        vmaxfEdit.setValidator(QDoubleValidator())
+        def keepApplyBtnFunc():
+            vmin = float(vminfEdit.text()) if vminfEdit.text() != '' else None
+            vmax = float(vmaxfEdit.text()) if vmaxfEdit.text() != '' else None
+            self.problem.keepBetween(vmin, vmax)
+            mwRaw.replot(**showParams)
+        keepApplyBtn = QPushButton('Apply')
+        keepApplyBtn.clicked.connect(keepApplyBtnFunc)
+        
+        rollingLabel = QLabel('Window size:')
+        rollingEdit = QLineEdit('3')
+#        rollingEdit.setValidator(QIntegerValidator())
+        def rollingBtnFunc():
+            window = float(rollingEdit.text()) if rollingEdit.text() != '' else None
+            self.problem.rollingMean(window=window)
+            mwRaw.replot(**showParams)
+        rollingBtn = QPushButton('Rolling Mean')
+        
+        def ptsKillerBtnFunc():
+            pass
+            print('deleted 0/X points')
+            # TODO delete selected
+        ptsKillerBtn = QPushButton('Delete selected points')
+        ptsKillerBtn.clicked.connect(ptsKillerBtnFunc)
+        
+        
+        
         # select type of sensors
         def sensorComboFunc(index):
             print('sensor selected is:', sensors[index])
@@ -413,6 +447,16 @@ class App(QMainWindow):
         topLayout.addWidget(projEdit)
         topLayout.addWidget(projBtn)
         
+        filtLayout = QHBoxLayout()
+        filtLayout.addWidget(vminfLabel)
+        filtLayout.addWidget(vminfEdit)
+        filtLayout.addWidget(vmaxfLabel)
+        filtLayout.addWidget(vmaxfEdit)
+        filtLayout.addWidget(keepApplyBtn)
+        filtLayout.addWidget(rollingEdit)
+        filtLayout.addWidget(rollingBtn)
+        filtLayout.addWidget(ptsKillerBtn)
+        
         midLayout = QHBoxLayout()
         midLayout.addWidget(surveyCombo)
         midLayout.addWidget(QLabel('Select coil:'))
@@ -431,6 +475,7 @@ class App(QMainWindow):
         
         
         importLayout.addLayout(topLayout)
+        importLayout.addLayout(filtLayout)
         importLayout.addLayout(midLayout)
         importLayout.addWidget(mwRaw)
         
@@ -464,6 +509,13 @@ class App(QMainWindow):
         - how replace point by :
         
         '''        
+        
+        
+        
+        # graph
+        mwFiltered = MatplotlibWidget()
+        
+        
         
         # layout
         filterLayout = QVBoxLayout()
