@@ -230,6 +230,7 @@ class App(QMainWindow):
         def importBtnFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
             if fname != '':
+                importBtn.setText(os.path.basename(fname))
                 self.problem.createSurvey(fname)
                 mwRaw.setCallback(self.problem.show)
                 mwRaw.replot()
@@ -237,8 +238,10 @@ class App(QMainWindow):
                 coilCombo.clear()
                 for coil in self.problem.coils:
                     coilCombo.addItem(coil)
+                    coilErrCombo.addItem(coil)
                 for survey in self.problem.surveys:
                     surveyCombo.addItem(survey.name)
+                    surveyErrCombo.addItem(survey.name)
                 showRadio.setChecked(True)
                 contourCheck.setChecked(False)
                 infoDump(fname + ' well imported')
@@ -298,12 +301,13 @@ class App(QMainWindow):
         
         rollingLabel = QLabel('Window size:')
         rollingEdit = QLineEdit('3')
-#        rollingEdit.setValidator(QIntegerValidator())
+        rollingEdit.setValidator(QIntValidator())
         def rollingBtnFunc():
-            window = float(rollingEdit.text()) if rollingEdit.text() != '' else None
+            window = int(rollingEdit.text()) if rollingEdit.text() != '' else None
             self.problem.rollingMean(window=window)
             mwRaw.replot(**showParams)
         rollingBtn = QPushButton('Rolling Mean')
+        rollingBtn.clicked.connect(rollingBtnFunc)
         
         def ptsKillerBtnFunc():
             pass
@@ -453,6 +457,7 @@ class App(QMainWindow):
         filtLayout.addWidget(vmaxfLabel)
         filtLayout.addWidget(vmaxfEdit)
         filtLayout.addWidget(keepApplyBtn)
+        filtLayout.addWidget(rollingLabel)
         filtLayout.addWidget(rollingEdit)
         filtLayout.addWidget(rollingBtn)
         filtLayout.addWidget(ptsKillerBtn)
@@ -526,28 +531,100 @@ class App(QMainWindow):
         
         #%% calibration and error model
         calibTab = QTabWidget()
-        tabs.addTab(calibTab, 'Calibration and error model')
+        tabs.addTab(calibTab, 'ERT Calibration')
         
-        '''
-        TODO as subtabs ? in a QHBoxLayout ?
-        calibration:
-            - QPushButton for importing calibration data (ECa)
-            - QPushButton for importing calibration data (EC profiles)
-            - QCombox for which forward model to use for the EC->ECa
-            - QPushButton for plotting the calibration (Problem.calibrate())
-            -> this plot the calibration graph
-            - QPushButton to apply the calibration
-        error model:
-            - QPushButton to fit error model
-            -> this plot the error model graph
-        '''
+        def ecaImportBtnFunc():
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
+            if fname != '':
+                self.fnameECa = fname
+                ecaImportBtn.setText(os.path.basename(fname))
+        ecaImportBtn = QPushButton('Import ECa')
+        ecaImportBtn.clicked.connect(ecaImportBtnFunc)
         
+        def ecImportBtnFunc():
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
+            if fname != '':
+                self.fnameEC = fname
+                ecImportBtn.setText(os.path.basename(fname))
+        ecImportBtn = QPushButton('Import EC profiles')
+        ecImportBtn.clicked.connect(ecImportBtnFunc)
+        
+        forwardCalibCombo = QComboBox()
+        forwardCalibs = ['CS', 'FS', 'FSandrade']
+        for forwardCalib in forwardCalibs:
+            forwardCalibCombo.addItem(forwardCalib)
+        
+        def fitCalibBtnFunc():
+            forwardModel = forwardCalibCombo.itemText(forwardCalibCombo.currentIndex())
+            mwCalib.setCallback(self.problem.calibrate)
+            mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
+                           forwardModel=forwardModel)
+        fitCalibBtn = QPushButton('Fit calibration')
+        fitCalibBtn.clicked.connect(fitCalibBtnFunc)
+        
+        
+        def applyCalibBtnFunc():
+            infoDump('Calibration applied')
+        applyCalibBtn = QPushButton('Apply Calibration')
+        applyCalibBtn.clicked.connect(applyCalibBtnFunc)
+        
+        
+        # graph
+        mwCalib = MatplotlibWidget()
         
         
         # layout
         calibLayout = QVBoxLayout()
+        calibOptions = QHBoxLayout()
+        calibOptions.addWidget(ecaImportBtn)
+        calibOptions.addWidget(ecImportBtn)
+        calibOptions.addWidget(forwardCalibCombo)
+        calibOptions.addWidget(fitCalibBtn)
+        calibOptions.addWidget(applyCalibBtn)
+        calibLayout.addLayout(calibOptions)
+        calibLayout.addWidget(mwCalib)
         
         calibTab.setLayout(calibLayout)
+        
+        
+        #%% error model
+        errTab = QTabWidget()
+        tabs.addTab(errTab, 'Error Modelling')
+        
+        surveyErrCombo = QComboBox()
+        
+        coilErrCombo = QComboBox()
+        
+        
+        def fitErrBtnFunc():
+            index = surveyErrCombo.currentIndex()
+            coil = coilErrCombo.itemText(coilErrCombo.currentIndex())
+            mwErr.setCallback(self.problem.crossOverPoints)
+            mwErr.replot(index=index, coil=coil)
+            mwErrMap.setCallback(self.problem.plotCrossOverMap)
+            mwErrMap.replot(index=index, coil=coil)
+        fitErrBtn = QPushButton('Fit Error Model based on colocated measurements')
+        fitErrBtn.clicked.connect(fitErrBtnFunc)
+        
+        
+        # graph
+        mwErr = MatplotlibWidget()
+        mwErrMap = MatplotlibWidget()
+        
+        # layout
+        errLayout = QVBoxLayout()
+        errOptionLayout = QHBoxLayout()
+        errOptionLayout.addWidget(surveyErrCombo)
+        errOptionLayout.addWidget(coilErrCombo)
+        errOptionLayout.addWidget(fitErrBtn)
+        errLayout.addLayout(errOptionLayout)
+        errGraphLayout = QHBoxLayout()
+        errGraphLayout.addWidget(mwErrMap)
+        errGraphLayout.addWidget(mwErr)
+        errLayout.addLayout(errGraphLayout)
+        
+        errTab.setLayout(errLayout)
+        
         
         
         #%% inverted section + export

@@ -329,7 +329,7 @@ class Survey(object):
         # TODO add OK kriging ?
         
     
-    def crossOverPoints(self, coil=None, ax=None, ax1=None, iplot=True):
+    def crossOverPoints(self, coil=None, ax=None):
         ''' Build an error model based on the cross-over points.
         
         Parameters
@@ -349,21 +349,6 @@ class Survey(object):
         ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
         ix, iy = ix[ifar], iy[ifar]
         print('found', len(ix), '/', df.shape[0], 'crossing points')
-        
-        # plot cross-over points
-        xcoord = df['x'].values
-        ycoord = df['y'].values
-        icross = np.unique(np.r_[ix, iy])
-        
-        if iplot is True:
-            if ax1 is None:
-                fig1, ax1 = plt.subplots()
-            ax1.set_title(coil)
-            ax1.plot(xcoord, ycoord, '.')
-            ax1.plot(xcoord[icross], ycoord[icross], 'ro', label='crossing points')
-            ax1.set_xlabel('x [m]')
-            ax1.set_ylabel('y [m]')
-
             
         val = df[coil].values
         x = val[ix]
@@ -391,20 +376,54 @@ class Survey(object):
         self.df[coil + '_err'] = intercept + slope * self.df[coil]
             
         # plot
-        if iplot is True:
-            if ax is None:
-                fig, ax = plt.subplots()
-            ax.set_title(coil)
-            ax.loglog(means, error, '.')
-            ax.loglog(meansBinned, errorBinned, 'o')
-            predError = 10**(intercept + slope * np.log10(means))
-            eq = r'$\epsilon = {:.2f} \times \sigma^{{{:.2f}}}$'.format(10**intercept, slope)
-            isort = np.argsort(means)
-            ax.loglog(means[isort], predError[isort], 'k-', label=eq)
-            ax.legend()
-            ax.set_xlabel(r'Mean $\sigma_a$ [mS/m]')
-            ax.set_ylabel(r'Error $\epsilon$ [mS/m]')
+        if ax is None:
+            fig, ax = plt.subplots()
+        ax.set_title(coil)
+        ax.loglog(means, error, '.')
+        ax.loglog(meansBinned, errorBinned, 'o')
+        predError = 10**(intercept + slope * np.log10(means))
+        eq = r'$\epsilon = {:.2f} \times \sigma^{{{:.2f}}}$'.format(10**intercept, slope)
+        isort = np.argsort(means)
+        ax.loglog(means[isort], predError[isort], 'k-', label=eq)
+        ax.legend()
+        ax.set_xlabel(r'Mean $\sigma_a$ [mS/m]')
+        ax.set_ylabel(r'Error $\epsilon$ [mS/m]')
      
+    
+    
+    def plotCrossOverMap(self, coil=None, ax=None):
+        '''Plot the map of the cross-over points for error model.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Name of the coil.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
+        '''
+        if coil is None:
+            coil = self.coils[0]
+        df = self.df
+        dist = cdist(df[['x', 'y']].values,
+                     df[['x', 'y']].values)
+        minDist = 1 # points at less than 1 m from each other are identical
+        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
+        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
+        ix, iy = ix[ifar], iy[ifar]
+        print('found', len(ix), '/', df.shape[0], 'crossing points')
+        
+        # plot cross-over points
+        xcoord = df['x'].values
+        ycoord = df['y'].values
+        icross = np.unique(np.r_[ix, iy])
+        
+        if ax is None:
+            fig1, ax = plt.subplots()
+        ax.set_title(coil)
+        ax.plot(xcoord, ycoord, '.')
+        ax.plot(xcoord[icross], ycoord[icross], 'ro', label='crossing points')
+        ax.set_xlabel('x [m]')
+        ax.set_ylabel('y [m]')
 
     
     def gfCorrection(self):

@@ -54,6 +54,7 @@ class Problem(object):
         self.surveys = []
         self.models = []
         self.rmses = []
+        self.freqs = []
         
         
         
@@ -317,7 +318,20 @@ class Problem(object):
             
             pass
 
-                    
+
+    def rollingMean(self, window=3):
+        '''Perform a rolling mean on the data.
+        
+        Parameters
+        ----------
+        window : int, optional
+            Size of the windows for rolling mean.
+        '''
+        for survey in self.surveys:
+            survey.rollingMean(window=window)
+            
+            
+        
     def forward(self, forwardModel='CS'):
         '''Forward model.
         
@@ -634,8 +648,12 @@ class Problem(object):
         '''
         survey = Survey(fnameECa)
         if survey.freqs[0] is None: # fallback in case the use doesn't specify the frequency in the headers
-            print('EMI frequency not specified in headers, will use the one from the main data:' + str(self.freqs[0]) + 'Hz')
-            survey.freqs = np.ones(len(survey.freqs))*self.freqs[0]
+            try:
+                survey.freqs = np.ones(len(survey.freqs))*self.freqs[0]
+                print('EMI frequency not specified in headers, will use the one from the main data:' + str(self.freqs[0]) + 'Hz')
+            except:
+                print('Frequency not found, revert to CS')
+                forwardModel = 'CS' # doesn't need frequency
         dfec = pd.read_csv(fnameEC)
         if survey.df.shape[0] != dfec.shape[0]:
             raise ValueError('input ECa and inputEC should have the same number of rows so the measurements can be paired.')
@@ -681,10 +699,40 @@ class Problem(object):
         ax.set_prop_cycle(None)
         ax.plot(obsECa, predECa, '-')
         
-            
+        
+    def crossOverPoints(self, index=0, coil=None, ax=None):
+        ''' Build an error model based on the cross-over points.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Survey index to fit the model on. Default is the first.
+        coil : str, optional
+            Name of the coil.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
+        '''
+        survey = self.surveys[index]
+        survey.crossOverPoints(coil=coil, ax=ax)
+    
+    
+    
+    def plotCrossOverMap(self, index=0, coil=None, ax=None):
+        '''Plot the map of the cross-over points for error model.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Survey index to fit the model on. Default is the first.
+        coil : str, optional
+            Name of the coil.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
+        '''
+        survey = self.surveys[index]
+        survey.plotCrossOverMap(coil=coil, ax=ax)
             
 
-                    
         
 #%%  
 
