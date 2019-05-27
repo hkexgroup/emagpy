@@ -209,7 +209,7 @@ class Problem(object):
                 apps = survey.df[self.coils].values
                 rmse = np.zeros(apps.shape[0])*np.nan
                 model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
-                dump('Survey', i+1, '/', len(self.surveys))
+                dump('Survey {:d}/{:d}'.format(i+1, len(self.surveys)))
                 for j in range(survey.df.shape[0]):
                     app = apps[j,:]
                     if j == 0:
@@ -224,7 +224,7 @@ class Problem(object):
 #                        out = np.ones(len(self.conds0))*np.nan
                     model[j,:] = out
                     rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/len(app))
-                    dump(j+1, '/', apps.shape[0], 'inverted')
+                    dump('{:d}/{:d} inverted'.format(j+1, apps.shape[0]))
                 self.models.append(model)
                 self.rmses.append(rmse)
                     
@@ -232,7 +232,7 @@ class Problem(object):
     # invert them again with a constrain on the 5 nearest profiles by distance
                     
     
-    def invertGN(self, alpha=0.07, alpha_ref=None):
+    def invertGN(self, alpha=0.07, alpha_ref=None, dump=print):
         '''Fast inversion usign Gauss-Newton and cumulative sensitivity.
         
         Parameters
@@ -242,6 +242,8 @@ class Problem(object):
         alpha_ref : float, optional
             Only used for difference inversion to contrain the bottom of
             the profile to not changing (see Annex in Whalley et al., 2017).
+        dump : function, optional
+            Function to output the running inversion.
         '''
         self.models = []
         self.rmses = []
@@ -260,7 +262,7 @@ class Problem(object):
             apps = survey.df[self.coils].values
             rmse = np.zeros(apps.shape[0])*np.nan
             model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
-            print('Survey', i+1, '/', len(self.surveys))
+            dump('Survey {:d}/{:d}'.format(i+1, len(self.surveys)))
             for j in range(survey.df.shape[0]):
                 app = apps[j,:]
                 cond = np.ones((len(self.conds0),1))*np.nanmean(app) # initial EC is the mean of the apparent (doesn't matter)
@@ -277,7 +279,7 @@ class Problem(object):
                 out = cond.flatten()
                 model[j,:] = out
                 rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/len(app))
-                print(j+1, '/', apps.shape[0], 'inverted')
+                dump('{:d}/{:d} inverted'.format(j+1, apps.shape[0]))
             self.models.append(model)
             self.rmses.append(rmse)
 
@@ -433,7 +435,7 @@ class Problem(object):
     
     
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
-                    maxDepth=None, padding=0, cm='viridis_r'):
+                    maxDepth=None, padding=0, cmap='viridis_r'):
         '''Show invertd model.
         
         Parameters
@@ -451,7 +453,7 @@ class Problem(object):
             vmin = np.nanpercentile(sig, 5)
         if vmax is None:
             vmax = np.nanpercentile(sig, 95)
-        cmap = plt.get_cmap(cm)
+        cmap = plt.get_cmap(cmap)
         norm = plt.Normalize(vmin=vmin, vmax=vmax)
         if maxDepth is None:
             maxDepth = np.max(depths) + padding
@@ -482,6 +484,14 @@ class Problem(object):
                 return ''
         ax.format_coord = format_coord
         fig.tight_layout()
+
+
+    
+    def showResults2(self):
+        '''Use pcolormesh to plot faster
+        '''
+        pass
+    # TODO
 
 
     
@@ -531,6 +541,9 @@ class Problem(object):
         ax.set_prop_cycle(None)
         ax.plot(xx, simECa, '^-')
         ax.legend(cols)
+        ax.set_xlabel('Measurements')
+        ax.set_ylabel('Conductivity [mS/m]')
+        ax.set_title('Dots (observed) vs triangles (modelled)')
         
         
         
@@ -555,12 +568,14 @@ class Problem(object):
         cols = survey.coils
         obsECa = survey.df[cols].values
         simECa = dfsForward[index][cols].values
+        rmse = np.sqrt(np.sum((obsECa.flatten() - simECa.flatten())**2)/len(obsECa.flatten()))
         if vmin is None:
             vmin = np.nanpercentile(obsECa.flatten(), 5)
         if vmax is None:
             vmax = np.nanpercentile(obsECa.flatten(), 95)
         if ax is None:
             fig, ax = plt.subplots()
+        ax.set_title('RMSE: {:.3f}'.format(rmse))
         ax.plot(obsECa, simECa, '.')
         ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
         ax.set_xlim([vmin, vmax])
@@ -700,7 +715,7 @@ class Problem(object):
         ax.plot(obsECa, predECa, '-')
         
         
-    def crossOverPoints(self, index=0, coil=None, ax=None):
+    def crossOverPoints(self, index=0, coil=None, ax=None, dump=print):
         ''' Build an error model based on the cross-over points.
         
         Parameters
@@ -711,9 +726,11 @@ class Problem(object):
             Name of the coil.
         ax : Matplotlib.Axes, optional
             Matplotlib axis on which the plot is plotted against if specified.
+        dump : function, optional
+            Function to print the output.
         '''
         survey = self.surveys[index]
-        survey.crossOverPoints(coil=coil, ax=ax)
+        survey.crossOverPoints(coil=coil, ax=ax, dump=dump)
     
     
     
@@ -731,6 +748,53 @@ class Problem(object):
         '''
         survey = self.surveys[index]
         survey.plotCrossOverMap(coil=coil, ax=ax)
+        
+    
+    def showSlice(self, index=0, islice=0, contour=False, vmin=None, vmax=None,
+                  cmap='viridis_r', ax=None):
+        '''Show depth slice.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Survey index. Default is first.
+        islice : int, optional
+            Depth index. Default is first depth.
+        contour : bool, optional
+            If `True` then there will be contouring.
+        vmin : float, optional
+            Minimum value for colorscale.
+        vmax : float, optional
+            Maximum value for colorscale.
+        cmap : str, optional
+            Name of colormap. Default is viridis_r.
+        ax : Matplotlib.Axes, optional
+            If specified, the graph will be plotted against it.
+        '''
+        z = self.models[index][:,islice]
+        x = self.surveys[index].df['x'].values
+        y = self.surveys[index].df['y'].values
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
+        if vmin is None:
+            vmin = np.nanmin(z)
+        if vmax is None:
+            vmax = np.nanmax(z)
+        if contour is False:
+            cax = ax.scatter(x, y, c=z, cmap=cmap, vmin=vmin, vmax=vmax)
+        else:
+            levels = np.linspace(vmin, vmax, 7)
+            cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
+            ax.plot(x, y, 'k+')
+        ax.set_xlabel('x [m]')
+        ax.set_ylabel('y [m]')
+        fig.colorbar(cax, ax=ax, label='Conductivity [mS/m]')
+        depths = np.r_[[0], self.depths0, [-np.inf]]
+        ax.set_title('{:.2f}m - {:.2f}m'.format(depths[islice], depths[islice+1]))
+        
+        
             
 
         
@@ -741,13 +805,13 @@ if __name__ == '__main__':
     k = Problem()
     k.depths0 = np.linspace(0.5, 2, 3) # not starting at 0 !
     k.conds0 = np.ones(len(k.depths0)+1)*20
-#    k.createSurvey('test/coverCrop.csv', freq=30000)
-    k.createSurvey('test/warren170316.csv', freq=30000)
-    k.surveys[0].df = k.surveys[0].df[:3]
+    k.createSurvey('test/coverCrop.csv', freq=30000)
+#    k.createSurvey('test/warren170316.csv', freq=30000)
+#    k.surveys[0].df = k.surveys[0].df[:3]
 #    k.show()
 #    k.lcurve()
-#    k.invertGN(alpha=0.07)
-    k.invert(forwardModel='FSandrade', alpha=0.07, method='Nelder-Mead') # this doesn't work well
+    k.invertGN(alpha=0.07)
+#    k.invert(forwardModel='FSandrade', alpha=0.07, method='Nelder-Mead') # this doesn't work well
 #    k.showMisfit()
     k.showResults() # TODO replace with a polycollection faster ? or pcolormesh if no depth change ?
     k.showOne2one()
@@ -756,7 +820,7 @@ if __name__ == '__main__':
 #    k.forward(forwardModel='FSandrade')
 #    k.calibrate('test/dfeca.csv', 'test/dfec.csv', forwardModel='FS') # TODO
     
-    
+#    k.showSlice(contour=False, cmap='jet', vmin=10, vmax=50)
     
     #%% test for inversion with FSandrade
     cond = np.array([10, 20, 30, 30])

@@ -272,6 +272,19 @@ class Survey(object):
         ax.set_title(coil)
         if contour is True:
             levels = np.linspace(vmin, vmax, 7)
+#            nx = 100
+#            ny = 100
+#            X, Y = np.meshgrid(np.linspace(np.min(x), np.max(x), nx),
+#                           np.linspace(np.min(y), np.max(y), ny))
+#            inside = np.ones(nx*ny)
+#            inside2 = clipConvexHull(x, y, X.flatten(), Y.flatten(), inside)
+#            ie = ~np.isnan(inside2)
+#            Z = idw(X.flatten(), Y.flatten(), x, y, val)
+##            z = griddata(np.c_[x, y], values, (X, Y), method=method)
+#            Z[~ie] = np.nan
+#            Z = Z.reshape(X.shape)
+#            cax = ax.contourf(X, Y, Z, levels=levels)
+#            
             cax = ax.tricontourf(x, y, val, levels=levels, extend='both', cmap=cmap)
             if pts is True:
                 ax.plot(x, y, 'k+')
@@ -329,7 +342,7 @@ class Survey(object):
         # TODO add OK kriging ?
         
     
-    def crossOverPoints(self, coil=None, ax=None):
+    def crossOverPoints(self, coil=None, ax=None, dump=print):
         ''' Build an error model based on the cross-over points.
         
         Parameters
@@ -338,6 +351,8 @@ class Survey(object):
             Name of the coil.
         ax : Matplotlib.Axes, optional
             Matplotlib axis on which the plot is plotted against if specified.
+        dump : function, optional
+            Output function for information.
         '''
         if coil is None:
             coil = self.coils[0]
@@ -349,7 +364,11 @@ class Survey(object):
         ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
         ix, iy = ix[ifar], iy[ifar]
         print('found', len(ix), '/', df.shape[0], 'crossing points')
-            
+        
+        if len(ix) < 10:
+            dump('None or too few colocated measurements found for error model.')
+            return
+        
         val = df[coil].values
         x = val[ix]
         y = val[iy]
@@ -496,18 +515,20 @@ class Survey(object):
 
 
 if __name__ == '__main__':
+    pass
     #s = Survey('test/coverCrop.csv')
     #s.show(coils='HCP0.32')
     #s.showMap(contour=True, vmax=40)
     
-#    s = Survey('test/potatoesLo.csv')
+#    s = Survey('test/trimpLo.csv')
+#    s.convertFromNMEA()
 #    s.show(s.coils[1])
 #    s.keepBetween(-5,11)
 #    s.rollingMean(10)
 #    s.show()
     
 #    s.convertFromNMEA()
-#    s.showMap(contour=True)
+#    s.showMap(contour=True, pts=True)
 #    s.crossOverPoints(s.coils[1])
 #    s.gridData(method='idw')
 #    s.showMap(s.coils[1])
@@ -518,6 +539,6 @@ if __name__ == '__main__':
 
 #%%
 
-    s = Survey()
-    s.importGF('test/coverCropLo.dat', 'test/coverCropHi.dat')
+#    s = Survey()
+#    s.importGF('test/coverCropLo.dat', 'test/coverCropHi.dat')
     
