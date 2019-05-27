@@ -118,7 +118,7 @@ class Survey(object):
             else:
                 height = 0
         else:
-            freq = None
+            freq = 30000 # Hz default is not specified !!
             height = 0
         return {'orientation': orientation,
                 'coilSeparation': coilSeparation,
@@ -258,6 +258,8 @@ class Survey(object):
         '''
         if coil is None:
             coil = self.coils[0]
+#        if coil == 'all': # trick for ui
+#            coil = self.coils[-1]
         x = self.df['x'].values
         y = self.df['y'].values
         val = self.df[coil].values
@@ -515,10 +517,9 @@ class Survey(object):
 
 
 if __name__ == '__main__':
-    pass
-    #s = Survey('test/coverCrop.csv')
+    s = Survey('test/coverCrop.csv')
     #s.show(coils='HCP0.32')
-    #s.showMap(contour=True, vmax=40)
+    s.showMap(coil='all', contour=True, vmax=40, pts=True)
     
 #    s = Survey('test/trimpLo.csv')
 #    s.convertFromNMEA()

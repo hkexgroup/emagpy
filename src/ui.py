@@ -241,6 +241,8 @@ class App(QMainWindow):
                 for coil in self.problem.coils:
                     coilCombo.addItem(coil)
                     coilErrCombo.addItem(coil)
+                coilCombo.addItem('all')
+                coilCombo.setCurrentIndex(len(self.problem.coils))
                 surveyInvCombo.disconnect()
                 surveyInvMapCombo.disconnect()
                 for survey in self.problem.surveys:
@@ -255,6 +257,7 @@ class App(QMainWindow):
                 if 'Latitude' in survey.df.columns:
                     projBtn.setEnabled(True)
                     projEdit.setEnabled(True)
+                    projBtnFunc() # automatically convert NMEA string
                 
                 showRadio.setChecked(True)
                 contourCheck.setChecked(False)
@@ -378,17 +381,15 @@ class App(QMainWindow):
                       'vmax':None,'pts':False, 'cmap':'viridis_r'} 
   
         ptsLabel = QLabel('Points')
+        ptsLabel.setVisible(False)
         def ptsCheckFunc(state):
-            if state is True:
-                showParams['pts'] = True
-            else:
-                showParams['pts'] = False
+            showParams['pts'] = state
             mwRaw.replot(**showParams)
         ptsCheck = QCheckBox()
         ptsCheck.setToolTip('Show measurements points')
+        ptsCheck.setVisible(False)
     
         def showRadioFunc(state):
-            showMapOptions(False)
             mwRaw.setCallback(self.problem.show)
             mwRaw.replot(**showParams)
         showRadio = QRadioButton('Raw')
@@ -396,7 +397,7 @@ class App(QMainWindow):
         showRadio.toggled.connect(showRadioFunc)
         showRadio.setEnabled(False)
         def mapRadioFunc(state):
-            showMapOptions(True)
+            showMapOptions(state)
             mwRaw.setCallback(self.problem.showMap)
             mwRaw.replot(**showParams)
         mapRadio = QRadioButton('Map')
@@ -414,22 +415,27 @@ class App(QMainWindow):
                                 'border-style:inset;}')
     
         contourLabel = QLabel('Contour')
+        contourLabel.setVisible(False)
         def contourCheckFunc(state):
-            if state is True:
-                showParams['contour'] = True
-            else:
-                showParams['contour'] = False
+            showParams['contour'] = state
             mwRaw.replot(**showParams)
         contourCheck = QCheckBox()
         contourCheck.setEnabled(False)
         contourCheck.clicked.connect(contourCheckFunc)
+        contourCheck.setVisible(False)
         
         def showMapOptions(arg):
             objs = [ptsLabel, ptsCheck, contourLabel, contourCheck]
             [o.setVisible(arg) for o in objs]
-        
-        showMapOptions(False)
-        
+            if arg is False:
+                coilCombo.addItem('all')
+            else:
+                n = len(self.problem.coils)
+                if coilCombo.currentIndex() == n:
+                    coilCombo.setCurrentIndex(n-1)
+                coilCombo.removeItem(n)
+            print([coilCombo.itemText(i) for i in range(coilCombo.count())])
+                
         vminEdit = QLineEdit('')
         vminEdit.setValidator(QDoubleValidator())
         vmaxEdit = QLineEdit('')
@@ -450,17 +456,7 @@ class App(QMainWindow):
         for cmap in cmaps:
             cmapCombo.addItem(cmap)
         cmapCombo.currentIndexChanged.connect(cmapComboFunc)
-        
-        '''
-        TODO options:
-        - select coils -> QComboBox (get the coil list from self.problem.coils)
-            - two buttons one for show() one for showMap() all inside a QGroupButton with setExclusive(True
-            see https://stackoverflow.com/questions/12472817/qt-squared-radio-button)
-        - vmin/vmax as QLineEdit() with double validator and QLabel
-        - apply button to apply the vmin/vmax
-        - QCombox to change the colorscale (showMap only, disable for show)
-        some options needs to hidden (.setVisible(False)) is show() or showMap is done
-        '''
+
         # display it
         mwRaw = MatplotlibWidget()
         
@@ -494,10 +490,6 @@ class App(QMainWindow):
         midLayout.addWidget(surveyCombo)
         midLayout.addWidget(QLabel('Select coil:'))
         midLayout.addWidget(coilCombo)
-        midLayout.addWidget(contourLabel)
-        midLayout.addWidget(contourCheck)
-        midLayout.addWidget(ptsLabel)
-        midLayout.addWidget(ptsCheck)
         midLayout.addWidget(showGroup)
         midLayout.addWidget(QLabel('Vmin:'))
         midLayout.addWidget(vminEdit)
@@ -505,6 +497,10 @@ class App(QMainWindow):
         midLayout.addWidget(vmaxEdit)
         midLayout.addWidget(applyBtn)
         midLayout.addWidget(cmapCombo)
+        midLayout.addWidget(contourLabel)
+        midLayout.addWidget(contourCheck)
+        midLayout.addWidget(ptsLabel)
+        midLayout.addWidget(ptsCheck)
         
         
         importLayout.addLayout(topLayout)
@@ -514,47 +510,33 @@ class App(QMainWindow):
         
         importTab.setLayout(importLayout)
         
-        
-        '''
-        TODO
-        - tab1: data import (choice of sensors)
-        - tab2: calibration + error model
-        - tab3: inversion settings
-            - model definition (layer, initial model)
-            - inversion (smoothing, lateral constrain, full or CS, choice of method for minimize)
-        - tab4: display of inverted section + export graph/data
-        - tab5: goodness of fit (1:1) and 2D graph
-        '''
-        # TODO all for show but not for showMap ?
-        
-        
 
         
-        #%% filtering data
-        filterTab = QTabWidget()
-        tabs.addTab(filterTab, 'Filtering')
-
-        '''TODO add filtering tab ?
-        - add filtering tab with vmin/vmax filtering
-        - pointsKiller
-        - regridding of spatial data
-        - rolling mean
-        - how replace point by :
-        
-        '''        
-        
-        
-        
-        # graph
-        mwFiltered = MatplotlibWidget()
-        
-        
-        
-        # layout
-        filterLayout = QVBoxLayout()
-        
-        filterTab.setLayout(filterLayout)
-        
+#        #%% filtering data
+#        filterTab = QTabWidget()
+#        tabs.addTab(filterTab, 'Filtering')
+#
+#        '''TODO add filtering tab ?
+#        - add filtering tab with vmin/vmax filtering
+#        - pointsKiller
+#        - regridding of spatial data
+#        - rolling mean
+#        - how replace point by :
+#        
+#        '''        
+#        
+#        
+#        
+#        # graph
+#        mwFiltered = MatplotlibWidget()
+#        
+#        
+#        
+#        # layout
+#        filterLayout = QVBoxLayout()
+#        
+#        filterTab.setLayout(filterLayout)
+#        
         
         
         #%% calibration
@@ -775,6 +757,11 @@ class App(QMainWindow):
         alphaEdit = QLineEdit('0.07')
         alphaEdit.setValidator(QDoubleValidator())
         
+        lCombo = QComboBox()
+        lCombo.addItem('l1')
+        lCombo.addItem('l2')
+        lCombo.setCurrentIndex(1)
+        
         def logTextFunc(arg):
             logText.setText(arg)
             QApplication.processEvents()
@@ -789,6 +776,7 @@ class App(QMainWindow):
             depths0, conds0 = modelTable.getTable()
             self.problem.depths0 = depths0
             self.problem.conds0 = conds0
+            regularization = lCombo.itemText(lCombo.currentIndex())
             alpha = float(alphaEdit.text()) if alphaEdit.text() != '' else 0.07
             forwardModel = forwardCombo.itemText(forwardCombo.currentIndex())
             depths = np.r_[[0], depths0, [-np.inf]]
@@ -803,17 +791,21 @@ class App(QMainWindow):
                 self.problem.invertGN(alpha=alpha, dump=logTextFunc)
             else:
                 self.problem.invert(forwardModel=forwardModel, alpha=alpha,
-                                    dump=logTextFunc)
+                                    dump=logTextFunc, regularization=regularization)
             
             # plot results
-            mwInv.plot(self.problem.showResults)
-            mwInvMap.plot(self.problem.showSlice)
+            mwInv.setCallback(self.problem.showResults)
+            mwInv.replot(**showInvParams)
+            mwInvMap.setCallback(self.problem.showSlice)
+            mwInvMap.replot(**showInvMapParams)
             mwMisfit.plot(self.problem.showMisfit)
             mwOne2One.plot(self.problem.showOne2one)
             outputStack.setCurrentIndex(1)
         invertBtn = QPushButton('Invert')
         invertBtn.clicked.connect(invertBtnFunc)
         
+        
+        # profile display
         showInvParams = {'index':0, 'vmin':None, 'vmax':None, 'cmap':'viridis_r'}
         
         def cmapInvComboFunc(index):
@@ -917,6 +909,7 @@ class App(QMainWindow):
         invOptions.addWidget(forwardCombo, 15)
         invOptions.addWidget(alphaLabel, 10)
         invOptions.addWidget(alphaEdit, 10)
+        invOptions.addWidget(lCombo, 5)
         invOptions.addWidget(invertBtn, 25)
         invLayout.addLayout(invOptions)
         
@@ -929,7 +922,6 @@ class App(QMainWindow):
         outputResW.setLayout(outputRes)
         outputStack.addWidget(outputLogW)
         outputStack.addWidget(outputResW)
-#        outputStack.setCurrentIndex(1)
         
         outputRes.addWidget(graphTabs)
         
@@ -1074,20 +1066,13 @@ if __name__ == '__main__':
     app.processEvents()
 
     print ('importing pandas')
-    import pandas as pd
     progressBar.setValue(6)
-    app.processEvents()
-
-    print('importing python libraries')
-    from datetime import datetime
-    progressBar.setValue(8)
     app.processEvents()
 
     # library needed for update checker + wine checker
     print('other needed libraries')
     import platform
     OS = platform.system()
-    from subprocess import PIPE, Popen
 #    from urllib import request as urlRequest
 #    import webbrowser
 
