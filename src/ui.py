@@ -149,6 +149,7 @@ class MatplotlibWidget(QWidget):
         ax = self.figure.add_subplot(111)
         ax.set_aspect('auto')
         callback(ax=ax, **kwargs)
+        self.callback = callback
         if self.itight is True:
             self.figure.tight_layout()
         self.canvas.draw()
@@ -230,15 +231,34 @@ class App(QMainWindow):
         def importBtnFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
             if fname != '':
+                importBtn.setText(os.path.basename(fname))
                 self.problem.createSurvey(fname)
                 mwRaw.setCallback(self.problem.show)
                 mwRaw.replot()
+                
                 # fill the combobox with survey and coil names
                 coilCombo.clear()
                 for coil in self.problem.coils:
                     coilCombo.addItem(coil)
+                    coilErrCombo.addItem(coil)
+                coilCombo.addItem('all')
+                coilCombo.setCurrentIndex(len(self.problem.coils))
+                surveyInvCombo.disconnect()
+                surveyInvMapCombo.disconnect()
                 for survey in self.problem.surveys:
                     surveyCombo.addItem(survey.name)
+                    surveyErrCombo.addItem(survey.name)
+                    surveyInvCombo.addItem(survey.name)
+                    surveyInvMapCombo.addItem(survey.name)
+                surveyInvCombo.currentIndexChanged.connect(surveyInvComboFunc)
+                surveyInvMapCombo.currentIndexChanged.connect(surveyInvMapComboFunc)
+                
+                # enable widgets
+                if 'Latitude' in survey.df.columns:
+                    projBtn.setEnabled(True)
+                    projEdit.setEnabled(True)
+                    projBtnFunc() # automatically convert NMEA string
+                
                 showRadio.setChecked(True)
                 contourCheck.setChecked(False)
                 infoDump(fname + ' well imported')
@@ -280,6 +300,18 @@ class App(QMainWindow):
         showGF(False)
 
         
+        # projection
+        projEdit = QLineEdit('27700')
+        projEdit.setValidator(QDoubleValidator())
+        projEdit.setEnabled(False)
+        def projBtnFunc():
+            val = float(projEdit.text()) if projEdit.text() != '' else None
+            self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
+            mwRaw.replot(**showParams)
+        projBtn = QPushButton('Convert NMEA')
+        projBtn.clicked.connect(projBtnFunc)
+        projBtn.setEnabled(False)
+        
         
         # filtering options
         vminfLabel = QLabel('Vmin')
@@ -298,12 +330,13 @@ class App(QMainWindow):
         
         rollingLabel = QLabel('Window size:')
         rollingEdit = QLineEdit('3')
-#        rollingEdit.setValidator(QIntegerValidator())
+        rollingEdit.setValidator(QIntValidator())
         def rollingBtnFunc():
-            window = float(rollingEdit.text()) if rollingEdit.text() != '' else None
+            window = int(rollingEdit.text()) if rollingEdit.text() != '' else None
             self.problem.rollingMean(window=window)
             mwRaw.replot(**showParams)
         rollingBtn = QPushButton('Rolling Mean')
+        rollingBtn.clicked.connect(rollingBtnFunc)
         
         def ptsKillerBtnFunc():
             pass
@@ -347,13 +380,14 @@ class App(QMainWindow):
         showParams = {'index': 0, 'coil':None, 'contour':False, 'vmin':None,
                       'vmax':None,'pts':False, 'cmap':'viridis_r'} 
   
+        ptsLabel = QLabel('Points')
+        ptsLabel.setVisible(False)
         def ptsCheckFunc(state):
-            if state is True:
-                showParams['pts'] = True
-            else:
-                showParams['pts'] = False
+            showParams['pts'] = state
             mwRaw.replot(**showParams)
         ptsCheck = QCheckBox()
+        ptsCheck.setToolTip('Show measurements points')
+        ptsCheck.setVisible(False)
     
         def showRadioFunc(state):
             mwRaw.setCallback(self.problem.show)
@@ -363,6 +397,7 @@ class App(QMainWindow):
         showRadio.toggled.connect(showRadioFunc)
         showRadio.setEnabled(False)
         def mapRadioFunc(state):
+            showMapOptions(state)
             mwRaw.setCallback(self.problem.showMap)
             mwRaw.replot(**showParams)
         mapRadio = QRadioButton('Map')
@@ -379,16 +414,28 @@ class App(QMainWindow):
         showGroup.setStyleSheet('QGroupBox{border: 0px;'
                                 'border-style:inset;}')
     
+        contourLabel = QLabel('Contour')
+        contourLabel.setVisible(False)
         def contourCheckFunc(state):
-            if state is True:
-                showParams['contour'] = True
-            else:
-                showParams['contour'] = False
+            showParams['contour'] = state
             mwRaw.replot(**showParams)
         contourCheck = QCheckBox()
         contourCheck.setEnabled(False)
         contourCheck.clicked.connect(contourCheckFunc)
+        contourCheck.setVisible(False)
         
+        def showMapOptions(arg):
+            objs = [ptsLabel, ptsCheck, contourLabel, contourCheck]
+            [o.setVisible(arg) for o in objs]
+            if arg is False:
+                coilCombo.addItem('all')
+            else:
+                n = len(self.problem.coils)
+                if coilCombo.currentIndex() == n:
+                    coilCombo.setCurrentIndex(n-1)
+                coilCombo.removeItem(n)
+            print([coilCombo.itemText(i) for i in range(coilCombo.count())])
+                
         vminEdit = QLineEdit('')
         vminEdit.setValidator(QDoubleValidator())
         vmaxEdit = QLineEdit('')
@@ -401,15 +448,6 @@ class App(QMainWindow):
         applyBtn = QPushButton('Apply')
         applyBtn.clicked.connect(applyBtnFunc)
         
-        projEdit = QLineEdit('27700')
-        projEdit.setValidator(QDoubleValidator())
-        def projBtnFunc():
-            val = float(projEdit.text()) if projEdit.text() != '' else None
-            self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
-            mwRaw.replot(**showParams)
-        projBtn = QPushButton('Convert NMEA')
-        projBtn.clicked.connect(projBtnFunc)
-        
         def cmapComboFunc(index):
             showParams['cmap'] = cmaps[index]
             mwRaw.replot(**showParams)
@@ -418,17 +456,7 @@ class App(QMainWindow):
         for cmap in cmaps:
             cmapCombo.addItem(cmap)
         cmapCombo.currentIndexChanged.connect(cmapComboFunc)
-        
-        '''
-        TODO options:
-        - select coils -> QComboBox (get the coil list from self.problem.coils)
-            - two buttons one for show() one for showMap() all inside a QGroupButton with setExclusive(True
-            see https://stackoverflow.com/questions/12472817/qt-squared-radio-button)
-        - vmin/vmax as QLineEdit() with double validator and QLabel
-        - apply button to apply the vmin/vmax
-        - QCombox to change the colorscale (showMap only, disable for show)
-        some options needs to hidden (.setVisible(False)) is show() or showMap is done
-        '''
+
         # display it
         mwRaw = MatplotlibWidget()
         
@@ -436,16 +464,16 @@ class App(QMainWindow):
         importLayout = QVBoxLayout()
         
         topLayout = QHBoxLayout()
-        topLayout.addWidget(sensorCombo)
-        topLayout.addWidget(importBtn)
-        topLayout.addWidget(importGFLo)
-        topLayout.addWidget(importGFHi)
-        topLayout.addWidget(hxLabel)
-        topLayout.addWidget(hxEdit)
-        topLayout.addWidget(importGFApply)
-        topLayout.addWidget(QLabel('EPSG:'))
-        topLayout.addWidget(projEdit)
-        topLayout.addWidget(projBtn)
+        topLayout.addWidget(sensorCombo, 15)
+        topLayout.addWidget(importBtn, 15)
+        topLayout.addWidget(importGFLo, 10)
+        topLayout.addWidget(importGFHi, 10)
+        topLayout.addWidget(hxLabel, 10)
+        topLayout.addWidget(hxEdit, 10)
+        topLayout.addWidget(importGFApply, 10)
+        topLayout.addWidget(QLabel('EPSG:'), 5)
+        topLayout.addWidget(projEdit, 10)
+        topLayout.addWidget(projBtn, 10)
         
         filtLayout = QHBoxLayout()
         filtLayout.addWidget(vminfLabel)
@@ -453,6 +481,7 @@ class App(QMainWindow):
         filtLayout.addWidget(vmaxfLabel)
         filtLayout.addWidget(vmaxfEdit)
         filtLayout.addWidget(keepApplyBtn)
+        filtLayout.addWidget(rollingLabel)
         filtLayout.addWidget(rollingEdit)
         filtLayout.addWidget(rollingBtn)
         filtLayout.addWidget(ptsKillerBtn)
@@ -461,10 +490,6 @@ class App(QMainWindow):
         midLayout.addWidget(surveyCombo)
         midLayout.addWidget(QLabel('Select coil:'))
         midLayout.addWidget(coilCombo)
-        midLayout.addWidget(QLabel('Contour:'))
-        midLayout.addWidget(contourCheck)
-        midLayout.addWidget(QLabel('Points:'))
-        midLayout.addWidget(ptsCheck)
         midLayout.addWidget(showGroup)
         midLayout.addWidget(QLabel('Vmin:'))
         midLayout.addWidget(vminEdit)
@@ -472,6 +497,10 @@ class App(QMainWindow):
         midLayout.addWidget(vmaxEdit)
         midLayout.addWidget(applyBtn)
         midLayout.addWidget(cmapCombo)
+        midLayout.addWidget(contourLabel)
+        midLayout.addWidget(contourCheck)
+        midLayout.addWidget(ptsLabel)
+        midLayout.addWidget(ptsCheck)
         
         
         importLayout.addLayout(topLayout)
@@ -481,130 +510,455 @@ class App(QMainWindow):
         
         importTab.setLayout(importLayout)
         
-        
-        '''
-        TODO
-        - tab1: data import (choice of sensors)
-        - tab2: calibration + error model
-        - tab3: inversion settings
-            - model definition (layer, initial model)
-            - inversion (smoothing, lateral constrain, full or CS, choice of method for minimize)
-        - tab4: display of inverted section + export graph/data
-        - tab5: goodness of fit (1:1) and 2D graph
-        '''
-        # TODO all for show but not for showMap ?
-        
-        
 
         
-        #%% filtering data
-        filterTab = QTabWidget()
-        tabs.addTab(filterTab, 'Filtering')
-
-        '''TODO add filtering tab ?
-        - add filtering tab with vmin/vmax filtering
-        - pointsKiller
-        - regridding of spatial data
-        - rolling mean
-        - how replace point by :
+#        #%% filtering data
+#        filterTab = QTabWidget()
+#        tabs.addTab(filterTab, 'Filtering')
+#
+#        '''TODO add filtering tab ?
+#        - add filtering tab with vmin/vmax filtering
+#        - pointsKiller
+#        - regridding of spatial data
+#        - rolling mean
+#        - how replace point by :
+#        
+#        '''        
+#        
+#        
+#        
+#        # graph
+#        mwFiltered = MatplotlibWidget()
+#        
+#        
+#        
+#        # layout
+#        filterLayout = QVBoxLayout()
+#        
+#        filterTab.setLayout(filterLayout)
+#        
         
-        '''        
         
+        #%% calibration
+        calibTab = QTabWidget()
+        tabs.addTab(calibTab, 'ERT Calibration')
+        
+        def ecaImportBtnFunc():
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
+            if fname != '':
+                self.fnameECa = fname
+                ecaImportBtn.setText(os.path.basename(fname))
+        ecaImportBtn = QPushButton('Import ECa')
+        ecaImportBtn.clicked.connect(ecaImportBtnFunc)
+        
+        def ecImportBtnFunc():
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
+            if fname != '':
+                self.fnameEC = fname
+                ecImportBtn.setText(os.path.basename(fname))
+        ecImportBtn = QPushButton('Import EC profiles')
+        ecImportBtn.clicked.connect(ecImportBtnFunc)
+        
+        forwardCalibCombo = QComboBox()
+        forwardCalibs = ['CS', 'FS', 'FSandrade']
+        for forwardCalib in forwardCalibs:
+            forwardCalibCombo.addItem(forwardCalib)
+        
+        def fitCalibBtnFunc():
+            forwardModel = forwardCalibCombo.itemText(forwardCalibCombo.currentIndex())
+            mwCalib.setCallback(self.problem.calibrate)
+            mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
+                           forwardModel=forwardModel)
+        fitCalibBtn = QPushButton('Fit calibration')
+        fitCalibBtn.clicked.connect(fitCalibBtnFunc)
+        
+        
+        def applyCalibBtnFunc():
+            infoDump('Calibration applied')
+        applyCalibBtn = QPushButton('Apply Calibration')
+        applyCalibBtn.clicked.connect(applyCalibBtnFunc)
         
         
         # graph
-        mwFiltered = MatplotlibWidget()
-        
-        
-        
-        # layout
-        filterLayout = QVBoxLayout()
-        
-        filterTab.setLayout(filterLayout)
-        
-        
-        
-        #%% calibration and error model
-        calibTab = QTabWidget()
-        tabs.addTab(calibTab, 'Calibration and error model')
-        
-        '''
-        TODO as subtabs ? in a QHBoxLayout ?
-        calibration:
-            - QPushButton for importing calibration data (ECa)
-            - QPushButton for importing calibration data (EC profiles)
-            - QCombox for which forward model to use for the EC->ECa
-            - QPushButton for plotting the calibration (Problem.calibrate())
-            -> this plot the calibration graph
-            - QPushButton to apply the calibration
-        error model:
-            - QPushButton to fit error model
-            -> this plot the error model graph
-        '''
-        
+        mwCalib = MatplotlibWidget()
         
         
         # layout
         calibLayout = QVBoxLayout()
+        calibOptions = QHBoxLayout()
+        calibOptions.addWidget(ecaImportBtn)
+        calibOptions.addWidget(ecImportBtn)
+        calibOptions.addWidget(forwardCalibCombo)
+        calibOptions.addWidget(fitCalibBtn)
+        calibOptions.addWidget(applyCalibBtn)
+        calibLayout.addLayout(calibOptions)
+        calibLayout.addWidget(mwCalib)
         
         calibTab.setLayout(calibLayout)
         
         
-        #%% inverted section + export
-        invTab = QTabWidget()
-        tabs.addTab(invTab, 'Inversion')
+        #%% error model
+        errTab = QTabWidget()
+        tabs.addTab(errTab, 'Error Modelling')
         
-        '''TODO
-        - combobox with forward choice
-        - combobox with l1/l2
-        - combobox with 1d, 2d, 3d or 4d inversion
-        - qlineedit with damping factor
-        - qpushbutton for lcurve ?
-        - multi-tab or qstacked layout with:
-            - .showResults() + surveyCombo vmin/vmax apply cmap exportModels
-            - .lcurve() ?
-            - current log while doing inversion
-        '''
-#        def forwardComboFunc(index):
-#            print('model = ', forwardCombo.itemText(index))
-        forwardCombo = QComboBox()
-        forwardModels = ['CS', 'FS', 'FSandrade']
-        for forwardModel in forwardModels:
-            forwardCombo.addItem(forwardModel)
+        surveyErrCombo = QComboBox()
         
-        def invertBtnFunc():
-            forwardModel = forwardCombo.itemText(forwardCombo.currentIndex())
-            print(forwardModel)
-            self.problem.invert(forwardModel=forwardModel)
-            mwInv.plot(self.problem.showResults)
-        invertBtn = QPushButton('Invert Minimize')
-        invertBtn.clicked.connect(invertBtnFunc)
+        coilErrCombo = QComboBox()
         
-        def invertGNBtnFunc():
-            self.problem.invertGN()
-            mwInv.plot(self.problem.showResults)
-        invertGNBtn = QPushButton('Invert GN')
-        invertGNBtn.clicked.connect(invertGNBtnFunc)
-        
-        showInvParams = {'vmin':None, 'vmax':None, 'cmap':'viridis_r'}
-        
+        def fitErrBtnFunc():
+            index = surveyErrCombo.currentIndex()
+            coil = coilErrCombo.itemText(coilErrCombo.currentIndex())
+            mwErr.setCallback(self.problem.crossOverPoints)
+            mwErr.replot(index=index, coil=coil, dump=infoDump)
+            mwErrMap.setCallback(self.problem.plotCrossOverMap)
+            mwErrMap.replot(index=index, coil=coil)
+        fitErrBtn = QPushButton('Fit Error Model based on colocated measurements')
+        fitErrBtn.clicked.connect(fitErrBtnFunc)
         
         
         # graph
-        mwInv = MatplotlibWidget()
+        mwErr = MatplotlibWidget()
+        mwErrMap = MatplotlibWidget()
         
+        # layout
+        errLayout = QVBoxLayout()
+        errOptionLayout = QHBoxLayout()
+        errOptionLayout.addWidget(surveyErrCombo)
+        errOptionLayout.addWidget(coilErrCombo)
+        errOptionLayout.addWidget(fitErrBtn)
+        errLayout.addLayout(errOptionLayout)
+        errGraphLayout = QHBoxLayout()
+        errGraphLayout.addWidget(mwErrMap)
+        errGraphLayout.addWidget(mwErr)
+        errLayout.addLayout(errGraphLayout)
+        
+        errTab.setLayout(errLayout)
+        
+        
+        
+        #%% inversion settings (starting model + lcurve)
+        settingsTab = QTabWidget()
+        tabs.addTab(settingsTab, 'Inversion Settings')
+        
+        class ModelTable(QTableWidget):
+            def __init__(self, nrow=3, headers=['Bottom depth of layer [m]', 'EC [mS/m]']):
+                ncol = len(headers)
+                super(ModelTable, self).__init__(nrow, ncol)
+                self.nrow = nrow
+                self.ncol = ncol
+                self.headers = headers
+                self.setHorizontalHeaderLabels(self.headers)
+                self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                
+            def setTable(self, depths0, conds0):
+                self.clear()
+                for i, depth in enumerate(depths0):
+                    self.setItem(i, 0, QTableWidgetItem('{:.3f}'.format(depth)))
+                for j in range(i+1, self.nrow-1):
+                    self.setItem(j, 0, QTableWidgetItem('0.0'))
+                self.setItem(self.nrow - 1, 0, QTableWidgetItem('-'))
+                self.item(self.nrow - 1, 0).setFlags(Qt.ItemIsEnabled)
+                for i, cond in enumerate(conds0):
+                    self.setItem(i, 1, QTableWidgetItem('{:.2f}'.format(cond)))
+                for j in range(i+1, self.nrow):
+                    self.setItem(j, 1, QTableWidgetItem('20.0'))
+
+#            def keyPressEvent(self, e):
+##                print(e.modifiers(), 'and', e.key())
+#                if (e.modifiers() == Qt.ControlModifier) & (e.key() == Qt.Key_V):
+#                    cell = self.selectedIndexes()[0]
+#                    c0, r0 = cell.column(), cell.row()
+#                    self.paste(c0, r0)
+#                elif e.modifiers() != Qt.ControlModifier: # start editing
+##                    print('start editing...')
+#                    cell = self.selectedIndexes()[0]
+#                    c0, r0 = cell.column(), cell.row()
+#                    self.editItem(self.item(r0,c0))
+
+            def getTable(self):
+                depths0 = np.zeros(self.nrow - 1)
+                conds0 = np.zeros(self.nrow)
+                for i in range(self.nrow -1):
+                    depths0[i] = float(self.item(i, 0).text())
+                for i in range(self.nrow):
+                    conds0[i] = float(self.item(i, 1).text())
+                return depths0, conds0
+            
+            def addRow(self):
+                depths0, conds0 = self.getTable()
+                self.nrow += 1
+                self.setRowCount(self.nrow)
+                self.setTable(depths0, conds0)
+                
+            def delRow(self):
+                depths0, conds0 = self.getTable()
+                self.nrow -= 1
+                self.setTable(depths0, conds0)
+                self.setRowCount(self.nrow)
+                
+
+        
+        modelLabel = QLabel('Depth of bottom layer and starting conductivity of each layer.')
+        
+        def addRowBtnFunc():
+            modelTable.addRow()
+        addRowBtn = QPushButton('Add Row')
+        addRowBtn.clicked.connect(addRowBtnFunc)
+        
+        def delRowBtnFunc():
+            modelTable.delRow()
+        delRowBtn = QPushButton('Remove Row')
+        delRowBtn.clicked.connect(delRowBtnFunc)
+        
+        modelTable = ModelTable()
+        modelTable.setTable(self.problem.depths0, self.problem.conds0)
+        
+        
+        def lcurveBtnFunc():
+            mwlcurve.plot(self.problem.lcurve)
+        lcurveBtn = QPushButton('Fit L-curve')
+        lcurveBtn.clicked.connect(lcurveBtnFunc)
+        
+        
+        # graph
+        mwlcurve = MatplotlibWidget()
+        
+        
+        # layout
+        settingsLayout = QHBoxLayout()
+        
+        invStartLayout = QVBoxLayout()
+        invStartLayout.addWidget(modelLabel)
+        invStartLayout.addWidget(addRowBtn)
+        invStartLayout.addWidget(delRowBtn)
+        invStartLayout.addWidget(modelTable)
+        settingsLayout.addLayout(invStartLayout)
+        
+        invlcurveLayout = QVBoxLayout()
+        invlcurveLayout.addWidget(lcurveBtn)
+        invlcurveLayout.addWidget(mwlcurve)
+        settingsLayout.addLayout(invlcurveLayout)
+        
+        
+        settingsTab.setLayout(settingsLayout)
+        
+        
+        #%% invert graph
+        invTab = QTabWidget()
+        tabs.addTab(invTab, 'Inversion')
+        
+        
+        forwardCombo = QComboBox()
+        forwardModels = ['CS (fast)', 'CS', 'FS', 'FSandrade']
+        for forwardModel in forwardModels:
+            forwardCombo.addItem(forwardModel)
+        
+        alphaLabel = QLabel('Damping factor:')
+        alphaEdit = QLineEdit('0.07')
+        alphaEdit.setValidator(QDoubleValidator())
+        
+        lCombo = QComboBox()
+        lCombo.addItem('l1')
+        lCombo.addItem('l2')
+        lCombo.setCurrentIndex(1)
+        
+        def logTextFunc(arg):
+            logText.setText(arg)
+            QApplication.processEvents()
+        logText = QTextEdit('hellow there !')
+        logText.setReadOnly(True)
+        
+        def invertBtnFunc():
+            outputStack.setCurrentIndex(0)
+            logText.clear()
+            
+            # collect parameters
+            depths0, conds0 = modelTable.getTable()
+            self.problem.depths0 = depths0
+            self.problem.conds0 = conds0
+            regularization = lCombo.itemText(lCombo.currentIndex())
+            alpha = float(alphaEdit.text()) if alphaEdit.text() != '' else 0.07
+            forwardModel = forwardCombo.itemText(forwardCombo.currentIndex())
+            depths = np.r_[[0], depths0, [-np.inf]]
+            sliceCombo.disconnect()
+            sliceCombo.clear()
+            for i in range(len(depths)-1):
+                sliceCombo.addItem('{:.2f}m - {:.2f}m'.format(depths[i], depths[i+1]))
+            sliceCombo.currentIndexChanged.connect(sliceComboFunc)
+            
+            # invert
+            if forwardModel == 'CS (fast)':
+                self.problem.invertGN(alpha=alpha, dump=logTextFunc)
+            else:
+                self.problem.invert(forwardModel=forwardModel, alpha=alpha,
+                                    dump=logTextFunc, regularization=regularization)
+            
+            # plot results
+            mwInv.setCallback(self.problem.showResults)
+            mwInv.replot(**showInvParams)
+            mwInvMap.setCallback(self.problem.showSlice)
+            mwInvMap.replot(**showInvMapParams)
+            mwMisfit.plot(self.problem.showMisfit)
+            mwOne2One.plot(self.problem.showOne2one)
+            outputStack.setCurrentIndex(1)
+        invertBtn = QPushButton('Invert')
+        invertBtn.clicked.connect(invertBtnFunc)
+        
+        
+        # profile display
+        showInvParams = {'index':0, 'vmin':None, 'vmax':None, 'cmap':'viridis_r'}
+        
+        def cmapInvComboFunc(index):
+            showInvParams['cmap'] = cmapInvCombo.itemText(index)
+            mwInv.replot(**showInvParams)
+        cmapInvCombo = QComboBox()
+        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow']
+        for cmap in cmaps:
+            cmapInvCombo.addItem(cmap)
+        cmapInvCombo.currentIndexChanged.connect(cmapInvComboFunc)
+        
+        def surveyInvComboFunc(index):
+            showInvParams['index'] = index
+            mwInv.replot(**showParams)    
+        surveyInvCombo = QComboBox()
+        surveyInvCombo.currentIndexChanged.connect(surveyInvComboFunc)
+        
+        vminInvLabel = QLabel('vmin:')
+        vminInvEdit = QLineEdit('')
+        vminInvEdit.setValidator(QDoubleValidator())
+        
+        vmaxInvLabel = QLabel('vmax:')
+        vmaxInvEdit = QLineEdit('')
+        vmaxInvEdit.setValidator(QDoubleValidator())
+        
+        def applyInvBtnFunc():
+            vmin = float(vminInvEdit.text()) if vminInvEdit.text() != '' else None
+            vmax = float(vmaxInvEdit.text()) if vmaxInvEdit.text() != '' else None
+            showInvParams['vmin'] = vmin
+            showInvParams['vmax'] = vmax
+            mwInv.replot(**showInvParams)
+        applyInvBtn = QPushButton('Apply')
+        applyInvBtn.clicked.connect(applyInvBtnFunc)
+        
+        
+        # for the map
+        showInvMapParams = {'index':0, 'islice':0, 'vmin':None, 'vmax':None, 'cmap':'viridis_r'}
+
+        def cmapInvMapComboFunc(index):
+            showInvMapParams['cmap'] = cmapInvMapCombo.itemText(index)
+            mwInvMap.replot(**showInvMapParams)
+        cmapInvMapCombo = QComboBox()
+        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow']
+        for cmap in cmaps:
+            cmapInvMapCombo.addItem(cmap)
+        cmapInvMapCombo.currentIndexChanged.connect(cmapInvMapComboFunc)
+        
+        def surveyInvMapComboFunc(index):
+            showInvMapParams['index'] = index
+            mwInvMap.replot(**showInvMapParams)
+        surveyInvMapCombo = QComboBox()
+        surveyInvMapCombo.currentIndexChanged.connect(surveyInvMapComboFunc)
+        
+        vminInvMapLabel = QLabel('vmin:')
+        vminInvMapEdit = QLineEdit('')
+        vminInvMapEdit.setValidator(QDoubleValidator())
+        
+        vmaxInvMapLabel = QLabel('vmax:')
+        vmaxInvMapEdit = QLineEdit('')
+        vmaxInvMapEdit.setValidator(QDoubleValidator())
+        
+        def applyInvMapBtnFunc():
+            vmin = float(vminInvMapEdit.text()) if vminInvMapEdit.text() != '' else None
+            vmax = float(vmaxInvMapEdit.text()) if vmaxInvMapEdit.text() != '' else None
+            showInvMapParams['vmin'] = vmin
+            showInvMapParams['vmax'] = vmax
+            mwInvMap.replot(**showInvMapParams)
+        applyInvMapBtn = QPushButton('Apply')
+        applyInvMapBtn.clicked.connect(applyInvMapBtnFunc)
+
+        sliceLabel = QLabel('Layer:')
+        def sliceComboFunc(index):
+            showInvMapParams['islice'] = index
+            mwInvMap.replot(**showInvMapParams)
+        sliceCombo = QComboBox()
+        sliceCombo.currentIndexChanged.connect(sliceComboFunc)
+        
+        contourInvLabel = QLabel('Contour:')
+        def contourInvCheckFunc(state):
+            showInvMapParams['contour'] = state
+            mwInvMap.replot(**showInvMapParams)
+        contourInvCheck = QCheckBox()
+        contourInvCheck.clicked.connect(contourInvCheckFunc)
+        
+        
+        graphTabs = QTabWidget()
+        profTab = QTabWidget()
+        mapTab = QTabWidget()
+        graphTabs.addTab(profTab, 'Profile')
+        graphTabs.addTab(mapTab, 'Slice')
+        
+        # graph or log        
+        mwInv = MatplotlibWidget()
+        mwInvMap = MatplotlibWidget()
+
         
         # layout
         invLayout = QVBoxLayout()
         
         invOptions = QHBoxLayout()
-        invOptions.addWidget(forwardCombo)
-        invOptions.addWidget(invertBtn)
-        invOptions.addWidget(invertGNBtn)
-        
+        invOptions.addWidget(forwardCombo, 15)
+        invOptions.addWidget(alphaLabel, 10)
+        invOptions.addWidget(alphaEdit, 10)
+        invOptions.addWidget(lCombo, 5)
+        invOptions.addWidget(invertBtn, 25)
         invLayout.addLayout(invOptions)
-        invLayout.addWidget(mwInv)
         
+        outputStack = QStackedLayout()
+        outputLog = QVBoxLayout()
+        outputRes = QVBoxLayout()
+        outputLogW = QWidget()
+        outputLogW.setLayout(outputLog)
+        outputResW = QWidget()
+        outputResW.setLayout(outputRes)
+        outputStack.addWidget(outputLogW)
+        outputStack.addWidget(outputResW)
+        
+        outputRes.addWidget(graphTabs)
+        
+        profLayout = QVBoxLayout()
+        profOptionsLayout = QHBoxLayout()
+        profOptionsLayout.addWidget(surveyInvCombo)
+        profOptionsLayout.addWidget(vminInvLabel)
+        profOptionsLayout.addWidget(vminInvEdit)
+        profOptionsLayout.addWidget(vmaxInvLabel)
+        profOptionsLayout.addWidget(vmaxInvEdit)
+        profOptionsLayout.addWidget(applyInvBtn)
+        profOptionsLayout.addWidget(cmapInvCombo)
+        profLayout.addLayout(profOptionsLayout)
+        profLayout.addWidget(mwInv)
+        profTab.setLayout(profLayout)
+
+
+        mapLayout = QVBoxLayout()
+        mapOptionsLayout = QHBoxLayout()
+        mapOptionsLayout.addWidget(surveyInvMapCombo)
+        mapOptionsLayout.addWidget(sliceLabel)
+        mapOptionsLayout.addWidget(sliceCombo)
+        mapOptionsLayout.addWidget(vminInvMapLabel)
+        mapOptionsLayout.addWidget(vminInvMapEdit)
+        mapOptionsLayout.addWidget(vmaxInvMapLabel)
+        mapOptionsLayout.addWidget(vmaxInvMapEdit)
+        mapOptionsLayout.addWidget(applyInvMapBtn)
+        mapOptionsLayout.addWidget(cmapInvMapCombo)
+        mapOptionsLayout.addWidget(contourInvLabel)
+        mapOptionsLayout.addWidget(contourInvCheck)
+        mapLayout.addLayout(mapOptionsLayout)
+        mapLayout.addWidget(mwInvMap)
+        mapTab.setLayout(mapLayout)
+        
+        outputLog.addWidget(logText)
+        
+        invLayout.addLayout(outputStack)
         
         invTab.setLayout(invLayout)
         
@@ -613,12 +967,18 @@ class App(QMainWindow):
         postTab = QTabWidget()
         tabs.addTab(postTab, 'Post-processing')
         
-        '''TODO
-        - .showMisfit()
-        '''
+        misfitLabel = QLabel('Misfit after inversion')
+        
+        mwMisfit = MatplotlibWidget()
+        mwOne2One = MatplotlibWidget()
         
         # layout
         postLayout = QVBoxLayout()
+        postLayout.addWidget(misfitLabel)
+        graphLayout = QHBoxLayout()
+        graphLayout.addWidget(mwMisfit)
+        graphLayout.addWidget(mwOne2One)
+        postLayout.addLayout(graphLayout)
         
         postTab.setLayout(postLayout)
         
@@ -706,20 +1066,13 @@ if __name__ == '__main__':
     app.processEvents()
 
     print ('importing pandas')
-    import pandas as pd
     progressBar.setValue(6)
-    app.processEvents()
-
-    print('importing python libraries')
-    from datetime import datetime
-    progressBar.setValue(8)
     app.processEvents()
 
     # library needed for update checker + wine checker
     print('other needed libraries')
     import platform
     OS = platform.system()
-    from subprocess import PIPE, Popen
 #    from urllib import request as urlRequest
 #    import webbrowser
 

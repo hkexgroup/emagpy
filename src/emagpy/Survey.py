@@ -121,7 +121,7 @@ class Survey(object):
             else:
                 height = 0
         else:
-            freq = None
+            freq = 30000 # Hz default is not specified !!
             height = 0
         return {'orientation': orientation,
                 'coilSeparation': coilSeparation,
@@ -261,6 +261,8 @@ class Survey(object):
         '''
         if coil is None:
             coil = self.coils[0]
+#        if coil == 'all': # trick for ui
+#            coil = self.coils[-1]
         x = self.df['x'].values
         y = self.df['y'].values
         val = self.df[coil].values
@@ -275,6 +277,19 @@ class Survey(object):
         ax.set_title(coil)
         if contour is True:
             levels = np.linspace(vmin, vmax, 7)
+#            nx = 100
+#            ny = 100
+#            X, Y = np.meshgrid(np.linspace(np.min(x), np.max(x), nx),
+#                           np.linspace(np.min(y), np.max(y), ny))
+#            inside = np.ones(nx*ny)
+#            inside2 = clipConvexHull(x, y, X.flatten(), Y.flatten(), inside)
+#            ie = ~np.isnan(inside2)
+#            Z = idw(X.flatten(), Y.flatten(), x, y, val)
+##            z = griddata(np.c_[x, y], values, (X, Y), method=method)
+#            Z[~ie] = np.nan
+#            Z = Z.reshape(X.shape)
+#            cax = ax.contourf(X, Y, Z, levels=levels)
+#            
             cax = ax.tricontourf(x, y, val, levels=levels, extend='both', cmap=cmap)
             if pts is True:
                 ax.plot(x, y, 'k+')
@@ -332,7 +347,7 @@ class Survey(object):
         # TODO add OK kriging ?
         
     
-    def crossOverPoints(self, coil=None, ax=None, ax1=None, iplot=True):
+    def crossOverPoints(self, coil=None, ax=None, dump=print):
         ''' Build an error model based on the cross-over points.
         
         Parameters
@@ -341,6 +356,8 @@ class Survey(object):
             Name of the coil.
         ax : Matplotlib.Axes, optional
             Matplotlib axis on which the plot is plotted against if specified.
+        dump : function, optional
+            Output function for information.
         '''
         if coil is None:
             coil = self.coils[0]
@@ -353,21 +370,10 @@ class Survey(object):
         ix, iy = ix[ifar], iy[ifar]
         print('found', len(ix), '/', df.shape[0], 'crossing points')
         
-        # plot cross-over points
-        xcoord = df['x'].values
-        ycoord = df['y'].values
-        icross = np.unique(np.r_[ix, iy])
+        if len(ix) < 10:
+            dump('None or too few colocated measurements found for error model.')
+            return
         
-        if iplot is True:
-            if ax1 is None:
-                fig1, ax1 = plt.subplots()
-            ax1.set_title(coil)
-            ax1.plot(xcoord, ycoord, '.')
-            ax1.plot(xcoord[icross], ycoord[icross], 'ro', label='crossing points')
-            ax1.set_xlabel('x [m]')
-            ax1.set_ylabel('y [m]')
-
-            
         val = df[coil].values
         x = val[ix]
         y = val[iy]
@@ -394,20 +400,54 @@ class Survey(object):
         self.df[coil + '_err'] = intercept + slope * self.df[coil]
             
         # plot
-        if iplot is True:
-            if ax is None:
-                fig, ax = plt.subplots()
-            ax.set_title(coil)
-            ax.loglog(means, error, '.')
-            ax.loglog(meansBinned, errorBinned, 'o')
-            predError = 10**(intercept + slope * np.log10(means))
-            eq = r'$\epsilon = {:.2f} \times \sigma^{{{:.2f}}}$'.format(10**intercept, slope)
-            isort = np.argsort(means)
-            ax.loglog(means[isort], predError[isort], 'k-', label=eq)
-            ax.legend()
-            ax.set_xlabel(r'Mean $\sigma_a$ [mS/m]')
-            ax.set_ylabel(r'Error $\epsilon$ [mS/m]')
+        if ax is None:
+            fig, ax = plt.subplots()
+        ax.set_title(coil)
+        ax.loglog(means, error, '.')
+        ax.loglog(meansBinned, errorBinned, 'o')
+        predError = 10**(intercept + slope * np.log10(means))
+        eq = r'$\epsilon = {:.2f} \times \sigma^{{{:.2f}}}$'.format(10**intercept, slope)
+        isort = np.argsort(means)
+        ax.loglog(means[isort], predError[isort], 'k-', label=eq)
+        ax.legend()
+        ax.set_xlabel(r'Mean $\sigma_a$ [mS/m]')
+        ax.set_ylabel(r'Error $\epsilon$ [mS/m]')
      
+    
+    
+    def plotCrossOverMap(self, coil=None, ax=None):
+        '''Plot the map of the cross-over points for error model.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Name of the coil.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
+        '''
+        if coil is None:
+            coil = self.coils[0]
+        df = self.df
+        dist = cdist(df[['x', 'y']].values,
+                     df[['x', 'y']].values)
+        minDist = 1 # points at less than 1 m from each other are identical
+        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
+        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
+        ix, iy = ix[ifar], iy[ifar]
+        print('found', len(ix), '/', df.shape[0], 'crossing points')
+        
+        # plot cross-over points
+        xcoord = df['x'].values
+        ycoord = df['y'].values
+        icross = np.unique(np.r_[ix, iy])
+        
+        if ax is None:
+            fig1, ax = plt.subplots()
+        ax.set_title(coil)
+        ax.plot(xcoord, ycoord, '.')
+        ax.plot(xcoord[icross], ycoord[icross], 'ro', label='crossing points')
+        ax.set_xlabel('x [m]')
+        ax.set_ylabel('y [m]')
 
     
     def gfCorrection(self):
@@ -675,18 +715,19 @@ class Survey(object):
 
 
 if __name__ == '__main__':
-    #s = Survey('test/coverCrop.csv')
+    s = Survey('test/coverCrop.csv')
     #s.show(coils='HCP0.32')
-    #s.showMap(contour=True, vmax=40)
+    s.showMap(coil='all', contour=True, vmax=40, pts=True)
     
-#    s = Survey('test/potatoesLo.csv')
+#    s = Survey('test/trimpLo.csv')
+#    s.convertFromNMEA()
 #    s.show(s.coils[1])
 #    s.keepBetween(-5,11)
 #    s.rollingMean(10)
 #    s.show()
     
 #    s.convertFromNMEA()
-#    s.showMap(contour=True)
+#    s.showMap(contour=True, pts=True)
 #    s.crossOverPoints(s.coils[1])
 #    s.gridData(method='idw')
 #    s.showMap(s.coils[1])
@@ -696,7 +737,6 @@ if __name__ == '__main__':
 
 
 #%%
-
     s = Survey()
     #s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat')
     s.readFile('test/potatoesLo.csv')
