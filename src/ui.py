@@ -233,50 +233,59 @@ class App(QMainWindow):
             if fname != '':
                 importBtn.setText(os.path.basename(fname))
                 self.problem.createSurvey(fname)
-                mwRaw.setCallback(self.problem.show)
-                mwRaw.replot()
-                
-                # fill the combobox with survey and coil names
-                coilCombo.clear()
-                for coil in self.problem.coils:
-                    coilCombo.addItem(coil)
-                    coilErrCombo.addItem(coil)
-                coilCombo.addItem('all')
-                coilCombo.setCurrentIndex(len(self.problem.coils))
-                surveyInvCombo.disconnect()
-                surveyInvMapCombo.disconnect()
-                for survey in self.problem.surveys:
-                    surveyCombo.addItem(survey.name)
-                    surveyErrCombo.addItem(survey.name)
-                    surveyInvCombo.addItem(survey.name)
-                    surveyInvMapCombo.addItem(survey.name)
-                surveyInvCombo.currentIndexChanged.connect(surveyInvComboFunc)
-                surveyInvMapCombo.currentIndexChanged.connect(surveyInvMapComboFunc)
-                
-                # enable widgets
-                if 'Latitude' in survey.df.columns:
-                    projBtn.setEnabled(True)
-                    projEdit.setEnabled(True)
-                    projBtnFunc() # automatically convert NMEA string
-                
-                showRadio.setChecked(True)
-                contourCheck.setChecked(False)
                 infoDump(fname + ' well imported')
-                coilCombo.setEnabled(True)
-                showRadio.setEnabled(True)
-                mapRadio.setEnabled(True)
-                contourCheck.setEnabled(True)
+                setupUI()
+            
+        def setupUI():
+            mwRaw.setCallback(self.problem.show)
+            mwRaw.replot()
+            
+            # fill the combobox with survey and coil names
+            coilCombo.clear()
+            for coil in self.problem.coils:
+                coilCombo.addItem(coil)
+                coilErrCombo.addItem(coil)
+            coilCombo.addItem('all')
+            coilCombo.setCurrentIndex(len(self.problem.coils))
+            surveyInvCombo.disconnect()
+            surveyInvMapCombo.disconnect()
+            for survey in self.problem.surveys:
+                surveyCombo.addItem(survey.name)
+                surveyErrCombo.addItem(survey.name)
+                surveyInvCombo.addItem(survey.name)
+                surveyInvMapCombo.addItem(survey.name)
+            surveyInvCombo.currentIndexChanged.connect(surveyInvComboFunc)
+            surveyInvMapCombo.currentIndexChanged.connect(surveyInvMapComboFunc)
+            
+            # enable widgets
+            if 'Latitude' in survey.df.columns:
+                projBtn.setEnabled(True)
+                projEdit.setEnabled(True)
+                projBtnFunc() # automatically convert NMEA string
+            
+            showRadio.setChecked(True)
+            contourCheck.setChecked(False)
+            coilCombo.setEnabled(True)
+            showRadio.setEnabled(True)
+            mapRadio.setEnabled(True)
+            contourCheck.setEnabled(True)
             
         
         importBtn = QPushButton('Import Data')
         importBtn.clicked.connect(importBtnFunc)
         
         def importGFLoFunc():
-            self.fnameLo, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)
+            if fname != '':
+                self.fnameLo = fname
+                importGFLo.setText(os.path.basename(fname))
         importGFLo = QPushButton('Select Lo')
         importGFLo.clicked.connect(importGFLoFunc)
         def importGFHiFunc():
-            self.fnameHi, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)            
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)
+            if fname != '':
+                self.fnameHi = fname
+                importGFHi.setText(os.path.basename(fname))
         importGFHi = QPushButton('Select Hi')
         importGFHi.clicked.connect(importGFHiFunc)
         hxLabel = QLabel('Height above the ground [m]:')
@@ -285,8 +294,9 @@ class App(QMainWindow):
         def importGFApplyFunc():
             hx = float(hxEdit.text()) if hxEdit.text() != '' else 0
             device = sensorCombo.itemText(sensorCombo.currentIndex())
-            print(device)
             self.problem.importGF(self.fnameLo, self.fnameHi, device, hx)
+            infoDump('Surveys well imported')
+            setupUI()
         importGFApply = QPushButton('Import')
         importGFApply.clicked.connect(importGFApplyFunc)
         
@@ -983,6 +993,7 @@ class App(QMainWindow):
         postTab.setLayout(postLayout)
         
         
+        #about tab
         #%% general Ctrl+Q shortcut + general tab layout
 
         layout.addWidget(tabs)

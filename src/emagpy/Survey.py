@@ -498,20 +498,24 @@ class Survey(object):
                 df['x'] = np.arange(df.shape[0])
                 df['y'] = 0
             else:
+                df = None
                 raise ValueError('Can not join the dataframe as they have different lengths: {:d} and {:d}'.format(loFile.shape[0], hiFile.shape[0]))
         else:
+            df = None
             pass
             # TODO regridding here :/
         
-        self.coils = loCols[:3] + hiCols[:3]
-        self.coilsInph = loCols[3:] + hiCols[3:]
-        coilInfo = [self.getCoilInfo(c) for c in self.coils]
-        self.freqs = np.repeat([freq], len(self.coils))
-        self.hx = np.repeat([hx], len(self.coils))
-        self.cspacing = [a['coilSeparation'] for a in coilInfo]
-        self.cpos = [a['orientation'] for a in coilInfo]
-        self.df = df
-        self.sensor = device
+        if df is not None:
+            self.coils = loCols[:3] + hiCols[:3]
+            self.coilsInph = loCols[3:] + hiCols[3:]
+            coilInfo = [self.getCoilInfo(c) for c in self.coils]
+            self.freqs = np.repeat([freq], len(self.coils))
+            self.hx = np.repeat([hx], len(self.coils))
+            self.cspacing = [a['coilSeparation'] for a in coilInfo]
+            self.cpos = [a['orientation'] for a in coilInfo]
+            self.df = df
+            self.sensor = device
+        
         
     ### jamyd91 contribution ### 
     def consPtStat(self):# work out distance between consective points 
@@ -614,7 +618,7 @@ class Survey(object):
         self.df = df
     
     def rmRepeatPt(self, tolerance=0.2):
-        """Remove points taken too close together consectively.
+        """Remove points taken too close together consecutively.
         Parameters
         ----------
         tolerance : float, optional
@@ -637,6 +641,7 @@ class Survey(object):
         out = df[ioi].copy()
         #return out.reset_index() 
         self.fil_df = out.reset_index()
+        
     
     def rmBearing(self, phiMin,phiMax):
         """Remove measurments recorded in a certian bearing range. Where phiMax -
@@ -715,9 +720,9 @@ class Survey(object):
 
 
 if __name__ == '__main__':
-    s = Survey('test/coverCrop.csv')
+#    s = Survey('test/coverCrop.csv')
     #s.show(coils='HCP0.32')
-    s.showMap(coil='all', contour=True, vmax=40, pts=True)
+#    s.showMap(contour=True, vmax=40, pts=True)
     
 #    s = Survey('test/trimpLo.csv')
 #    s.convertFromNMEA()
@@ -741,6 +746,6 @@ if __name__ == '__main__':
     #s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat')
     s.readFile('test/potatoesLo.csv')
     s.convertFromNMEA()
-    s.consPtStat()
-    s.rmRepeatPt()
+    s.consPtStat() # bearing
+    s.rmRepeatPt() # 
     
