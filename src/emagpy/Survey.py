@@ -82,7 +82,10 @@ class Survey(object):
     
     def readFile(self, fname, sensor=None):
         self.name = os.path.basename(fname)[:-4]
-        df = pd.read_csv(fname)
+        delimiter=','
+        if fname.find('.DAT')!=-1:
+            delimiter = '\t'
+        df = pd.read_csv(fname,delimiter=delimiter)
         for c in df.columns:
             orientation = c[:3]
             if ((orientation == 'VCP') | (orientation == 'VMD') | (orientation == 'PRP') |

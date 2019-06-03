@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 #from multiprocessing import Pool, Manager
 from scipy.constants import mu_0
-from hankel import HankelTransform
+#from hankel import HankelTransform
 from scipy import special, integrate
 from scipy.optimize import minimize, curve_fit, newton, brent
 
