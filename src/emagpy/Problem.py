@@ -92,7 +92,7 @@ class Problem(object):
             self.createSurvey(os.path.join(dirname, f))
         
     
-    def importGF(self, fnameLo, fnameHi, device='Mini-Explorer', hx=0):
+    def importGF(self, fnameLo, fnameHi, device='CMD Mini-Explorer', hx=0):
         '''Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
@@ -782,7 +782,9 @@ class Problem(object):
             vmin = np.nanmin(z)
         if vmax is None:
             vmax = np.nanmax(z)
-        if contour is False:
+        if contour is False or (y == y[0]).all() or (x == x[0]).all(): # can not contour if they are on a line
+            if contour is True:
+                print('All points on a line, can not contour this.')
             cax = ax.scatter(x, y, c=z, cmap=cmap, vmin=vmin, vmax=vmax)
         else:
             levels = np.linspace(vmin, vmax, 7)
@@ -798,7 +800,7 @@ class Problem(object):
             
 
         
-#%%  
+#%%
 
 if __name__ == '__main__':
     # cover crop example
@@ -866,3 +868,8 @@ if __name__ == '__main__':
 #    k.showMap(coil = k.coils[1])
 #    
 
+#%% GS import
+#    k = Problem()
+#    k.importGF('emagpy/test/coverCropLo.dat', 'emagpy/test/coverCropHi.dat')
+#    k.invertGN()
+#    k.showSlice(contour=True)
