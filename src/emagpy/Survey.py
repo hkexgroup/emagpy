@@ -217,7 +217,7 @@ class Survey(object):
         import pyproj
         
         df = self.df
-        def func(arg):
+        def NMEA(arg):
             """ Convert NMEA string to WGS84 (GPS) decimal degree.
             """
             letter = arg[-1]
@@ -230,7 +230,34 @@ class Survey(object):
             a = float(arg[:x-2]) # degree
             b = float(arg[x-2:]) # minutes
             return (a + b/60)*sign
-        gps2deg = np.vectorize(func)
+        
+        def DMS(arg):
+            """Convert convert degrees, minutes, seconds to decimal degrees
+            """
+            letter = arg[-1]
+            if (letter == 'W') | (letter == 'S'):
+                sign = -1
+            else:
+                sign = 1
+            #extract degrees from string
+            deg_idx = arg.find('°')
+            deg = int(arg[:deg_idx])
+            #extract minutes from string
+            min_idx = arg.find("'")
+            mins = int(arg[(deg_idx+1):min_idx])
+            #extract seconds from string
+            sec_idx = arg.find('"')
+            secs = float(arg[(min_idx+1):sec_idx])
+            DD = deg + (mins/60) + (secs/3600) # decimal degree calculation
+            return sign*DD # return with sign
+        
+        check = df['Latitude'][0]
+        if check.find('°') !=-1 and check.find("'") != -1:
+            print("Coordinates appear to be given as Degrees, minutes, seconds ... adjusting conversion scheme")
+            gps2deg = np.vectorize(DMS)
+        else:
+            gps2deg = np.vectorize(NMEA)
+        
         
         df['lat'] = gps2deg(df['Latitude'].values)
         df['lon'] = gps2deg(df['Longitude'].values)
