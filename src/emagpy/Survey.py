@@ -6,7 +6,7 @@ Created on Tue Apr 16 20:27:12 2019
 @author: jkl
 """
 import os
-from datetime import time 
+from datetime import time, datetime
 #NB: using python datetime due to compatbility issues between pandas and matplotlib for plotting
 import pandas as pd
 import numpy as np
@@ -17,6 +17,10 @@ from scipy.spatial.distance import cdist, pdist
 from scipy.interpolate import griddata
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
+if __name__ == '__main__':
+    import isinpolygon as iip
+else:
+    import emagpy.isinpolygon as iip
 
 
 def clipConvexHull(xdata,ydata,x,y,z):
@@ -577,7 +581,18 @@ class Survey(object):
                            second = int(second),
                            microsecond=int(micro)
                            )]*len(x)
-        
+        current_date = datetime.now()
+        current_year = current_date.year
+        current_month = current_date.month
+        current_day = current_date.day
+        dttimes = [datetime(year=current_year,
+                          month= current_month,
+                          day=current_day,
+                          hour = int(timeLs[0]), 
+                          minute = int(timeLs[1]), 
+                          second = int(second), 
+                          microsecond=int(micro))]*len(x)
+            
         def quadrantCheck(dx,dy):
             quad = 0
             edge = False
@@ -639,10 +654,18 @@ class Survey(object):
                              minute = int(timeLs[1]), 
                              second = int(second), 
                              microsecond=int(micro))
+            dttimes[i] = datetime(year=current_year,#datetimes needed to get time delta objects 
+                                  month= current_month,
+                                  day=current_day,
+                                  hour = int(timeLs[0]), 
+                                  minute = int(timeLs[1]), 
+                                  second = int(second), 
+                                  microsecond=int(micro))
         df['conDist'] = dist # distance between consecutive points 
         df['azimuth'] = azimuth # walking direction in terms of azimuth relative to local coordinate system
         df['bearing'] = bearing # walking direction in terms of bearing relative to local coordinate system
         df['PythonTime'] = times # times in  python datetime format 
+        df['elasped(sec)'] = [(dttimes[i] - dttimes[0]).seconds for i in range(len(x))]# number of seconds elasped 
             
         #return df 
         self.df = df
@@ -744,7 +767,35 @@ class Survey(object):
 
         self.drift_df = df[ioi].copy() #return df[ioi].copy()
         
-
+    def plotDrift(self, coil = None, ax = None):
+        """ Plot drift through time
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+        try:
+            df = self.drift_df.copy()
+        except AttributeError:
+            self.driftStn()
+            df = self.drift_df.copy()
+        if coil is None:
+            coil = 'Cond.1 [mS/m]'
+        vals = df[coil].values
+        ax.scatter(df['PythonTime'].values,vals)
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Conductivity (mS/m)')
+        
+        
+    def aoi(self,polyX,polyY):
+        """Identify area of interest inside a polygon. 
+        """
+        df = self.df
+        try:
+            x = df.x.values # x values of data frame
+            y = df.y.values # y values of data frame
+        except AttributeError:
+            raise KeyError(" %s \n ... It looks like no local coordinate system has been assigned, try running self.convertFromNMEA() first")        
+        inside = iip.isinpolygon(x,y,[polyX,polyY])
+        self.df['AOI'] = inside
 
 #%% test
 
