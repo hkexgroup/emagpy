@@ -17,10 +17,10 @@ from scipy.spatial.distance import cdist, pdist
 from scipy.interpolate import griddata
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
-if __name__ == '__main__':
-    import isinpolygon as iip
-else:
-    import emagpy.isinpolygon as iip
+#if __name__ == '__main__':
+#    import isinpolygon as iip
+#else:
+#    import emagpy.isinpolygon as iip
 
 
 def clipConvexHull(xdata,ydata,x,y,z):
