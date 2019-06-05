@@ -263,6 +263,8 @@ class Survey(object):
             coil = self.coils[0]
 #        if coil == 'all': # trick for ui
 #            coil = self.coils[-1]
+            
+        #TODO add map if 'all' for each coil
         x = self.df['x'].values
         y = self.df['y'].values
         val = self.df[coil].values
