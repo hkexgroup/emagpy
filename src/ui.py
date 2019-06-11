@@ -729,7 +729,6 @@ class App(QMainWindow):
         lcurveBtn = QPushButton('Fit L-curve')
         lcurveBtn.clicked.connect(lcurveBtnFunc)
         
-        
         # graph
         mwlcurve = MatplotlibWidget()
         
@@ -772,6 +771,12 @@ class App(QMainWindow):
         lCombo.addItem('l2')
         lCombo.setCurrentIndex(1)
         
+        nitLabel = QLabel('Nit')
+        nitEdit = QLineEdit('15')
+        nitEdit.setToolTip('Maximum Number of Iterations')
+        nitEdit.setValidator(QIntValidator())
+        
+        
         def logTextFunc(arg):
             logText.setText(arg)
             QApplication.processEvents()
@@ -790,6 +795,7 @@ class App(QMainWindow):
             alpha = float(alphaEdit.text()) if alphaEdit.text() != '' else 0.07
             forwardModel = forwardCombo.itemText(forwardCombo.currentIndex())
             depths = np.r_[[0], depths0, [-np.inf]]
+            nit = float(nitEdit.text()) if nitEdit.text() != '' else 15
             sliceCombo.disconnect()
             sliceCombo.clear()
             for i in range(len(depths)-1):
@@ -801,7 +807,8 @@ class App(QMainWindow):
                 self.problem.invertGN(alpha=alpha, dump=logTextFunc)
             else:
                 self.problem.invert(forwardModel=forwardModel, alpha=alpha,
-                                    dump=logTextFunc, regularization=regularization)
+                                    dump=logTextFunc, regularization=regularization,
+                                    options={'maxiter':nit})
             
             # plot results
             mwInv.setCallback(self.problem.showResults)
@@ -920,6 +927,8 @@ class App(QMainWindow):
         invOptions.addWidget(alphaLabel, 10)
         invOptions.addWidget(alphaEdit, 10)
         invOptions.addWidget(lCombo, 5)
+        invOptions.addWidget(nitLabel, 2)
+        invOptions.addWidget(nitEdit, 2)
         invOptions.addWidget(invertBtn, 25)
         invLayout.addLayout(invOptions)
         

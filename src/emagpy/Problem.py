@@ -129,7 +129,7 @@ class Problem(object):
         
         
     def invert(self, forwardModel='CS', regularization='l2', alpha=0.07,
-               beta=0, dump=None, method='Nelder-Mead', bnds=None, **kwargs):
+               beta=0, dump=None, method='Nelder-Mead', bnds=None, options={},):
         '''Invert the apparent conductivity measurements.
         
         Parameters
@@ -156,8 +156,8 @@ class Problem(object):
         bnds : list of float, optional
             If specified, will create bounds for the inversion. Doesn't work with
             Nelder-Mead solver.
-        **kwargs : optional
-            Additional keyword arguments will be passed to `scipy.optimize.minimize()`.
+        options : optional
+            Additional dictionary arguments will be passed to `scipy.optimize.minimize()`.
         '''
         self.models = []
         self.rmses = []
@@ -165,6 +165,9 @@ class Problem(object):
         if dump is None:
             dump = print
         
+        if 'maxiter' not in options.keys():
+            options = {'maxiter':15}
+            
         if bnds is not None:
             top = np.ones(len(self.conds0))*bnds[1]
             bot = np.ones(len(self.conds0))*bnds[0]
@@ -218,7 +221,7 @@ class Problem(object):
                         pn = model[j-1,:]
 #                    try:
                     res = minimize(objfunc, self.conds0, args=(app, pn),
-                                   method=method, bounds=bounds, **kwargs)
+                                   method=method, bounds=bounds, options=options)
                     out = res.x
 #                    except:
 #                        out = np.ones(len(self.conds0))*np.nan
@@ -310,7 +313,7 @@ class Problem(object):
         '''
         for i, model in enumerate(self.models):
             pass
-        #TODO
+        #TODO correct ECa or inverted EC ? maybe let this to the user
 
 
     def write2vtk(self):
@@ -825,23 +828,24 @@ if __name__ == '__main__':
 #    k.showSlice(contour=False, cmap='jet', vmin=10, vmax=50)
     
     #%% test for inversion with FSandrade
+    import time
     cond = np.array([10, 20, 30, 30])
 #    app = fMaxwellQ(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])
 #    app = fMaxwellECa(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])
     app = k.surveys[0].df[k.coils].values[0,:]
     L = buildSecondDiff(len(cond))
-    def objfunc(p):
-        print(p)
+    def objfunc(p, app):
         return np.sqrt((np.sum((app - fMaxwellECa(p, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0]))**2)
                               + 0.07*np.sum(np.dot(L, p[:,None])**2))/len(app))
-    res = minimize(objfunc, k.conds0, args=(app,), method='Nelder-Mead')
+    t0 = time.time()
+    res = minimize(objfunc, k.conds0, args=(app,), method='Nelder-Mead', options={'maxiter':10})
     print(res)
+    print('{:.3f}s'.format(time.time() - t0))
     
     #%%
     solvers = ['Nelder-Mead', 'Powell', 'CG', 'BFGS',
                'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP']
     tt = []
-    import time
     for solver in solvers:
         print(solver)
         t0 = time.time()
@@ -857,6 +861,19 @@ if __name__ == '__main__':
     fig.tight_layout()
     fig.show()
     
+#%%   see if we can speed-up minimize by decreasing iteration number
+    nits = [0, 1, 2, 3, 10, 20, 50, 100, 1000]
+    for nit in nits:
+        t0 = time.time()
+        res = minimize(objfunc, k.conds0, args=(app,), method='Nelder-Mead',
+                       options={'maxiter':nit})
+        elapsed = time.time() - t0
+        print(res.x)
+        rmseEC = np.sqrt(np.sum((res.x - cond)**2)/len(cond))
+        rmseECa = np.sqrt(np.sum((fMaxwellECa(res.x, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0]) - app)**2)/len(app))
+        print('nit={:d} in {:.3f}s with RMSE={:.2f}'.format(nit, elapsed, rmseECa))
+    
+    
     # mapping example (potatoes)
 #    k = Problem()
 #    k.createSurvey('test/regolith.csv')
@@ -868,7 +885,7 @@ if __name__ == '__main__':
 #    k.showMap(coil = k.coils[1])
 #    
 
-#%% GS import
+#%% GF direct import
 #    k = Problem()
 #    k.importGF('emagpy/test/coverCropLo.dat', 'emagpy/test/coverCropHi.dat')
 #    k.invertGN()
