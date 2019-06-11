@@ -332,10 +332,11 @@ class App(QMainWindow):
         
         
         # filtering options
-        vminfLabel = QLabel('Vmin')
+        filtLabel = QLabel('Filter Options:')
+        vminfLabel = QLabel('Vmin:')
         vminfEdit = QLineEdit()
         vminfEdit.setValidator(QDoubleValidator())
-        vmaxfLabel = QLabel('Vmax')
+        vmaxfLabel = QLabel('Vmax:')
         vmaxfEdit = QLineEdit()
         vmaxfEdit.setValidator(QDoubleValidator())
         def keepApplyBtnFunc():
@@ -494,6 +495,7 @@ class App(QMainWindow):
         topLayout.addWidget(projBtn, 10)
         
         filtLayout = QHBoxLayout()
+        filtLayout.addWidget(filtLabel)
         filtLayout.addWidget(vminfLabel)
         filtLayout.addWidget(vminfEdit)
         filtLayout.addWidget(vmaxfLabel)
@@ -503,9 +505,10 @@ class App(QMainWindow):
         filtLayout.addWidget(rollingEdit)
         filtLayout.addWidget(rollingBtn)
         filtLayout.addWidget(ptsKillerBtn)
-        
+    
         midLayout = QHBoxLayout()
-        midLayout.addWidget(surveyCombo, 7)
+        midLayout.addWidget(QLabel('Display Options:'))
+        midLayout.addWidget(surveyCombo)
         midLayout.addWidget(QLabel('Select coil:'))
         midLayout.addWidget(coilCombo, 7)
         midLayout.addWidget(showGroup)
