@@ -116,6 +116,7 @@ class Problem(object):
         self.hx = survey.hx
         self.surveys.append(survey)
         
+        
     def setDepths(self, depths):
         ''' Set the depths of the bottom of each layer. Last layer goes to -inf.
         Depths should be positive going down.

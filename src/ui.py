@@ -232,6 +232,7 @@ class App(QMainWindow):
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
             if fname != '':
                 importBtn.setText(os.path.basename(fname))
+                self.problem.surveys = [] # empty the list of current survey
                 self.problem.createSurvey(fname)
                 infoDump(fname + ' well imported')
                 setupUI()
@@ -241,14 +242,21 @@ class App(QMainWindow):
             mwRaw.replot()
             
             # fill the combobox with survey and coil names
+            coilCombo.disconnect()
+            coilErrCombo.clear()
             coilCombo.clear()
             for coil in self.problem.coils:
                 coilCombo.addItem(coil)
                 coilErrCombo.addItem(coil)
             coilCombo.addItem('all')
+            coilCombo.currentIndexChanged.connect(coilComboFunc)
             coilCombo.setCurrentIndex(len(self.problem.coils))
+#            surveyCombo.disconnect()
+            surveyCombo.clear()
             surveyInvCombo.disconnect()
+            surveyInvCombo.clear()
             surveyInvMapCombo.disconnect()
+            surveyInvMapCombo.clear()
             for survey in self.problem.surveys:
                 surveyCombo.addItem(survey.name)
                 surveyErrCombo.addItem(survey.name)
@@ -497,14 +505,14 @@ class App(QMainWindow):
         filtLayout.addWidget(ptsKillerBtn)
         
         midLayout = QHBoxLayout()
-        midLayout.addWidget(surveyCombo)
+        midLayout.addWidget(surveyCombo, 7)
         midLayout.addWidget(QLabel('Select coil:'))
-        midLayout.addWidget(coilCombo)
+        midLayout.addWidget(coilCombo, 7)
         midLayout.addWidget(showGroup)
         midLayout.addWidget(QLabel('Vmin:'))
-        midLayout.addWidget(vminEdit)
+        midLayout.addWidget(vminEdit, 5)
         midLayout.addWidget(QLabel('Vmax:'))
-        midLayout.addWidget(vmaxEdit)
+        midLayout.addWidget(vmaxEdit, 5)
         midLayout.addWidget(applyBtn)
         midLayout.addWidget(cmapCombo)
         midLayout.addWidget(contourLabel)
@@ -771,7 +779,7 @@ class App(QMainWindow):
         lCombo.addItem('l2')
         lCombo.setCurrentIndex(1)
         
-        nitLabel = QLabel('Nit')
+        nitLabel = QLabel('Nit:')
         nitEdit = QLineEdit('15')
         nitEdit.setToolTip('Maximum Number of Iterations')
         nitEdit.setValidator(QIntValidator())
