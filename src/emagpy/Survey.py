@@ -767,8 +767,8 @@ class Survey(object):
 
         self.drift_df = df[ioi].copy() #return df[ioi].copy()
         
-    def plotDrift(self, coil = None, ax = None):
-        """ Plot drift through time
+    def plotDrift(self, coil = None, ax = None, fit = True):
+        """ Plot drift through time.
         """
         if ax is None:
             fig, ax = plt.subplots()
@@ -783,7 +783,34 @@ class Survey(object):
         ax.scatter(df['PythonTime'].values,vals)
         ax.set_xlabel('Time')
         ax.set_ylabel('Conductivity (mS/m)')
+        if fit:
+            self.fitDrift(coil=coil)
+            seconds = self.drift_df['elasped(sec)'].values
+            times = self.drift_df['PythonTime'].values
+            cond_mdl = np.polyval(self.drift_mdl,seconds)
+            ax.plot(times,cond_mdl)
         
+    def fitDrift(self, coil= None, order=1):
+        """Fit a polynomail model to the drift
+        """
+        seconds = self.drift_df['elasped(sec)'].values
+        cond = self.drift_df[coil].values
+        mdl = np.polyfit(seconds,cond,order)
+        self.drift_mdl = mdl
+        
+    def driftCrrnt(self, coil = None):
+        """ Apply a drift correction to the coil values
+        """
+        try:
+            mdl = self.drift_mdl
+        except AttributeError:
+            self.fitDrift(coil=coil)
+            mdl = self.drift_mdl
+        mdl[-1] = 0 # in this case the c value should be 0 so that the model is normalised to zero
+        df = self.df
+        vals = df[coil].values
+        correction = np.polyval(mdl,df['elasped(sec)'].values)
+        self.df[coil] = vals - correction
         
     def aoi(self,polyX,polyY):
         """Identify area of interest inside a polygon. 
