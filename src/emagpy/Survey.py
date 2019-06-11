@@ -293,6 +293,7 @@ class Survey(object):
         pts : bool, optional
             If `True` the measurements location will be plotted on the graph.
         '''
+        print('--------pts', pts)
         if coil is None:
             coil = self.coils[0]
 #        if coil == 'all': # trick for ui

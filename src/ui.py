@@ -227,6 +227,25 @@ class App(QMainWindow):
         importTab = QTabWidget()
         tabs.addTab(importTab, 'Importing')
         
+
+        # select type of sensors
+        def sensorComboFunc(index):
+            print('sensor selected is:', sensors[index])
+            if index == 1 or index == 2:
+                showGF(True)
+            else:
+                showGF(False)
+        sensorCombo = QComboBox()
+        sensors = ['CMD Mini-Explorer',
+                   'CMD Explorer'
+                   ]
+        sensors = sorted(sensors)
+        sensors = ['All'] + sensors
+        for sensor in sensors:
+            sensorCombo.addItem(sensor)
+        sensorCombo.currentIndexChanged.connect(sensorComboFunc)
+        
+        
         # import data
         def importBtnFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
@@ -251,7 +270,6 @@ class App(QMainWindow):
             coilCombo.addItem('all')
             coilCombo.currentIndexChanged.connect(coilComboFunc)
             coilCombo.setCurrentIndex(len(self.problem.coils))
-#            surveyCombo.disconnect()
             surveyCombo.clear()
             surveyInvCombo.disconnect()
             surveyInvCombo.clear()
@@ -264,23 +282,32 @@ class App(QMainWindow):
                 surveyInvMapCombo.addItem(survey.name)
             surveyInvCombo.currentIndexChanged.connect(surveyInvComboFunc)
             surveyInvMapCombo.currentIndexChanged.connect(surveyInvMapComboFunc)
-            
+
+            # set to default values
+            showRadio.setChecked(True)
+            contourCheck.setChecked(False)
+
             # enable widgets
             if 'Latitude' in survey.df.columns:
                 projBtn.setEnabled(True)
                 projEdit.setEnabled(True)
                 projBtnFunc() # automatically convert NMEA string
-            
-            showRadio.setChecked(True)
-            contourCheck.setChecked(False)
+            keepApplyBtn.setEnabled(True)
+            rollingBtn.setEnabled(True)
+            ptsKillerBtn.setEnabled(True)
             coilCombo.setEnabled(True)
+            surveyCombo.setEnabled(True)
             showRadio.setEnabled(True)
             mapRadio.setEnabled(True)
+            applyBtn.setEnabled(True)
+            cmapCombo.setEnabled(True)
             contourCheck.setEnabled(True)
+            ptsCheck.setEnabled(True)
             
-        
         importBtn = QPushButton('Import Data')
+        importBtn.setStyleSheet('background-color:orange')
         importBtn.clicked.connect(importBtnFunc)
+        
         
         def importGFLoFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)
@@ -306,7 +333,9 @@ class App(QMainWindow):
             infoDump('Surveys well imported')
             setupUI()
         importGFApply = QPushButton('Import')
+        importGFApply.setStyleSheet('background-color: orange')
         importGFApply.clicked.connect(importGFApplyFunc)
+        
         
         def showGF(arg):
             visibles = np.array([True, False, False, False, False, False])
@@ -318,7 +347,7 @@ class App(QMainWindow):
         showGF(False)
 
         
-        # projection
+        # projection (only if GPS data are available)
         projEdit = QLineEdit('27700')
         projEdit.setValidator(QDoubleValidator())
         projEdit.setEnabled(False)
@@ -332,7 +361,10 @@ class App(QMainWindow):
         
         
         # filtering options
-        filtLabel = QLabel('Filter Options:')
+        filtLabel = QLabel('Filter Options |')
+        filtLabel.setStyleSheet('font-weight:bold')
+
+        # vmin/vmax filtering
         vminfLabel = QLabel('Vmin:')
         vminfEdit = QLineEdit()
         vminfEdit.setValidator(QDoubleValidator())
@@ -346,7 +378,10 @@ class App(QMainWindow):
             mwRaw.replot(**showParams)
         keepApplyBtn = QPushButton('Apply')
         keepApplyBtn.clicked.connect(keepApplyBtnFunc)
+        keepApplyBtn.setEnabled(False)
+        keepApplyBtn.setAutoDefault(True)
         
+        # rolling mean
         rollingLabel = QLabel('Window size:')
         rollingEdit = QLineEdit('3')
         rollingEdit.setValidator(QIntValidator())
@@ -356,39 +391,33 @@ class App(QMainWindow):
             mwRaw.replot(**showParams)
         rollingBtn = QPushButton('Rolling Mean')
         rollingBtn.clicked.connect(rollingBtnFunc)
+        rollingBtn.setEnabled(False)
+        rollingBtn.setAutoDefault(True)
         
+        # manual point killer selection
         def ptsKillerBtnFunc():
             pass
             print('deleted 0/X points')
             # TODO delete selected
         ptsKillerBtn = QPushButton('Delete selected points')
         ptsKillerBtn.clicked.connect(ptsKillerBtnFunc)
+        ptsKillerBtn.setEnabled(False)
+        ptsKillerBtn.setAutoDefault(True)
         
         
+        # display options
+        displayLabel = QLabel('Display Options |')
+        displayLabel.setStyleSheet('font-weight:bold')
         
-        # select type of sensors
-        def sensorComboFunc(index):
-            print('sensor selected is:', sensors[index])
-            if index == 1 or index == 2:
-                showGF(True)
-            else:
-                showGF(False)
-        sensorCombo = QComboBox()
-        sensors = ['CMD Mini-Explorer',
-                   'CMD Explorer'
-                   ]
-        sensors = sorted(sensors)
-        sensors = ['All'] + sensors
-        for sensor in sensors:
-            sensorCombo.addItem(sensor)
-        sensorCombo.currentIndexChanged.connect(sensorComboFunc)
-        
+        # survey selection (useful in case of time-lapse dataset)
         def surveyComboFunc(index):
             showParams['index'] = index
             mwRaw.replot(**showParams)
         surveyCombo = QComboBox()
         surveyCombo.currentIndexChanged.connect(surveyComboFunc)
+        surveyCombo.setEnabled(False)
         
+        # coil selection
         def coilComboFunc(index):
             showParams['coil'] = coilCombo.itemText(index)
             mwRaw.replot(**showParams)
@@ -398,16 +427,8 @@ class App(QMainWindow):
         
         showParams = {'index': 0, 'coil':None, 'contour':False, 'vmin':None,
                       'vmax':None,'pts':False, 'cmap':'viridis_r'} 
-  
-        ptsLabel = QLabel('Points')
-        ptsLabel.setVisible(False)
-        def ptsCheckFunc(state):
-            showParams['pts'] = state
-            mwRaw.replot(**showParams)
-        ptsCheck = QCheckBox()
-        ptsCheck.setToolTip('Show measurements points')
-        ptsCheck.setVisible(False)
-    
+        
+        # switch between Raw data and map view
         def showRadioFunc(state):
             mwRaw.setCallback(self.problem.show)
             mwRaw.replot(**showParams)
@@ -432,16 +453,6 @@ class App(QMainWindow):
         showGroup.setContentsMargins(0,0,0,0)
         showGroup.setStyleSheet('QGroupBox{border: 0px;'
                                 'border-style:inset;}')
-    
-        contourLabel = QLabel('Contour')
-        contourLabel.setVisible(False)
-        def contourCheckFunc(state):
-            showParams['contour'] = state
-            mwRaw.replot(**showParams)
-        contourCheck = QCheckBox()
-        contourCheck.setEnabled(False)
-        contourCheck.clicked.connect(contourCheckFunc)
-        contourCheck.setVisible(False)
         
         def showMapOptions(arg):
             objs = [ptsLabel, ptsCheck, contourLabel, contourCheck]
@@ -454,19 +465,22 @@ class App(QMainWindow):
                     coilCombo.setCurrentIndex(n-1)
                 coilCombo.removeItem(n)
             print([coilCombo.itemText(i) for i in range(coilCombo.count())])
-                
+
+        # apply the display vmin/vmax for colorbar or y label                
         vminEdit = QLineEdit('')
         vminEdit.setValidator(QDoubleValidator())
         vmaxEdit = QLineEdit('')
-        vmaxEdit.setValidator(QDoubleValidator())
-        
+        vmaxEdit.setValidator(QDoubleValidator())        
         def applyBtnFunc():
             showParams['vmin'] = float(vminEdit.text()) if vminEdit.text() != '' else None
             showParams['vmax'] = float(vmaxEdit.text()) if vmaxEdit.text() != '' else None
             mwRaw.replot(**showParams)
         applyBtn = QPushButton('Apply')
         applyBtn.clicked.connect(applyBtnFunc)
+        applyBtn.setEnabled(False)
+        applyBtn.setAutoDefault(True)
         
+        # select different colormap
         def cmapComboFunc(index):
             showParams['cmap'] = cmaps[index]
             mwRaw.replot(**showParams)
@@ -475,9 +489,34 @@ class App(QMainWindow):
         for cmap in cmaps:
             cmapCombo.addItem(cmap)
         cmapCombo.currentIndexChanged.connect(cmapComboFunc)
+        cmapCombo.setEnabled(False)
+
+        # allow map contouring using tricontourf()
+        contourLabel = QLabel('Contour')
+        contourLabel.setVisible(False)
+        def contourCheckFunc(state):
+            showParams['contour'] = state
+            mwRaw.replot(**showParams)
+        contourCheck = QCheckBox()
+        contourCheck.setEnabled(False)
+        contourCheck.clicked.connect(contourCheckFunc)
+        contourCheck.setVisible(False)
+        
+        # show data points on the contoured map
+        ptsLabel = QLabel('Points')
+        ptsLabel.setVisible(False)
+        def ptsCheckFunc(state):
+            showParams['pts'] = state
+            mwRaw.replot(**showParams)
+        ptsCheck = QCheckBox()
+        ptsCheck.clicked.connect(ptsCheckFunc)
+        ptsCheck.setToolTip('Show measurements points')
+        ptsCheck.setVisible(False)
+
 
         # display it
         mwRaw = MatplotlibWidget()
+        
         
         # layout
         importLayout = QVBoxLayout()
@@ -507,8 +546,8 @@ class App(QMainWindow):
         filtLayout.addWidget(ptsKillerBtn)
     
         midLayout = QHBoxLayout()
-        midLayout.addWidget(QLabel('Display Options:'))
-        midLayout.addWidget(surveyCombo)
+        midLayout.addWidget(displayLabel)
+        midLayout.addWidget(surveyCombo, 7)
         midLayout.addWidget(QLabel('Select coil:'))
         midLayout.addWidget(coilCombo, 7)
         midLayout.addWidget(showGroup)
