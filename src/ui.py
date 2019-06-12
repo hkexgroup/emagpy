@@ -429,20 +429,59 @@ class App(QMainWindow):
                       'vmax':None,'pts':False, 'cmap':'viridis_r'} 
         
         # switch between Raw data and map view
+#        def showRadioFunc(state):
+#            mwRaw.setCallback(self.problem.show)
+#            mwRaw.replot(**showParams)
+#        showRadio = QRadioButton('Raw')
+#        showRadio.setChecked(True)
+#        showRadio.toggled.connect(showRadioFunc)
+#        showRadio.setEnabled(False)
+#        def mapRadioFunc(state):
+#            showMapOptions(state)
+#            mwRaw.setCallback(self.problem.showMap)
+#            mwRaw.replot(**showParams)
+#        mapRadio = QRadioButton('Map')
+#        mapRadio.setEnabled(False)
+#        mapRadio.setChecked(False)
+#        mapRadio.toggled.connect(mapRadioFunc)
+#        showGroup = QGroupBox()
+#        showGroupLayout = QHBoxLayout()
+#        showGroupLayout.addWidget(showRadio)
+#        showGroupLayout.addWidget(mapRadio)
+#        showGroup.setLayout(showGroupLayout)
+#        showGroup.setFlat(True)
+#        showGroup.setContentsMargins(0,0,0,0)
+#        showGroup.setStyleSheet('QGroupBox{border: 0px;'
+#                                'border-style:inset;}')
+        
+        # alternative button checkable
         def showRadioFunc(state):
-            mwRaw.setCallback(self.problem.show)
-            mwRaw.replot(**showParams)
-        showRadio = QRadioButton('Raw')
+            if state:
+                mapRadio.setChecked(False)
+                showMapOptions(False)
+                mwRaw.setCallback(self.problem.show)
+                mwRaw.replot(**showParams)
+            else:
+                mapRadio.setChecked(True)
+        showRadio = QPushButton('Raw')
+        showRadio.setCheckable(True)
         showRadio.setChecked(True)
         showRadio.toggled.connect(showRadioFunc)
         showRadio.setEnabled(False)
+        showRadio.setAutoDefault(True)
         def mapRadioFunc(state):
-            showMapOptions(state)
-            mwRaw.setCallback(self.problem.showMap)
-            mwRaw.replot(**showParams)
-        mapRadio = QRadioButton('Map')
+            if state:
+                showRadio.setChecked(False)
+                showMapOptions(True)
+                mwRaw.setCallback(self.problem.showMap)
+                mwRaw.replot(**showParams)
+            else:
+                showRadio.setChecked(True)
+        mapRadio = QPushButton('Map')
+        mapRadio.setCheckable(True)
         mapRadio.setEnabled(False)
         mapRadio.setChecked(False)
+        mapRadio.setAutoDefault(True)
         mapRadio.toggled.connect(mapRadioFunc)
         showGroup = QGroupBox()
         showGroupLayout = QHBoxLayout()
@@ -603,6 +642,7 @@ class App(QMainWindow):
         calibTab = QTabWidget()
         tabs.addTab(calibTab, 'ERT Calibration')
         
+        # import ECa csv (same format, one coil per column)
         def ecaImportBtnFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
             if fname != '':
@@ -611,6 +651,7 @@ class App(QMainWindow):
         ecaImportBtn = QPushButton('Import ECa')
         ecaImportBtn.clicked.connect(ecaImportBtnFunc)
         
+        # import EC depth-specific (one depth per column) -> can be from ERT
         def ecImportBtnFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
             if fname != '':
@@ -619,11 +660,13 @@ class App(QMainWindow):
         ecImportBtn = QPushButton('Import EC profiles')
         ecImportBtn.clicked.connect(ecImportBtnFunc)
         
+        # choose which forward model to use
         forwardCalibCombo = QComboBox()
         forwardCalibs = ['CS', 'FS', 'FSandrade']
         for forwardCalib in forwardCalibs:
             forwardCalibCombo.addItem(forwardCalib)
         
+        # perform the fit (equations display in the console)
         def fitCalibBtnFunc():
             forwardModel = forwardCalibCombo.itemText(forwardCalibCombo.currentIndex())
             mwCalib.setCallback(self.problem.calibrate)
@@ -632,9 +675,10 @@ class App(QMainWindow):
         fitCalibBtn = QPushButton('Fit calibration')
         fitCalibBtn.clicked.connect(fitCalibBtnFunc)
         
-        
+        # apply the calibration to the ECa measurements of the survey imported
         def applyCalibBtnFunc():
             infoDump('Calibration applied')
+            #TODO we need a good dataset to test this !
         applyCalibBtn = QPushButton('Apply Calibration')
         applyCalibBtn.clicked.connect(applyCalibBtnFunc)
         
@@ -662,7 +706,6 @@ class App(QMainWindow):
         tabs.addTab(errTab, 'Error Modelling')
         
         surveyErrCombo = QComboBox()
-        
         coilErrCombo = QComboBox()
         
         def fitErrBtnFunc():
