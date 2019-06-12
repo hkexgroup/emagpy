@@ -52,9 +52,10 @@ class Problem(object):
 #        self.fixedConds = []
 #        self.fixedDepths = []
         self.surveys = []
-        self.models = []
+        self.models = [] # contains conds TODO rename to conds ?
         self.rmses = []
         self.freqs = []
+        self.depths = [] # contains inverted depths or just depths0 if fixed
         
         
         
@@ -130,7 +131,8 @@ class Problem(object):
         
         
     def invert(self, forwardModel='CS', regularization='l2', alpha=0.07,
-               beta=0, dump=None, method='Nelder-Mead', bnds=None, options={},):
+               beta=0, dump=None, method='Nelder-Mead', bnds=None,
+               fixedDepths=True, options={}):
         '''Invert the apparent conductivity measurements.
         
         Parameters
@@ -157,6 +159,9 @@ class Problem(object):
         bnds : list of float, optional
             If specified, will create bounds for the inversion. Doesn't work with
             Nelder-Mead solver.
+        fixedDepth : bool, optional
+            If False, the depth will be considered as a parameter to be 
+            optimized.
         options : optional
             Additional dictionary arguments will be passed to `scipy.optimize.minimize()`.
         '''
@@ -176,60 +181,99 @@ class Problem(object):
         else:
             bounds = None
         
+        nc = len(self.conds0)
+        
+        if fixedDepths is False:
+            mdepths = self.depths0[:-1] + np.diff(self.depths0)/2
+            bot = np.r_[np.ones(nc)*2, np.r_[0.2, mdepths]]
+            top = np.r_[np.ones(nc)*100, np.r_[mdepths, self.depths0[-1] + 0.2]]
+            bounds = list(tuple(zip(bot, top)))
+            method = 'TNC' # Nelder-Meand doesn't accept bounds
+            print(bounds)
+#            beta = 0 # not lateral smoothing with changing depths
+        
         if forwardModel in ['CS','FS','FSandrade']:
             # define the forward model
             if forwardModel == 'CS':
-                def fmodel(p):
-                    return fCS(p, self.depths0, self.cspacing, self.cpos, hx=self.hx[0])
+                if fixedDepths is True:
+                    def fmodel(p):
+                        return fCS(p, self.depths0, self.cspacing, self.cpos, hx=self.hx[0])
+                else:
+                    def fmodel(p):
+                        return fCS(p[:nc], p[nc:], self.cspacing, self.cpos, hx=self.hx[0])
             elif forwardModel == 'FS':
-                def fmodel(p):
-                    return fMaxwellECa(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+                if fixedDepths is True:
+                    def fmodel(p):
+                        return fMaxwellECa(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+                else:
+                    def fmodel(p):
+                        return fMaxwellECa(p[:nc], p[nc:], self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
             elif forwardModel == 'FSandrade':
-                def fmodel(p):
-                    return fMaxwellQ(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
-            
+                if fixedDepths is True:
+                    def fmodel(p):
+                        return fMaxwellQ(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+                else:
+                    def fmodel(p):
+                        return fMaxwellQ(p[:nc], p[nc:], self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+
             # build objective function (RMSE based)
             L = buildSecondDiff(len(self.conds0)) # L is used inside the smooth objective fct
 
             def dataMisfit(p, app):
                 return fmodel(p) - app
-            def modelMisfit(p):
-                return np.dot(L, p)
+            if fixedDepths is True:
+                def modelMisfit(p):
+                    return np.dot(L, p)
+            else:
+                def modelMisfit(p): # model misfit only for conductivities
+                    return np.dot(L, p[:nc])
+
             
             if regularization  == 'l1':
                 def objfunc(p, app, pn):
                     return np.sqrt(np.sum(np.abs(dataMisfit(p, app)))/len(app)
-                                   + alpha*np.sum(np.abs(modelMisfit(p)))/len(p)
-                                   + beta*np.sum(np.abs(p - pn))/len(p))
+                                   + alpha*np.sum(np.abs(modelMisfit(p)))/nc
+                                   + beta*np.sum(np.abs(p[:nc] - pn))/len(p))
             elif regularization == 'l2':
                 def objfunc(p, app, pn):
                     return np.sqrt(np.sum(dataMisfit(p, app)**2)/len(app)
-                                   + alpha*np.sum(modelMisfit(p)**2)/len(p)
-                                   + beta*np.sum((p - pn)**2)/len(p))
-            # not sure about the division by len(app) for modelMisfit
+                                   + alpha*np.sum(modelMisfit(p)**2)/nc
+                                   + beta*np.sum((p[:nc] - pn)**2)/len(p))
                     
             # inversion row by row
+            if fixedDepths is True:
+                x0 = self.conds0
+            else:
+                x0 = np.r_[self.conds0, self.depths0]
             for i, survey in enumerate(self.surveys):
                 apps = survey.df[self.coils].values
                 rmse = np.zeros(apps.shape[0])*np.nan
                 model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
+                depth = np.zeros((apps.shape[0], len(self.depths0)))*np.nan
                 dump('Survey {:d}/{:d}'.format(i+1, len(self.surveys)))
                 for j in range(survey.df.shape[0]):
                     app = apps[j,:]
                     if j == 0:
-                        pn = np.zeros(len(self.conds0))
+                        pn = np.zeros(nc)
                     else:
                         pn = model[j-1,:]
 #                    try:
-                    res = minimize(objfunc, self.conds0, args=(app, pn),
+                    res = minimize(objfunc, x0, args=(app, pn),
                                    method=method, bounds=bounds, options=options)
                     out = res.x
-#                    except:
+#                    except ValueError as e:
+#                        pass
 #                        out = np.ones(len(self.conds0))*np.nan
-                    model[j,:] = out
+                    if fixedDepths is False:
+                        depth[j,:] = out[-len(self.depths0):]
+                    else:
+                        depth[j,:] = self.depths0
+                    model[j,:] = out[:nc]
                     rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/len(app))
-                    dump('{:d}/{:d} inverted'.format(j+1, apps.shape[0]))
+                    status = 'converged' if res.success else 'not converged'
+                    dump('{:d}/{:d} inverted ({:s})'.format(j+1, apps.shape[0], status))
                 self.models.append(model)
+                self.depths.append(depth)
                 self.rmses.append(rmse)
                     
     # TODO add smoothing 3D: maybe invert all profiles once with GN and then
@@ -449,8 +493,9 @@ class Problem(object):
         '''            
         sig = self.models[index]
         x = np.arange(sig.shape[0])
-        depths = np.repeat(self.depths0[:,None], sig.shape[0], axis=1).T
-                
+#        depths = np.repeat(self.depths0[:,None], sig.shape[0], axis=1).T
+        depths = self.depths[0]      
+        
         if depths[0,0] != 0:
             depths = np.c_[np.zeros(depths.shape[0]), depths]
         if vmin is None:
@@ -804,7 +849,7 @@ class Problem(object):
             
 
         
-#%%
+
 
 if __name__ == '__main__':
     # cover crop example
@@ -813,15 +858,15 @@ if __name__ == '__main__':
     k.conds0 = np.ones(len(k.depths0)+1)*20
     k.createSurvey('test/coverCrop.csv', freq=30000)
 #    k.createSurvey('test/warren170316.csv', freq=30000)
-#    k.surveys[0].df = k.surveys[0].df[:3]
+    k.surveys[0].df = k.surveys[0].df[:10]
 #    k.show()
 #    k.lcurve()
-    k.invertGN(alpha=0.07)
-#    k.invert(forwardModel='FSandrade', alpha=0.07, method='Nelder-Mead') # this doesn't work well
+#    k.invertGN(alpha=0.07)
+    k.invert(forwardModel='CS', alpha=1, method='TNC', options={'maxiter':100}, beta=1, fixedDepths=False) # this doesn't work well
 #    k.showMisfit()
     k.showResults() # TODO replace with a polycollection faster ? or pcolormesh if no depth change ?
-    k.showOne2one()
-    k.showMisfit()
+#    k.showOne2one()
+#    k.showMisfit()
 #    k.models[0] = np.ones(k.models[0].shape)*20
 #    k.forward(forwardModel='FSandrade')
 #    k.calibrate('test/dfeca.csv', 'test/dfec.csv', forwardModel='FS') # TODO
