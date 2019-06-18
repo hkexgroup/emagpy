@@ -17,34 +17,10 @@ from emagpy.Survey import Survey
 
 EMagPy_version = '0.0.1'
 
-'''
-API structure:
-- Survey class (coil specific)
-    - df: main dataframe (one column per coil, one row per location)
-    - read()
-    - interpolate() (kriging or gridding)
-    - crossOverError() using cross-over points
-- CalibrationData class (EC, ECa)
-    - apply(Survey)
-    - show()
-- Model class (depth specific)
-    - df: main dataframe (one column per layer/depths, one row per location)
-    - show()
-    - setDepths()
-    - setEC()
-- Problem class (master class)
-    - surveys: list of Survey object
-    - models: list of Model object
-    - invert(forwardModel='CS',
-             method='SCEUA/TNC/',
-             constrain='quasi2D', 'quasi3D', 'none')
-    - forwardEM()
-    - forwardCS()
-    
-'''
 
 class Problem(object):
-    ''' Class defining an inversion problem.
+    '''Class defining an inversion problem.
+    
     '''
     def __init__(self):
         self.depths0 = np.array([1, 2]) # initial depths of the bottom of each layer (last one is -inf)
@@ -60,7 +36,7 @@ class Problem(object):
         
         
     def createSurvey(self, fname, freq=None, hx=None):
-        ''' Create a survey object.
+        '''Create a survey object.
         
         Parameters
         ----------

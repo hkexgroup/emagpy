@@ -671,17 +671,19 @@ class Survey(object):
         self.df = df
     
     def rmRepeatPt(self, tolerance=0.2):
-        """Remove points taken too close together consecutively.
+        '''Remove points taken too close together consecutively.
+        
         Parameters
         ----------
         tolerance : float, optional
             Minimum distance away previous point in order to be retained. 
+        
         Returns 
-        ----------
+        -------
         self.fil_df : pandas dataframe
             Truncated dataframe leaving only the measurements which are spaced 
             more than [tolerance value] apart. 
-        """
+        '''
         #error checking
         if not isinstance(tolerance,int) and not isinstance(tolerance,float):
             raise ValueError("tolerance instance should be int or float")
@@ -697,20 +699,22 @@ class Survey(object):
         
     
     def rmBearing(self, phiMin,phiMax):
-        """Remove measurments recorded in a certian bearing range. Where phiMax -
+        '''Remove measurments recorded in a certian bearing range. Where phiMax -
         phiMin is the bearing range to remove. 
+        
         Parameters
         ----------
         phiMin : float, optional
             Minimum angle, in degrees. 
         phiMax : float, optional
             Maximum angle, in degrees
+        
         Returns 
-        ----------
+        -------
         self.fil_df : pandas dataframe
             Truncated dataframe leaving only the measurements from outside the 
             given bearing range. 
-        """
+        '''
         #error checking
         if not isinstance(phiMin,int) and not isinstance(phiMin,float):
             raise ValueError("phiMin instance should be int or float")
@@ -734,8 +738,9 @@ class Survey(object):
         self.fil_df = out.reset_index()# its necassary to reset the indexes for other filtering techniques 
         
     def driftStn(self,xStn=None,yStn=None,tolerance=0.5):
-        """Extract values taken at a given x y point. By default the drift 
-        station is taken at the location where the survey starts. 
+        '''Extract values taken at a given x y point. By default the drift 
+        station is taken at the location where the survey starts.
+        
         Parameters
         ----------
         xStn : float, optional
@@ -746,13 +751,14 @@ class Survey(object):
             not long and lat)
         tolerance : float, optional
             Maximum distance away from the drift station using local units. 
-        Returns 
-        ----------
+        
+        Returns
+        -------
         self.drift_df : pandas dataframe
             Truncated dataframe leaving only the measurements from the drift
             station. 
         
-        """
+        '''
         df = self.df
         x = df.x.values # x values of data frame
         y = df.y.values # y values of data frame 
