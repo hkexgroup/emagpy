@@ -1,9 +1,9 @@
-.. ResIPy documentation master file, created by
+.. EmagPy documentation master file, created by
    sphinx-quickstart on Wed Aug 29 00:30:45 2018.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to ResIPy's documentation!
+Welcome to EmagPy's documentation!
 ==================================
 I like equations such as :math:`\frac{x^2}{\sum_{i=1}^n \sqrt{3+x^3}}`
 
