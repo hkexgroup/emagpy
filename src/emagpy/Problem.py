@@ -9,6 +9,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.collections import PolyCollection
 from scipy.optimize import minimize
 from scipy.stats import linregress
 
@@ -142,6 +143,7 @@ class Problem(object):
             Additional dictionary arguments will be passed to `scipy.optimize.minimize()`.
         '''
         self.models = []
+        self.depths = []
         self.rmses = []
         
         if dump is None:
@@ -234,7 +236,7 @@ class Problem(object):
                     else:
                         pn = model[j-1,:]
 #                    try:
-                    res = minimize(objfunc, x0, args=(app, pn),
+                    res = minimize(objfunc, x0, args=(app, pn), tol=0.1,
                                    method=method, bounds=bounds, options=options)
                     out = res.x
 #                    except ValueError as e:
@@ -458,14 +460,26 @@ class Problem(object):
     
     
     
-    def showResults(self, index=0, ax=None, vmin=None, vmax=None,
-                    maxDepth=None, padding=0, cmap='viridis_r'):
+    def showResults_old(self, index=0, ax=None, vmin=None, vmax=None,
+                    maxDepth=None, padding=1, cmap='viridis_r'):
         '''Show invertd model.
         
         Parameters
         ----------
         index : int, optional
             Index of the survey to plot.
+        ax : Matplotlib.Axes, optional
+            If specified, the graph will be plotted against this axis.
+        vmin : float, optional
+            Minimum value of the colorbar.
+        vmax : float, optional
+            Maximum value of the colorbar.
+        maxDepth : float, optional
+            Maximum negative depths of the graph.
+        padding : float, optional
+            Thickness of the bottom infinite layer in [m].
+        cmap : str, optional
+            Name of the Matplotlib colormap to use.
         '''            
         sig = self.models[index]
         x = np.arange(sig.shape[0])
@@ -489,6 +503,9 @@ class Problem(object):
             fig, ax = plt.subplots()
         else:
             fig = ax.figure
+         # optimization doesn't seem to work maybe it needs only increasing arrays...   
+#        ax.bar(np.tile(x, h.shape[1]-1), -h[:,1:].flatten('F'), bottom=-np.cumsum(h, axis=1)[:,1:].flatten('F'),
+#               color=cmap(norm(sig.flatten('F'))), edgecolor='none', width=1)
         for i in range(1, h.shape[1]):
             ax.bar(x, -h[:,i], bottom=-np.sum(h[:,:i], axis=1),
                    color=cmap(norm(sig[:,i-1])), edgecolor='none', width=1)
@@ -512,11 +529,87 @@ class Problem(object):
 
 
     
-    def showResults2(self):
-        '''Use pcolormesh to plot faster
-        '''
-        pass
-    # TODO
+    def showResults(self, index=0, ax=None, vmin=None, vmax=None,
+                    maxDepth=None, padding=1, cmap='viridis_r'):
+        '''Show inverted model.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Index of the survey to plot.
+        ax : Matplotlib.Axes, optional
+            If specified, the graph will be plotted against this axis.
+        vmin : float, optional
+            Minimum value of the colorbar.
+        vmax : float, optional
+            Maximum value of the colorbar.
+        maxDepth : float, optional
+            Maximum negative depths of the graph.
+        padding : float, optional
+            DONT'T KNOW
+        cmap : str, optional
+            Name of the Matplotlib colormap to use.
+        '''            
+        sig = self.models[index]
+        x = np.arange(sig.shape[0])
+#        depths = np.repeat(self.depths0[:,None], sig.shape[0], axis=1).T
+        depths = self.depths[0]  
+        
+        if depths[0,0] != 0:
+            depths = np.c_[np.zeros(depths.shape[0]), depths]
+        if vmin is None:
+            vmin = np.nanpercentile(sig, 5)
+        if vmax is None:
+            vmax = np.nanpercentile(sig, 95)
+        cmap = plt.get_cmap(cmap)
+        if maxDepth is None:
+            maxDepth = np.max(depths) + padding
+        depths = np.c_[depths, np.ones(depths.shape[0])*maxDepth]
+        
+        # vertices
+        nlayer = sig.shape[1]
+        nsample = sig.shape[0]
+        x2 = np.arange(nsample+1)
+#        dist = np.sqrt((self.surveys[index].df['x'].values - self.surveys[index].df['y'].values)**2)
+        xs = np.tile(np.repeat(x2, 2)[1:-1][:,None], nlayer+1)
+        ys = -np.repeat(depths, 2, axis=0)
+        vertices = np.c_[xs.flatten('F'), ys.flatten('F')]
+        
+        # connection matrix
+        n = vertices.shape[0]
+        connection = np.c_[np.arange(n).reshape(-1,2),
+                           2*nsample + np.arange(n).reshape(-1,2)[:,::-1]]
+#        ie1 = connection[:,0] % (2*len(x)-2) == 0
+        ie2 = (connection >= len(vertices)).any(1)
+        ie = ie2
+        connection = connection[~ie, :]
+        coordinates = vertices[connection]
+        
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
+#        ax.plot(vertices[:,0], vertices[:,1], 'k.')
+        coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
+        coll.set_clim(vmin=vmin, vmax=vmax)
+        ax.add_collection(coll)
+
+        fig.colorbar(coll, label='Conductivity [mS/m]')
+        ax.set_xlabel('X position')
+        ax.set_ylabel('Depth [m]')
+        ax.set_title(self.surveys[index].name)
+        ax.set_ylim([-maxDepth, 0])
+        ax.set_xlim([x[0], x[-1]+1])
+#        ax.set_aspect('equal')
+        def format_coord(i,j):
+            col=int(np.floor(i))
+            if col < sig.shape[0]:
+                row = int(np.where(-depths[col,:] < j)[0].min())-1
+                return 'x={0:.4f}, y={1:.4f}, value={2:.4f}'.format(col, row, sig[col, row])
+            else:
+                return ''
+        ax.format_coord = format_coord
+        fig.tight_layout()
 
 
     
@@ -594,6 +687,8 @@ class Problem(object):
         obsECa = survey.df[cols].values
         simECa = dfsForward[index][cols].values
         rmse = np.sqrt(np.sum((obsECa.flatten() - simECa.flatten())**2)/len(obsECa.flatten()))
+        rmses = np.sqrt(np.sum((obsECa - simECa)**2, axis=0)/obsECa.shape[0])
+        print(rmses)
         if vmin is None:
             vmin = np.nanpercentile(obsECa.flatten(), 5)
         if vmax is None:
@@ -607,7 +702,7 @@ class Problem(object):
         ax.set_ylim([vmin, vmax])
         ax.set_xlabel('Observed ECa [mS/m]')
         ax.set_ylabel('Simulated ECa [mS/m]')
-        ax.legend(cols)
+        ax.legend(['{:s} ({:.2f})'.format(c, r) for c, r in zip(cols, rmses)])
     
     
     def keepBetween(self, vmin=None, vmax=None):
@@ -830,18 +925,19 @@ class Problem(object):
 if __name__ == '__main__':
     # cover crop example
     k = Problem()
-    k.depths0 = np.linspace(0.5, 2, 3) # not starting at 0 !
+    k.depths0 = np.array([0.2, 0.5, 1]) # not starting at 0 !
     k.conds0 = np.ones(len(k.depths0)+1)*20
     k.createSurvey('test/coverCrop.csv', freq=30000)
 #    k.createSurvey('test/warren170316.csv', freq=30000)
-    k.surveys[0].df = k.surveys[0].df[:10]
+    k.surveys[0].df = k.surveys[0].df[:20]
 #    k.show()
 #    k.lcurve()
 #    k.invertGN(alpha=0.07)
-    k.invert(forwardModel='CS', alpha=1, method='TNC', options={'maxiter':100}, beta=1, fixedDepths=False) # this doesn't work well
+    k.invert(forwardModel='FS', alpha=0.07, method='CG', options={'maxiter':2}, beta=0, fixedDepths=True) # this doesn't work well
+    k.invertGN() # similar as CG with nit=2
 #    k.showMisfit()
-    k.showResults() # TODO replace with a polycollection faster ? or pcolormesh if no depth change ?
-#    k.showOne2one()
+    k.showResults()
+    k.showOne2one()
 #    k.showMisfit()
 #    k.models[0] = np.ones(k.models[0].shape)*20
 #    k.forward(forwardModel='FSandrade')
