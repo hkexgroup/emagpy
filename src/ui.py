@@ -851,9 +851,14 @@ class App(QMainWindow):
         
         
         forwardCombo = QComboBox()
-        forwardModels = ['CS (fast)', 'CS', 'FS', 'FSandrade']
+        forwardModels = ['CS', 'CS (fast)', 'FS', 'FSandrade']
         for forwardModel in forwardModels:
             forwardCombo.addItem(forwardModel)
+        
+        methodCombo = QComboBox()
+        methods = ['CG', 'L-BFGS-B', 'TNC', 'Nelder-Mead']
+        for method in methods:
+            methodCombo.addItem(method)
         
         alphaLabel = QLabel('Damping factor:')
         alphaEdit = QLineEdit('0.07')
@@ -887,6 +892,7 @@ class App(QMainWindow):
             regularization = lCombo.itemText(lCombo.currentIndex())
             alpha = float(alphaEdit.text()) if alphaEdit.text() != '' else 0.07
             forwardModel = forwardCombo.itemText(forwardCombo.currentIndex())
+            method = methodCombo.itemText(methodCombo.currentIndex())
             depths = np.r_[[0], depths0, [-np.inf]]
             nit = float(nitEdit.text()) if nitEdit.text() != '' else 15
             sliceCombo.disconnect()
@@ -901,7 +907,7 @@ class App(QMainWindow):
             else:
                 self.problem.invert(forwardModel=forwardModel, alpha=alpha,
                                     dump=logTextFunc, regularization=regularization,
-                                    options={'maxiter':nit})
+                                    method=method, options={'maxiter':nit})
             
             # plot results
             mwInv.setCallback(self.problem.showResults)
@@ -911,12 +917,14 @@ class App(QMainWindow):
             mwMisfit.plot(self.problem.showMisfit)
             mwOne2One.plot(self.problem.showOne2one)
             outputStack.setCurrentIndex(1)
+            #TODO add kill feature
         invertBtn = QPushButton('Invert')
         invertBtn.clicked.connect(invertBtnFunc)
         
         
         # profile display
-        showInvParams = {'index':0, 'vmin':None, 'vmax':None, 'cmap':'viridis_r'}
+        showInvParams = {'index':0, 'vmin':None, 'vmax':None, 
+                         'cmap':'viridis_r', 'contour':False}
         
         def cmapInvComboFunc(index):
             showInvParams['cmap'] = cmapInvCombo.itemText(index)
@@ -949,6 +957,14 @@ class App(QMainWindow):
             mwInv.replot(**showInvParams)
         applyInvBtn = QPushButton('Apply')
         applyInvBtn.clicked.connect(applyInvBtnFunc)
+        
+        contourInvLabel = QLabel('Contour:')
+        def contourInvCheckFunc(state):
+            showInvParams['contour'] = state
+            mwInv.replot(**showInvParams)
+        contourInvCheck = QCheckBox()
+        contourInvCheck.clicked.connect(contourInvCheckFunc)
+ 
         
         
         # for the map
@@ -993,12 +1009,12 @@ class App(QMainWindow):
         sliceCombo = QComboBox()
         sliceCombo.currentIndexChanged.connect(sliceComboFunc)
         
-        contourInvLabel = QLabel('Contour:')
-        def contourInvCheckFunc(state):
+        contourInvMapLabel = QLabel('Contour:')
+        def contourInvMapCheckFunc(state):
             showInvMapParams['contour'] = state
             mwInvMap.replot(**showInvMapParams)
-        contourInvCheck = QCheckBox()
-        contourInvCheck.clicked.connect(contourInvCheckFunc)
+        contourInvMapCheck = QCheckBox()
+        contourInvMapCheck.clicked.connect(contourInvMapCheckFunc)
         
         
         graphTabs = QTabWidget()
@@ -1017,7 +1033,8 @@ class App(QMainWindow):
         
         invOptions = QHBoxLayout()
         invOptions.addWidget(forwardCombo, 15)
-        invOptions.addWidget(alphaLabel, 10)
+        invOptions.addWidget(methodCombo, 5)
+        invOptions.addWidget(alphaLabel, 5)
         invOptions.addWidget(alphaEdit, 10)
         invOptions.addWidget(lCombo, 5)
         invOptions.addWidget(nitLabel, 2)
@@ -1045,6 +1062,8 @@ class App(QMainWindow):
         profOptionsLayout.addWidget(vmaxInvLabel)
         profOptionsLayout.addWidget(vmaxInvEdit)
         profOptionsLayout.addWidget(applyInvBtn)
+        profOptionsLayout.addWidget(contourInvLabel)
+        profOptionsLayout.addWidget(contourInvCheck)
         profOptionsLayout.addWidget(cmapInvCombo)
         profLayout.addLayout(profOptionsLayout)
         profLayout.addWidget(mwInv)
@@ -1062,8 +1081,8 @@ class App(QMainWindow):
         mapOptionsLayout.addWidget(vmaxInvMapEdit)
         mapOptionsLayout.addWidget(applyInvMapBtn)
         mapOptionsLayout.addWidget(cmapInvMapCombo)
-        mapOptionsLayout.addWidget(contourInvLabel)
-        mapOptionsLayout.addWidget(contourInvCheck)
+        mapOptionsLayout.addWidget(contourInvMapLabel)
+        mapOptionsLayout.addWidget(contourInvMapCheck)
         mapLayout.addLayout(mapOptionsLayout)
         mapLayout.addWidget(mwInvMap)
         mapTab.setLayout(mapLayout)

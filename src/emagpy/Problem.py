@@ -33,7 +33,7 @@ class Problem(object):
         self.rmses = []
         self.freqs = []
         self.depths = [] # contains inverted depths or just depths0 if fixed
-        
+        self.ikill = False # if True, the inversion is killed
         
         
     def createSurvey(self, fname, freq=None, hx=None):
@@ -105,7 +105,8 @@ class Problem(object):
             raise ValueError('Depths should be ordered and increasing.')
         self.depths = np.array(depths)
         
-        
+    
+    #TODO make an invert method with FS that inverts for Q not ECa (faster)
         
     def invert(self, forwardModel='CS', regularization='l2', alpha=0.07,
                beta=0, dump=None, method='Nelder-Mead', bnds=None,
@@ -145,6 +146,7 @@ class Problem(object):
         self.models = []
         self.depths = []
         self.rmses = []
+        self.ikill = False
         
         if dump is None:
             dump = print
@@ -224,12 +226,16 @@ class Problem(object):
             else:
                 x0 = np.r_[self.conds0, self.depths0]
             for i, survey in enumerate(self.surveys):
+                if self.ikill:
+                    break
                 apps = survey.df[self.coils].values
                 rmse = np.zeros(apps.shape[0])*np.nan
                 model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
                 depth = np.zeros((apps.shape[0], len(self.depths0)))*np.nan
                 dump('Survey {:d}/{:d}'.format(i+1, len(self.surveys)))
                 for j in range(survey.df.shape[0]):
+                    if self.ikill:
+                        break
                     app = apps[j,:]
                     if j == 0:
                         pn = np.zeros(nc)
@@ -253,6 +259,8 @@ class Problem(object):
                 self.models.append(model)
                 self.depths.append(depth)
                 self.rmses.append(rmse)
+        else:
+            self.invertGN(alpha=alpha, alpha_ref=None, dump=dump)
                     
     # TODO add smoothing 3D: maybe invert all profiles once with GN and then
     # invert them again with a constrain on the 5 nearest profiles by distance
@@ -530,7 +538,8 @@ class Problem(object):
 
     
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
-                    maxDepth=None, padding=1, cmap='viridis_r'):
+                    maxDepth=None, padding=1, cmap='viridis_r',
+                    contour=False):
         '''Show inverted model.
         
         Parameters
@@ -549,12 +558,19 @@ class Problem(object):
             DONT'T KNOW
         cmap : str, optional
             Name of the Matplotlib colormap to use.
+        contour : bool, optional
+            If `True` a contour plot will be plotted.
         '''            
         sig = self.models[index]
-        x = np.arange(sig.shape[0])
+#        x = np.arange(sig.shape[0])
+        x = np.sqrt(np.diff(self.surveys[index].df[['x', 'y']].values, axis=1)**2)
 #        depths = np.repeat(self.depths0[:,None], sig.shape[0], axis=1).T
-        depths = self.depths[0]  
+        depths = self.depths[0]
         
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
         if depths[0,0] != 0:
             depths = np.c_[np.zeros(depths.shape[0]), depths]
         if vmin is None:
@@ -585,16 +601,20 @@ class Problem(object):
         connection = connection[~ie, :]
         coordinates = vertices[connection]
         
-        if ax is None:
-            fig, ax = plt.subplots()
+        # plotting
+        if contour is True: # TODO might need to extend to maxDepth + 0m
+            centroid = np.mean(coordinates, axis=1)
+            levels = np.linspace(vmin, vmax, 7)
+            cax = ax.tricontourf(centroid[:,0], centroid[:,1], sig.flatten('F'),
+                                 cmap=cmap, levels=levels, extend='both')
+            fig.colorbar(cax, ax=ax, label='Conductivity [mS/m]')
         else:
-            fig = ax.figure
-#        ax.plot(vertices[:,0], vertices[:,1], 'k.')
-        coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
-        coll.set_clim(vmin=vmin, vmax=vmax)
-        ax.add_collection(coll)
+    #        ax.plot(vertices[:,0], vertices[:,1], 'k.')
+            coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
+            coll.set_clim(vmin=vmin, vmax=vmax)
+            ax.add_collection(coll)
+            fig.colorbar(coll, label='Conductivity [mS/m]')
 
-        fig.colorbar(coll, label='Conductivity [mS/m]')
         ax.set_xlabel('X position')
         ax.set_ylabel('Depth [m]')
         ax.set_title(self.surveys[index].name)
@@ -933,11 +953,11 @@ if __name__ == '__main__':
 #    k.show()
 #    k.lcurve()
 #    k.invertGN(alpha=0.07)
-    k.invert(forwardModel='FS', alpha=0.07, method='CG', options={'maxiter':2}, beta=0, fixedDepths=True) # this doesn't work well
-    k.invertGN() # similar as CG with nit=2
+    k.invert(forwardModel='CS', alpha=0.07, method='CG', options={'maxiter':2}, beta=0, fixedDepths=True) # this doesn't work well
+#    k.invertGN() # similar as CG with nit=2
 #    k.showMisfit()
-    k.showResults()
-    k.showOne2one()
+    k.showResults(contour=True)
+#    k.showOne2one()
 #    k.showMisfit()
 #    k.models[0] = np.ones(k.models[0].shape)*20
 #    k.forward(forwardModel='FSandrade')
