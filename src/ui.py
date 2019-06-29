@@ -836,8 +836,6 @@ class App(QMainWindow):
             ecstart = float(startingEdit.text()) if startingEdit.text() != '' else 20
             depths = np.linspace(thick, thick*(nlayer-1), nlayer-1)
             conds0 = np.ones(len(depths)+1) * ecstart
-            print(depths)
-            print(conds0)
             modelTable.setTable(depths, conds0)
         createModelBtn = QPushButton('Create Model')
         createModelBtn.setAutoDefault(True)
@@ -890,7 +888,7 @@ class App(QMainWindow):
         
         
         forwardCombo = QComboBox()
-        forwardModels = ['CS', 'CS (fast)', 'FS', 'FSandrade']
+        forwardModels = ['CS', 'CS (fast)', 'FS', 'FSandrade', 'Q']
         for forwardModel in forwardModels:
             forwardCombo.addItem(forwardModel)
         
@@ -942,7 +940,6 @@ class App(QMainWindow):
             method = methodCombo.itemText(methodCombo.currentIndex())
             beta = float(betaEdit.text()) if betaEdit.text() != '' else 0.0
             fixedDepths = fixedCheck.isChecked()
-            print(fixedDepths, beta)
             depths = np.r_[[0], depths0, [-np.inf]]
             nit = int(nitEdit.text()) if nitEdit.text() != '' else 15
             sliceCombo.disconnect()
@@ -954,6 +951,9 @@ class App(QMainWindow):
             # invert
             if forwardModel == 'CS (fast)':
                 self.problem.invertGN(alpha=alpha, dump=logTextFunc)
+            elif forwardModel == 'Q': # NOTE we don't pass alpha or beta ! too sensitive
+                self.problem.invertQ(regularization=regularization, method=method,
+                                     dump=logTextFunc, fixedDepths=fixedDepths)
             else:
                 self.problem.invert(forwardModel=forwardModel, alpha=alpha,
                                     dump=logTextFunc, regularization=regularization,

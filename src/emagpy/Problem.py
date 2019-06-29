@@ -849,7 +849,6 @@ class Problem(object):
         simECa = dfsForward[index][cols].values
         rmse = np.sqrt(np.sum((obsECa.flatten() - simECa.flatten())**2)/len(obsECa.flatten()))
         rmses = np.sqrt(np.sum((obsECa - simECa)**2, axis=0)/obsECa.shape[0])
-        print(rmses)
         if vmin is None:
             vmin = np.nanpercentile(obsECa.flatten(), 5)
         if vmax is None:
