@@ -405,6 +405,7 @@ def fMaxwellQ(cond, depths, s, cpos, hx=None, f=30000, maxiter=50):
         response[i] = zero
     return response
 
+
 # test
 #cpos = 'hcp'
 #s = 0.32
@@ -422,6 +423,35 @@ def fMaxwellQ(cond, depths, s, cpos, hx=None, f=30000, maxiter=50):
 #print(sig0)
 #zero = newton(objfunc, sig0)*1e3 # back to mS/m
 #print(zero)
+
+
+
+def Q2eca2(Qobs, depths, cpos, s, f=30000, hx=None, maxiter=50):
+    Qobs = np.imag(Qobs)
+    h = np.r_[depths[0], np.diff(depths)]
+    if hx is not None:
+        h = np.r_[hx, h]
+    if cpos == 'prp': # we don't have analytical for PRP
+        def objfunc(sig):
+            sigg = np.ones(len(depths)+1)*sig
+            Qmod = np.imag(getQ2(cpos, s, sigg, f, h))
+            return np.abs(Qmod - Qobs)
+    else:
+        def objfunc(sig): # analytical is much faster
+            Qmod = np.imag(getQhomogeneous(cpos, s, sig, f)) # faster even if more rounding errors
+            return np.abs(Qmod - Qobs)
+    sig0 = Q2eca(0+1j*Qobs, s) # still in S/m
+#    sig0 = eca0[i]
+#    res = minimize(objfunc, x0=sig0, method='BFGS')
+#    zero = res.x[0]*1e3
+#    zero = brent(objfunc, brack=(sig0*0.8, sig0, sig0*1.2))*1e3
+    zero = newton(objfunc, sig0, maxiter=maxiter)
+    return zero
+
+# test
+#Qobs = getQ2('hcp',0.71, np.array([20,20])*1e-3, 30000, np.array([0.5]))
+#print(Q2eca(Qobs, 0.71)*1e3)
+#print(Q2eca2(Qobs, np.array([0.5]), 'hcp', 0.71, f=30000 )*1e3)
 
 
 
