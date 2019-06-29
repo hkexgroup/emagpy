@@ -5,7 +5,7 @@ Created on Wed Apr 24 07:52:50 2019
 
 @author: jkl
 """
-
+from numba import njit, jit
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -238,6 +238,12 @@ def Q2eca(Q, s, f=30000):
     """
     return 4/(2*np.pi*f*mu_0*s**2)*np.imag(Q)
 
+def eca2Q(eca, s, f=30000):
+    """ Returns the imaginary part of quadrature given the apparent 
+    conductivity value (assuming we are in the Low Induction Number (LIN) 
+    approximation)
+    """
+    return eca/(4/(2*np.pi*f*mu_0*s**2))
 
 # test
 #sig = np.array([60,60,60])*1e-3
@@ -268,6 +274,7 @@ def Q2eca(Q, s, f=30000):
 
 
 # --------------------- getQ2 faster
+#@njit
 def getRn2(lamb, sigg, f, d): # compute reflexion coefficients
     sigma = np.array([0] + sigg.tolist()) # sigma 0 is above the ground
     h = np.array([0] + d.tolist() + [0]) # last one won't be used, because Rn+1 = 0 and
@@ -278,6 +285,8 @@ def getRn2(lamb, sigg, f, d): # compute reflexion coefficients
     imagPart = 2*np.pi*f*mu_0*np.repeat(sigma[:,None], len(lamb), axis=1)
     gamma = np.sqrt(realPart.T + 1j*imagPart)
 #    gamma = np.sqrt(lamb**2 + 1j*2*np.pi*f*mu_0*sigma)
+    ''' optimization idea would be to create the big array gamma before hand
+    '''
     R = np.zeros((sigmaLen, len(lamb)), dtype=np.complex)#*np.nan
     R[-1,:] = 0+0j # no waves from the lower half space
     for i in range(sigmaLen-2, -1, -1): # it's recursive so needs for loop
@@ -291,9 +300,9 @@ def getRn2(lamb, sigg, f, d): # compute reflexion coefficients
 # test code
 #getR0_2(1, np.array([60,70,60]), 30000, np.array([0.3, 0.5]))
 #lamb = np.array([1])
-#getRn2(lamb, np.array([60,70,60]), 30000, np.array([0.3, 0.5]))
+#%timeit getRn2(lamb, np.array([60,60,60]), 30000, np.array([0.3, 0.5]))
 
-
+#@njit
 def getQ2(cpos, s, sig, f, h, typ=None):
     lamb = hankel5_lamb/s # normalized to be used in Hankel
     if cpos == 'vcp':
@@ -312,6 +321,17 @@ def getQ2(cpos, s, sig, f, h, typ=None):
         hankel = np.sum(w*K/s) # hankel transform
         return 0-s**3*hankel
   
+def getQs(cond, depths, s, cpos, f, hx=0):
+    app = np.zeros(len(cpos), dtype=complex)
+    h = np.r_[depths[0], np.diff(depths)]
+    if hx > 0:
+        h = np.r_[hx,h]
+        cond = np.r_[0, cond]
+    cond = cond*1e-3
+    for i in range(len(cpos)):
+        app[i] = getQ2(cpos[i], s[i], cond, f=f, h=h)
+    return app
+
 
 #sigH = 60*1e-3 # S/m
 #sig = np.ones(3)*sigH
@@ -320,11 +340,11 @@ def getQ2(cpos, s, sig, f, h, typ=None):
 #s = 0.71
 #cpos = 'hcp'
 #lamb = hankel5_lamb/s
-#Ka = getRn(lamb, sig, f, h) # identical
-#Kb = getRn2(lamb, sig, f, h) # identical
-#getQ(cpos, s, sig, f, h) # 47.5 ms
+#%timeit Ka = getRn(lamb, sig, f, h) # 55 ms
+#%timeit Kb = getRn2(lamb, sig, f, h) # 662 us
+#%timeit getQ(cpos, s, sig, f, h) # 47.5 ms
 #getQ2(cpos, s, sig, f, h) # 672 us !
-#getQhomogeneous('hcp',0.71, 60, 30000)
+#%timeit getQhomogeneous('hcp',0.71, 60, 30000)
 #print(getQ2('hcp', 0.71, np.array([60, 60]), 30000, np.array([1])))
 #print(getQ('hcp', 0.71, np.array([60, 60]), 30000, np.array([1])))
 
@@ -542,14 +562,15 @@ def buildSecondDiff(ndiag):
 #f = 30000 # Hz frequency of the coil
 #cpos = np.array(['hcp','hcp','hcp','vcp','vcp','vcp']) # coil orientation
 ##cpos = np.array(['hcp','hcp','hcp','prp','prp','prp']) # coil orientation
-##cspacing = np.array([0.32, 0.71, 1.18, 0.32, 0.71, 1.18])
+#cspacing = np.array([0.32, 0.71, 1.18, 0.32, 0.71, 1.18])
 #cspacing = np.array([1.48, 2.82, 4.49, 1.48, 2.82, 4.49]) # explorer
 #
-#print('fCS:', fCS(sigma, depths, cspacing, cpos))
-#print('fMaxwellECa:', fMaxwellECa(sigma, depths, cspacing, cpos))
-#print('fMaxwellQ:', fMaxwellQ(sigma, depths, cspacing, cpos))
+#print('fCS:', fCS(sigma, depths, cspacing, cpos)) # 333 us
+#print('fMaxwellECa:', fMaxwellECa(sigma, depths, cspacing, cpos)) # 5.7 ms
+#print('fMaxwellQ:', fMaxwellQ(sigma, depths, cspacing, cpos)) # 12 ms
 #print('fCSandrade:', fCSandrade(sigma, depths, cspacing, cpos, hx=0))
-#
+#%timeit getQs(sigma, depths, cspacing, cpos, f) # 5.75 ms (same as fMaxwellECa)
+
 #print('fCS:', fCS(sigma, depths, cspacing, cpos, hx=1))
 #print('fCS:', fCS(sigma, depths, cspacing, cpos, hx=1, rescaled=True))
 #print('fCSandrade:', fCSandrade(sigma, depths, cspacing, cpos, hx=1))

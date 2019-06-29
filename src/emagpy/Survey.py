@@ -104,7 +104,7 @@ class Survey(object):
                 else:
                     self.coils.append(c)
         if 'x' not in df.columns:
-            df['x'] = 0
+            df['x'] = np.arange(df.shape[0])
         if 'y' not in df.columns:
             df['y'] = 0 # maybe not needed
         coilInfo = [self.getCoilInfo(c) for c in self.coils]

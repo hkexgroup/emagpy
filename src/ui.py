@@ -93,7 +93,7 @@ print( 'os.getcwd is', os.getcwd() )
 class MatplotlibWidget(QWidget):
     ''' Class to put matplotlibgraph into QWidget.
     '''
-    def __init__(self, parent=None, navi=True, itight=False, threed=False):
+    def __init__(self, parent=None, navi=True, itight=True, threed=False):
         super(MatplotlibWidget, self).__init__(parent) # we can pass a figure but we can replot on it when
         # pushing on a button (I didn't find a way to do it) while with the axes, you can still clear it and
         # plot again on them
@@ -494,7 +494,7 @@ class App(QMainWindow):
                                 'border-style:inset;}')
         
         def showMapOptions(arg):
-            objs = [ptsLabel, ptsCheck, contourLabel, contourCheck]
+            objs = [ptsLabel, ptsCheck, contourLabel, contourCheck, cmapCombo]
             [o.setVisible(arg) for o in objs]
             if arg is False:
                 coilCombo.addItem('all')
@@ -529,6 +529,7 @@ class App(QMainWindow):
             cmapCombo.addItem(cmap)
         cmapCombo.currentIndexChanged.connect(cmapComboFunc)
         cmapCombo.setEnabled(False)
+        cmapCombo.setVisible(False)
 
         # allow map contouring using tricontourf()
         contourLabel = QLabel('Contour')
@@ -755,6 +756,10 @@ class App(QMainWindow):
                 
             def setTable(self, depths0, conds0):
                 self.clear()
+                self.setHorizontalHeaderLabels(self.headers)
+                self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                self.nrow = len(conds0)
+                self.setRowCount(self.nrow)
                 for i, depth in enumerate(depths0):
                     self.setItem(i, 0, QTableWidgetItem('{:.3f}'.format(depth)))
                 for j in range(i+1, self.nrow-1):
@@ -801,7 +806,7 @@ class App(QMainWindow):
                 
 
         
-        modelLabel = QLabel('Depth of bottom layer and starting conductivity of each layer.')
+        modelLabel = QLabel('Bottom depth and starting conductivity of each layer.')
         
         def addRowBtnFunc():
             modelTable.addRow()
@@ -812,6 +817,32 @@ class App(QMainWindow):
             modelTable.delRow()
         delRowBtn = QPushButton('Remove Row')
         delRowBtn.clicked.connect(delRowBtnFunc)
+        
+        nLayerLabel = QLabel('Number of Layer:')
+        nLayerEdit = QLineEdit('3')
+        nLayerEdit.setValidator(QIntValidator())
+        
+        thicknessLabel = QLabel('Thickness:')
+        thicknessEdit = QLineEdit('0.5')
+        thicknessEdit.setValidator(QDoubleValidator())
+        
+        startingLabel = QLabel('Starting EC:')
+        startingEdit = QLineEdit('20')
+        startingEdit.setValidator(QDoubleValidator())
+        
+        def createModelBtnFunc():
+            nlayer = int(nLayerEdit.text()) if nLayerEdit.text() != '' else 3
+            thick = float(thicknessEdit.text()) if thicknessEdit.text() != '' else 0.5
+            ecstart = float(startingEdit.text()) if startingEdit.text() != '' else 20
+            depths = np.linspace(thick, thick*(nlayer-1), nlayer-1)
+            conds0 = np.ones(len(depths)+1) * ecstart
+            print(depths)
+            print(conds0)
+            modelTable.setTable(depths, conds0)
+        createModelBtn = QPushButton('Create Model')
+        createModelBtn.setAutoDefault(True)
+        createModelBtn.clicked.connect(createModelBtnFunc)
+        
         
         modelTable = ModelTable()
         modelTable.setTable(self.problem.depths0, self.problem.conds0)
@@ -831,8 +862,16 @@ class App(QMainWindow):
         
         invStartLayout = QVBoxLayout()
         invStartLayout.addWidget(modelLabel)
-        invStartLayout.addWidget(addRowBtn)
-        invStartLayout.addWidget(delRowBtn)
+        invBtnLayout = QHBoxLayout()
+        invBtnLayout.addWidget(addRowBtn)
+        invBtnLayout.addWidget(delRowBtn)
+        invStartLayout.addLayout(invBtnLayout)
+        invFormLayout = QFormLayout()
+        invFormLayout.addRow(nLayerLabel, nLayerEdit)
+        invFormLayout.addRow(thicknessLabel, thicknessEdit)
+        invFormLayout.addRow(startingLabel, startingEdit)
+        invStartLayout.addLayout(invFormLayout)
+        invStartLayout.addWidget(createModelBtn)        
         invStartLayout.addWidget(modelTable)
         settingsLayout.addLayout(invStartLayout)
         
@@ -856,13 +895,18 @@ class App(QMainWindow):
             forwardCombo.addItem(forwardModel)
         
         methodCombo = QComboBox()
-        methods = ['CG', 'L-BFGS-B', 'TNC', 'Nelder-Mead']
+        methods = ['L-BFGS-B', 'CG', 'TNC', 'Nelder-Mead']
         for method in methods:
             methodCombo.addItem(method)
         
-        alphaLabel = QLabel('Damping factor:')
+        alphaLabel = QLabel('Vertical smoothing:')
         alphaEdit = QLineEdit('0.07')
         alphaEdit.setValidator(QDoubleValidator())
+
+        betaLabel = QLabel('Lateral smoothing:')
+        betaEdit = QLineEdit('0.0')
+        betaEdit.setToolTip('Lateral smoothing between contingus profiles.\n 0 means no lateral smoothing.')
+        betaEdit.setValidator(QDoubleValidator())
         
         lCombo = QComboBox()
         lCombo.addItem('l1')
@@ -874,6 +918,9 @@ class App(QMainWindow):
         nitEdit.setToolTip('Maximum Number of Iterations')
         nitEdit.setValidator(QIntValidator())
         
+        fixedLabel = QLabel('Fixed depth:')
+        fixedCheck = QCheckBox()
+        fixedCheck.setChecked(True)
         
         def logTextFunc(arg):
             logText.setText(arg)
@@ -893,8 +940,11 @@ class App(QMainWindow):
             alpha = float(alphaEdit.text()) if alphaEdit.text() != '' else 0.07
             forwardModel = forwardCombo.itemText(forwardCombo.currentIndex())
             method = methodCombo.itemText(methodCombo.currentIndex())
+            beta = float(betaEdit.text()) if betaEdit.text() != '' else 0.0
+            fixedDepths = fixedCheck.isChecked()
+            print(fixedDepths, beta)
             depths = np.r_[[0], depths0, [-np.inf]]
-            nit = float(nitEdit.text()) if nitEdit.text() != '' else 15
+            nit = int(nitEdit.text()) if nitEdit.text() != '' else 15
             sliceCombo.disconnect()
             sliceCombo.clear()
             for i in range(len(depths)-1):
@@ -907,7 +957,8 @@ class App(QMainWindow):
             else:
                 self.problem.invert(forwardModel=forwardModel, alpha=alpha,
                                     dump=logTextFunc, regularization=regularization,
-                                    method=method, options={'maxiter':nit})
+                                    method=method, options={'maxiter':nit},
+                                    beta=beta, fixedDepths=fixedDepths)
             
             # plot results
             mwInv.setCallback(self.problem.showResults)
@@ -919,6 +970,7 @@ class App(QMainWindow):
             outputStack.setCurrentIndex(1)
             #TODO add kill feature
         invertBtn = QPushButton('Invert')
+        invertBtn.setStyleSheet('background-color:orange')
         invertBtn.clicked.connect(invertBtnFunc)
         
         
@@ -1034,11 +1086,15 @@ class App(QMainWindow):
         invOptions = QHBoxLayout()
         invOptions.addWidget(forwardCombo, 15)
         invOptions.addWidget(methodCombo, 5)
-        invOptions.addWidget(alphaLabel, 5)
-        invOptions.addWidget(alphaEdit, 10)
-        invOptions.addWidget(lCombo, 5)
-        invOptions.addWidget(nitLabel, 2)
-        invOptions.addWidget(nitEdit, 2)
+        invOptions.addWidget(alphaLabel)
+        invOptions.addWidget(alphaEdit)
+        invOptions.addWidget(betaLabel)
+        invOptions.addWidget(betaEdit)
+        invOptions.addWidget(fixedLabel)
+        invOptions.addWidget(fixedCheck)
+        invOptions.addWidget(lCombo)
+        invOptions.addWidget(nitLabel)
+        invOptions.addWidget(nitEdit)
         invOptions.addWidget(invertBtn, 25)
         invLayout.addLayout(invOptions)
         
@@ -1080,9 +1136,9 @@ class App(QMainWindow):
         mapOptionsLayout.addWidget(vmaxInvMapLabel)
         mapOptionsLayout.addWidget(vmaxInvMapEdit)
         mapOptionsLayout.addWidget(applyInvMapBtn)
-        mapOptionsLayout.addWidget(cmapInvMapCombo)
         mapOptionsLayout.addWidget(contourInvMapLabel)
         mapOptionsLayout.addWidget(contourInvMapCheck)
+        mapOptionsLayout.addWidget(cmapInvMapCombo)
         mapLayout.addLayout(mapOptionsLayout)
         mapLayout.addWidget(mwInvMap)
         mapTab.setLayout(mapLayout)

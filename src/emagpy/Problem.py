@@ -109,7 +109,7 @@ class Problem(object):
     #TODO make an invert method with FS that inverts for Q not ECa (faster)
         
     def invert(self, forwardModel='CS', regularization='l2', alpha=0.07,
-               beta=0, dump=None, method='Nelder-Mead', bnds=None,
+               beta=0.0, dump=None, method='Nelder-Mead', bnds=None,
                fixedDepths=True, options={}):
         '''Invert the apparent conductivity measurements.
         
@@ -945,7 +945,7 @@ class Problem(object):
 if __name__ == '__main__':
     # cover crop example
     k = Problem()
-    k.depths0 = np.array([0.2, 0.5, 1]) # not starting at 0 !
+    k.depths0 = np.array([0.2, 1]) # not starting at 0 !
     k.conds0 = np.ones(len(k.depths0)+1)*20
     k.createSurvey('test/coverCrop.csv', freq=30000)
 #    k.createSurvey('test/warren170316.csv', freq=30000)
@@ -953,10 +953,10 @@ if __name__ == '__main__':
 #    k.show()
 #    k.lcurve()
 #    k.invertGN(alpha=0.07)
-    k.invert(forwardModel='CS', alpha=0.07, method='CG', options={'maxiter':2}, beta=0, fixedDepths=True) # this doesn't work well
+    k.invert(forwardModel='CS', alpha=0.07, method='L-BFGS-B', options={'maxiter':100}, beta=0, fixedDepths=False) # this doesn't work well
 #    k.invertGN() # similar as CG with nit=2
 #    k.showMisfit()
-    k.showResults(contour=True)
+    k.showResults()
 #    k.showOne2one()
 #    k.showMisfit()
 #    k.models[0] = np.ones(k.models[0].shape)*20
