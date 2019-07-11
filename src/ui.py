@@ -194,6 +194,8 @@ class App(QMainWindow):
 
         self.problem = None
         self.datadir = os.path.join(bundle_dir, 'emagpy', 'test')
+        self.fnameHi = None
+        self.fnameLo = None
 
         def errorDump(text, flag=1):
             text = str(text)

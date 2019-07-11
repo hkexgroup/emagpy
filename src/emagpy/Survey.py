@@ -488,7 +488,7 @@ class Survey(object):
         ''' Apply the correction due to the 1m calibration.
         '''
         
-    def importGF(self, fnameLo, fnameHi, device='CMD Mini-Explorer', hx=0):
+    def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer', hx=0):
         '''Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
@@ -496,17 +496,20 @@ class Survey(object):
         ----------
         fnameLo : str
             Name of the file with the Lo settings.
-        fnameHi : str
+        fnameHi : str, optional
             Name of the file with the Hi settings.
         device : str, optional
             Type of device. Default is Mini-Explorer.
         hx : float, optional
             Height of the device above the ground in meters.
         '''
-        self.name = os.path.basename(fnameLo)[:-4]
-        loFile = pd.read_csv(fnameLo, sep='\t')
-        hiFile = pd.read_csv(fnameHi, sep='\t')
-
+        if fnameLo is None and fnameHi is None:
+            raise ValueError('You must specify at least one of fnameLo or fnameHi.')
+        if fnameLo is not None:
+            self.name = os.path.basename(fnameLo)[:-4] # to remove .dat
+        else:
+            self.name = os.path.basename(fnameHi)[:-4]
+            
         if device == 'CMD Mini-Explorer':
             freq = 30000
             csep = [0.32, 0.71, 1.18]
@@ -517,31 +520,53 @@ class Survey(object):
             raise ValueError('Device ' + device + ' unknown.')
 
         loCols = ['VCP{:.2f}'.format(a) for a in csep]
-        hiCols = ['HCP{:.2f}'.format(a) for a in csep]
         loCols += [a + '_inph' for a in loCols]
+        hiCols = ['HCP{:.2f}'.format(a) for a in csep]
         hiCols += [a + '_inph' for a in hiCols]
         cols = ['Cond.1[mS/m]', 'Cond.2[mS/m]', 'Cond.3[mS/m]',
                 'Inph.1[ppt]', 'Inph.2[ppt]', 'Inph.3[ppt]']
-        loFile = loFile.rename(columns=dict(zip(cols, loCols)))
-        hiFile = hiFile.rename(columns=dict(zip(cols, hiCols)))
         
-        if 'Latitude' not in loFile.columns and 'Latitude' not in hiFile.columns:
-            if loFile.shape[0] == hiFile.shape[0]:
-                print('importGF: joining on rows.')
-                df = loFile[loCols].join(hiFile[hiCols])
-                df['x'] = np.arange(df.shape[0])
-                df['y'] = 0
+        if fnameLo is not None:
+            loFile = pd.read_csv(fnameLo, sep='\t')
+            loFile = loFile.rename(columns=dict(zip(cols, loCols)))
+        if fnameHi is not None:
+            hiFile = pd.read_csv(fnameHi, sep='\t')
+            hiFile = hiFile.rename(columns=dict(zip(cols, hiCols)))
+
+        if fnameLo is not None and fnameHi is not None:
+            if 'Latitude' not in loFile.columns and 'Latitude' not in hiFile.columns:
+                if loFile.shape[0] == hiFile.shape[0]:
+                    print('importGF: joining on rows.')
+                    df = loFile[loCols].join(hiFile[hiCols])
+                    df['x'] = np.arange(df.shape[0])
+                    df['y'] = 0
+                else:
+                    df = None
+                    raise ValueError('Can not join the dataframe as they have different lengths: {:d} and {:d}'.format(loFile.shape[0], hiFile.shape[0]))
             else:
                 df = None
-                raise ValueError('Can not join the dataframe as they have different lengths: {:d} and {:d}'.format(loFile.shape[0], hiFile.shape[0]))
-        else:
-            df = None
-            pass
-            # TODO regridding here :/
+                pass
+                # TODO regridding here :/
+            coils = loCols[:3] + hiCols[:3]
+            coilsInph = loCols[3:] + hiCols[3:]
+        elif fnameLo is not None:
+            df = loFile
+            df['x'] = np.arange(df.shape[0])
+            df['y'] = 0
+            coils = loCols[:3]
+            coilsInph = loCols[3:]
+        elif fnameHi is not None:
+            df = loFile
+            df['x'] = np.arange(df.shape[0])
+            df['y'] = 0
+            coils = hiCols[:3]
+            coilsInph = hiCols[3:]
         
+
+
         if df is not None:
-            self.coils = loCols[:3] + hiCols[:3]
-            self.coilsInph = loCols[3:] + hiCols[3:]
+            self.coils = coils
+            self.coilsInph = coilsInph
             coilInfo = [self.getCoilInfo(c) for c in self.coils]
             self.freqs = np.repeat([freq], len(self.coils))
             self.hx = np.repeat([hx], len(self.coils))
