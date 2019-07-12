@@ -71,7 +71,7 @@ class Problem(object):
             self.createSurvey(os.path.join(dirname, f))
         
     
-    def importGF(self, fnameLo, fnameHi, device='CMD Mini-Explorer', hx=0):
+    def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer', hx=0):
         '''Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         

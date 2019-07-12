@@ -169,7 +169,9 @@ class Survey(object):
         '''
         for coil in self.coils:
             self.df[coil] = self.df[coil].rolling(window).mean()
-        
+        i2discard = self.df[self.coils].isna().any(1)
+        self.df = self.df[~i2discard]
+        print('dataset shrink of {:d} measurements'.format(np.sum(i2discard)))        
     
     def show(self, coil='all', attr='ECa', ax=None, contour=False, vmin=None, 
              vmax=None, pts=False, cmap=None):
