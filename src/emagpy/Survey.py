@@ -167,8 +167,8 @@ class Survey(object):
         window : int, optional
             Size of the windows for rolling mean.
         '''
-        for coil in self.coils:
-            self.df[coil] = self.df[coil].rolling(window).mean()
+        cols = ['x','y'] + self.coils + self.coilsInph
+        self.df[cols] = self.df[cols].rolling(window).mean()
         i2discard = self.df[self.coils].isna().any(1)
         self.df = self.df[~i2discard]
         print('dataset shrink of {:d} measurements'.format(np.sum(i2discard)))        
