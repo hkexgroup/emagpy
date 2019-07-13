@@ -26,6 +26,6 @@ k.showMisfit() # display predicted and observed apparent EC
 k.showOne2one() # 1:1 line of misfit of apparent EC
 ```
 
-Check out the jupyter notebook examples in `emagpy/notebooks/`.
+Check out the jupyter notebook examples in `emagpy/examples/`.
 
 
