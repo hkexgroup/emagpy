@@ -2,7 +2,7 @@ image: python:3.7-stretch
 
 pages:
   script:
-  - pip install requirements.txt
+  - pip install -r requirements.txt
   - cd src
   - python test.py
   - cd ..
