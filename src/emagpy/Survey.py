@@ -521,11 +521,12 @@ class Survey(object):
         else:
             raise ValueError('Device ' + device + ' unknown.')
 
-        loCols = ['VCP{:.2f}'.format(a) for a in csep]
+        loCols = ['VCP{:.2f}'.format(a) for a in csep]*2
         loCols += [a + '_inph' for a in loCols]
-        hiCols = ['HCP{:.2f}'.format(a) for a in csep]
+        hiCols = ['HCP{:.2f}'.format(a) for a in csep]*2
         hiCols += [a + '_inph' for a in hiCols]
-        cols = ['Cond.1[mS/m]', 'Cond.2[mS/m]', 'Cond.3[mS/m]',
+        cols = ['Cond.1[mS/m]', 'Cond.2[mS/m]', 'Cond.3[mS/m]', # if downloaded from computer
+                'Cond1.[mS/m]', 'Cond2.[mS/m]', 'Cond3.[mS/m]', # if downloaded from USB stick
                 'Inph.1[ppt]', 'Inph.2[ppt]', 'Inph.3[ppt]']
         
         if fnameLo is not None:

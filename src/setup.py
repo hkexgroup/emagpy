@@ -16,7 +16,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://gitlab.com/hkex/emagpy",
     packages=setuptools.find_packages(),
-    install_requires=['numpy','matplotlib','pandas','scipy', 'hankel'],
+    install_requires=['numpy','matplotlib','pandas','scipy', 'hankel', 'pyproj'],
     include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",
