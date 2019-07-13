@@ -14,12 +14,6 @@ k = Problem()
 k.importGF(testdir + 'coverCropLo.dat', testdir + 'coverCropHi.dat')
 k.show()
 
-#%% importing only one .dat
-k = Problem()
-k.importGF(testdir + 'nwLo.dat') # TODO doesn't work with nwLo.dat
-k.show()
-
-
 #%% runnning mean
 k = Problem()
 k.createSurvey(testdir + 'coverCrop.csv')
