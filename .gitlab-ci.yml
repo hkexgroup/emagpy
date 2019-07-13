@@ -1,0 +1,19 @@
+image: python:3.7-stretch
+
+pages:
+  script:
+  - pip install sphinx==1.6.7 numpydoc numpy matplotlib==3.0.3 PyQt5 pandas scipy statsmodels
+  - cd src
+  - python test.py
+  - cd ..
+  - ls
+  - cd doc
+  - make html
+  - cd ..
+  - mv doc/_build/html/ public/
+  - ls public
+  artifacts:
+    paths:
+    - public
+  only:
+  - master
