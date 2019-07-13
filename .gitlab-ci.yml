@@ -2,7 +2,7 @@ image: python:3.7-stretch
 
 pages:
   script:
-  - pip install sphinx==1.6.7 numpydoc numpy matplotlib==3.0.3 PyQt5 pandas scipy statsmodels
+  - pip install requirements.txt
   - cd src
   - python test.py
   - cd ..
