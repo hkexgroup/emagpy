@@ -234,7 +234,7 @@ for the British Grid.</p>
 
 <dl class="method">
 <dt id="emagpy.Problem.Problem.importGF">
-<code class="descname">importGF</code><span class="sig-paren">(</span><em>fnameLo</em>, <em>fnameHi</em>, <em>device='CMD Mini-Explorer'</em>, <em>hx=0</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.importGF" title="Permalink to this definition">¶</a></dt>
+<code class="descname">importGF</code><span class="sig-paren">(</span><em>fnameLo=None</em>, <em>fnameHi=None</em>, <em>device='CMD Mini-Explorer'</em>, <em>hx=0</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.importGF" title="Permalink to this definition">¶</a></dt>
 <dd><p>Import GF instrument data with Lo and Hi file mode. If spatial data
 a regridding will be performed to match the data.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -265,7 +265,7 @@ a regridding will be performed to match the data.</p>
 
 <dl class="method">
 <dt id="emagpy.Problem.Problem.invert">
-<code class="descname">invert</code><span class="sig-paren">(</span><em>forwardModel='CS'</em>, <em>regularization='l2'</em>, <em>alpha=0.07</em>, <em>beta=0</em>, <em>dump=None</em>, <em>method='Nelder-Mead'</em>, <em>bnds=None</em>, <em>fixedDepths=True</em>, <em>options={}</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.invert" title="Permalink to this definition">¶</a></dt>
+<code class="descname">invert</code><span class="sig-paren">(</span><em>forwardModel='CS'</em>, <em>regularization='l2'</em>, <em>alpha=0.07</em>, <em>beta=0.0</em>, <em>dump=None</em>, <em>method='L-BFGS-B'</em>, <em>bnds=None</em>, <em>fixedDepths=True</em>, <em>options={}</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.invert" title="Permalink to this definition">¶</a></dt>
 <dd><p>Invert the apparent conductivity measurements.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -349,6 +349,59 @@ the profile to not changing (see Annex in Whalley et al., 2017).</p>
 <p><strong>dump</strong> : function, optional</p>
 <blockquote class="last">
 <div><p>Function to output the running inversion.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="emagpy.Problem.Problem.invertQ">
+<code class="descname">invertQ</code><span class="sig-paren">(</span><em>regularization='l2'</em>, <em>alpha=1e-09</em>, <em>beta=0.0</em>, <em>dump=None</em>, <em>method='L-BFGS-B'</em>, <em>bnds=None</em>, <em>fixedDepths=True</em>, <em>options={}</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.invertQ" title="Permalink to this definition">¶</a></dt>
+<dd><p>Invert the apparent conductivity measurements by minimizing the
+quadrature Q.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>regularization</strong> : str, optional</p>
+<blockquote>
+<div><p>Type of regularization, either l1 (blocky model) or l2 (smooth model)</p>
+</div></blockquote>
+<p><strong>smoothing</strong> : str, optional</p>
+<blockquote>
+<div><p>Smoothing used (either 1d, 2d, or 3d).</p>
+</div></blockquote>
+<p><strong>alpha</strong> : float, optional</p>
+<blockquote>
+<div><p>Smoothing factor for the inversion.</p>
+</div></blockquote>
+<p><strong>beta</strong> : float, optional</p>
+<blockquote>
+<div><p>Smoothing factor for neightbouring profile.</p>
+</div></blockquote>
+<p><strong>dump</strong> : function, optional</p>
+<blockquote>
+<div><p>Function to print the progression. Default is <cite>print</cite>.</p>
+</div></blockquote>
+<p><strong>method</strong> : str, optional</p>
+<blockquote>
+<div><p>Name of the optimization method for <cite>scipy.optimize.minimize</cite>.</p>
+</div></blockquote>
+<p><strong>bnds</strong> : list of float, optional</p>
+<blockquote>
+<div><p>If specified, will create bounds for the inversion. Doesn’t work with
+Nelder-Mead solver.</p>
+</div></blockquote>
+<p><strong>fixedDepth</strong> : bool, optional</p>
+<blockquote>
+<div><p>If False, the depth will be considered as a parameter to be 
+optimized.</p>
+</div></blockquote>
+<p><strong>options</strong> : optional</p>
+<blockquote class="last">
+<div><p>Additional dictionary arguments will be passed to <cite>scipy.optimize.minimize()</cite>.</p>
 </div></blockquote>
 </td>
 </tr>
@@ -557,15 +610,43 @@ Depths should be positive going down.</p>
 
 <dl class="method">
 <dt id="emagpy.Problem.Problem.showResults">
-<code class="descname">showResults</code><span class="sig-paren">(</span><em>index=0</em>, <em>ax=None</em>, <em>vmin=None</em>, <em>vmax=None</em>, <em>maxDepth=None</em>, <em>padding=0</em>, <em>cmap='viridis_r'</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.showResults" title="Permalink to this definition">¶</a></dt>
-<dd><p>Show invertd model.</p>
+<code class="descname">showResults</code><span class="sig-paren">(</span><em>index=0</em>, <em>ax=None</em>, <em>vmin=None</em>, <em>vmax=None</em>, <em>maxDepth=None</em>, <em>padding=1</em>, <em>cmap='viridis_r'</em>, <em>contour=False</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.showResults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Show inverted model.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
-<blockquote class="last">
+<blockquote>
 <div><p>Index of the survey to plot.</p>
+</div></blockquote>
+<p><strong>ax</strong> : Matplotlib.Axes, optional</p>
+<blockquote>
+<div><p>If specified, the graph will be plotted against this axis.</p>
+</div></blockquote>
+<p><strong>vmin</strong> : float, optional</p>
+<blockquote>
+<div><p>Minimum value of the colorbar.</p>
+</div></blockquote>
+<p><strong>vmax</strong> : float, optional</p>
+<blockquote>
+<div><p>Maximum value of the colorbar.</p>
+</div></blockquote>
+<p><strong>maxDepth</strong> : float, optional</p>
+<blockquote>
+<div><p>Maximum negative depths of the graph.</p>
+</div></blockquote>
+<p><strong>padding</strong> : float, optional</p>
+<blockquote>
+<div><p>DONT’T KNOW</p>
+</div></blockquote>
+<p><strong>cmap</strong> : str, optional</p>
+<blockquote>
+<div><p>Name of the Matplotlib colormap to use.</p>
+</div></blockquote>
+<p><strong>contour</strong> : bool, optional</p>
+<blockquote class="last">
+<div><p>If <cite>True</cite> a contour plot will be plotted.</p>
 </div></blockquote>
 </td>
 </tr>
@@ -574,9 +655,45 @@ Depths should be positive going down.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="emagpy.Problem.Problem.showResults2">
-<code class="descname">showResults2</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.showResults2" title="Permalink to this definition">¶</a></dt>
-<dd><p>Use pcolormesh to plot faster</p>
+<dt id="emagpy.Problem.Problem.showResults_old">
+<code class="descname">showResults_old</code><span class="sig-paren">(</span><em>index=0</em>, <em>ax=None</em>, <em>vmin=None</em>, <em>vmax=None</em>, <em>maxDepth=None</em>, <em>padding=1</em>, <em>cmap='viridis_r'</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.showResults_old" title="Permalink to this definition">¶</a></dt>
+<dd><p>Show invertd model.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
+<blockquote>
+<div><p>Index of the survey to plot.</p>
+</div></blockquote>
+<p><strong>ax</strong> : Matplotlib.Axes, optional</p>
+<blockquote>
+<div><p>If specified, the graph will be plotted against this axis.</p>
+</div></blockquote>
+<p><strong>vmin</strong> : float, optional</p>
+<blockquote>
+<div><p>Minimum value of the colorbar.</p>
+</div></blockquote>
+<p><strong>vmax</strong> : float, optional</p>
+<blockquote>
+<div><p>Maximum value of the colorbar.</p>
+</div></blockquote>
+<p><strong>maxDepth</strong> : float, optional</p>
+<blockquote>
+<div><p>Maximum negative depths of the graph.</p>
+</div></blockquote>
+<p><strong>padding</strong> : float, optional</p>
+<blockquote>
+<div><p>Thickness of the bottom infinite layer in [m].</p>
+</div></blockquote>
+<p><strong>cmap</strong> : str, optional</p>
+<blockquote class="last">
+<div><p>Name of the Matplotlib colormap to use.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
@@ -824,7 +941,7 @@ station.</p>
 
 <dl class="method">
 <dt id="emagpy.Survey.Survey.importGF">
-<code class="descname">importGF</code><span class="sig-paren">(</span><em>fnameLo</em>, <em>fnameHi</em>, <em>device='CMD Mini-Explorer'</em>, <em>hx=0</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.importGF" title="Permalink to this definition">¶</a></dt>
+<code class="descname">importGF</code><span class="sig-paren">(</span><em>fnameLo=None</em>, <em>fnameHi=None</em>, <em>device='CMD Mini-Explorer'</em>, <em>hx=0</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.importGF" title="Permalink to this definition">¶</a></dt>
 <dd><p>Import GF instrument data with Lo and Hi file mode. If spatial data
 a regridding will be performed to match the data.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -835,7 +952,7 @@ a regridding will be performed to match the data.</p>
 <blockquote>
 <div><p>Name of the file with the Lo settings.</p>
 </div></blockquote>
-<p><strong>fnameHi</strong> : str</p>
+<p><strong>fnameHi</strong> : str, optional</p>
 <blockquote>
 <div><p>Name of the file with the Hi settings.</p>
 </div></blockquote>
