@@ -3,7 +3,7 @@ image: python:3.7-stretch
 pages:
   script:
   - pip install -r requirements.txt
-  - pip install sphinx==1.6.7 numpydoc
+  - pip install sphinx==1.6.7 numpydoc sphinx_rtd_theme
   - cd src
   - python test.py
   - cd ..
