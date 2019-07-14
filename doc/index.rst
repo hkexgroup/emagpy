@@ -4,49 +4,32 @@
    contain the root `toctree` directive.
 
     
-Welcome to EMagPy's documentation!
-==================================
-   
-.. contents:: Table of contents
+EMagPy python API and standalone GUI
+====================================
 
-Graphical User Interface
-------------------------
-The Graphical User Interface (GUI) is composed of differents tabs.
+Installation
+------------
 
-.. _importing:
-.. figure:: image/importing.png
-    :alt: importing tab
+Clone the gitlab repository::
+
+    git clone https://gitlab.com/hkex/emagpy
+
+To start the GUI from source, navigate through the `src` directory and run `ui.py`::
+
+    cd emagpy/src
+    python ui.py
     
-    Importing tab with the `coverCrop.csv` dataset. Filtering options are availables.
+From the same `src` directory you can import the module from source using python. Another solution is to install the module from pypi using pip::
 
-.. _importingMap:
-.. figure:: image/importing-map.png
-    :alt: importing tab with map view
-    
-    The dataset can also be viewed as a contour map if spatial data available.
-    
-
-In :numref:`importing` we can see the general tabbed interface with the `coverCrop.csv` dataset imported. The :numref:`importingMap` show the same dataset but plotted as a contour map.    
+    pip install emagpy
 
 
-
-
-
-
-API documentation
------------------
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-.. automodule:: emagpy.Problem
-   :members:
-.. automodule:: emagpy.Survey
-   :members:
+   
+   getting-started
+   gui
+   api
+   
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

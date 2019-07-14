@@ -1,1273 +1,231 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-<html xmlns="http://www.w3.org/1999/xhtml">
-  <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Welcome to EMagPy’s documentation! &#8212; EmagPy v0.0.1 documentation</title>
-    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>EMagPy python API and standalone GUI &mdash; EMagPy v0.0.1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
-  </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="#">EmagPy v0.0.1 documentation</a> &#187;</li> 
-      </ul>
-    </div>  
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Getting Started" href="getting-started.html" /> 
+</head>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body" role="main">
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="#" class="icon icon-home"> EMagPy
+          
+
+          
             
-  <div class="section" id="welcome-to-emagpy-s-documentation">
-<h1><a class="toc-backref" href="#id3">Welcome to EMagPy’s documentation!</a><a class="headerlink" href="#welcome-to-emagpy-s-documentation" title="Permalink to this headline">¶</a></h1>
-<div class="contents topic" id="table-of-contents">
-<p class="topic-title first">Table of contents</p>
-<ul class="simple">
-<li><a class="reference internal" href="#welcome-to-emagpy-s-documentation" id="id3">Welcome to EMagPy’s documentation!</a><ul>
-<li><a class="reference internal" href="#graphical-user-interface" id="id4">Graphical User Interface</a></li>
-<li><a class="reference internal" href="#api-documentation" id="id5">API documentation</a></li>
+            <img src="_static/logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="getting-started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gui.html">Graphical User Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html#indices-and-tables">Indices and tables</a></li>
 </ul>
-</li>
-<li><a class="reference internal" href="#indices-and-tables" id="id6">Indices and tables</a></li>
-</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">EMagPy</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="#">Docs</a> &raquo;</li>
+        
+      <li>EMagPy python API and standalone GUI</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
 </div>
-<div class="section" id="graphical-user-interface">
-<h2><a class="toc-backref" href="#id4">Graphical User Interface</a><a class="headerlink" href="#graphical-user-interface" title="Permalink to this headline">¶</a></h2>
-<p>The Graphical User Interface (GUI) is composed of differents tabs.</p>
-<div class="figure" id="id1">
-<span id="importing"></span><img alt="importing tab" src="_images/importing.png" />
-<p class="caption"><span class="caption-number">Fig. 1 </span><span class="caption-text">Importing tab with the <cite>coverCrop.csv</cite> dataset. Filtering options are availables.</span></p>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="emagpy-python-api-and-standalone-gui">
+<h1>EMagPy python API and standalone GUI<a class="headerlink" href="#emagpy-python-api-and-standalone-gui" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>Clone the gitlab repository:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">gitlab</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">hkex</span><span class="o">/</span><span class="n">emagpy</span>
+</pre></div>
 </div>
-<div class="figure" id="id2">
-<span id="importingmap"></span><img alt="importing tab with map view" src="_images/importing-map.png" />
-<p class="caption"><span class="caption-number">Fig. 2 </span><span class="caption-text">The dataset can also be viewed as a contour map if spatial data available.</span></p>
+<p>To start the GUI from source, navigate through the <cite>src</cite> directory and run <cite>ui.py</cite>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">emagpy</span><span class="o">/</span><span class="n">src</span>
+<span class="n">python</span> <span class="n">ui</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
 </div>
-<p>In <a class="reference internal" href="#importing"><span class="std std-numref">Fig. 1</span></a> we can see the general tabbed interface with the <cite>coverCrop.csv</cite> dataset imported. The <a class="reference internal" href="#importingmap"><span class="std std-numref">Fig. 2</span></a> show the same dataset but plotted as a contour map.</p>
+<p>From the same <cite>src</cite> directory you can import the module from source using python. Another solution is to install the module from pypi using pip:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">emagpy</span>
+</pre></div>
 </div>
-<div class="section" id="api-documentation">
-<h2><a class="toc-backref" href="#id5">API documentation</a><a class="headerlink" href="#api-documentation" title="Permalink to this headline">¶</a></h2>
 <div class="toctree-wrapper compound">
-</div>
-<span class="target" id="module-emagpy.Problem"></span><p>Created on Tue Apr 16 20:29:19 2019</p>
-<p>&#64;author: jkl</p>
-<dl class="class">
-<dt id="emagpy.Problem.Problem">
-<em class="property">class </em><code class="descclassname">emagpy.Problem.</code><code class="descname">Problem</code><a class="headerlink" href="#emagpy.Problem.Problem" title="Permalink to this definition">¶</a></dt>
-<dd><p>Class defining an inversion problem.</p>
-<dl class="method">
-<dt id="emagpy.Problem.Problem.calibrate">
-<code class="descname">calibrate</code><span class="sig-paren">(</span><em>fnameECa</em>, <em>fnameEC</em>, <em>forwardModel='CS'</em>, <em>ax=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.calibrate" title="Permalink to this definition">¶</a></dt>
-<dd><p>Calibrate ECa with given EC profile.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>fnameECa</strong> : str</p>
-<blockquote>
-<div><p>Path of the .csv file with the ECa data collected on the calibration points.</p>
-</div></blockquote>
-<p><strong>fnameEC</strong> : str</p>
-<blockquote>
-<div><p>Path of the .csv file with the EC profile data. One row per location
-corresponding to the rows of fnameECa. The header should be the
-corresponding depths in meters positive downards.</p>
-</div></blockquote>
-<p><strong>forwardModel</strong> : str, optional</p>
-<blockquote>
-<div><p>Forward model to use. Either CS (default), FS or FSandrade.</p>
-</div></blockquote>
-<p><strong>ax</strong> : matplotlib.Axes</p>
-<blockquote class="last">
-<div><p>If specified the graph will be plotted against this axis.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.convertFromNMEA">
-<code class="descname">convertFromNMEA</code><span class="sig-paren">(</span><em>targetProjection='EPSG:27700'</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.convertFromNMEA" title="Permalink to this definition">¶</a></dt>
-<dd><p>Convert NMEA string to selected CRS projection.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>targetProjection</strong> : str, optional</p>
-<blockquote class="last">
-<div><p>Target CRS, in EPSG number: e.g. <cite>targetProjection=’EPSG:27700’</cite>
-for the British Grid.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.createSurvey">
-<code class="descname">createSurvey</code><span class="sig-paren">(</span><em>fname</em>, <em>freq=None</em>, <em>hx=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.createSurvey" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a survey object.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>fname</strong> : str</p>
-<blockquote>
-<div><p>Path to the csv file with the data.</p>
-</div></blockquote>
-<p><strong>freq</strong> : float, optional</p>
-<blockquote>
-<div><p>Frequency for all the coils (can also be specified for each coil in the file).</p>
-</div></blockquote>
-<p><strong>hx</strong> : float, optional</p>
-<blockquote class="last">
-<div><p>Height of the instrument above the ground (can also be specified for each coil in the file).</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.createTimeLapseSurvey">
-<code class="descname">createTimeLapseSurvey</code><span class="sig-paren">(</span><em>dirname</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.createTimeLapseSurvey" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a list of surveys object.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.crossOverPoints">
-<code class="descname">crossOverPoints</code><span class="sig-paren">(</span><em>index=0</em>, <em>coil=None</em>, <em>ax=None</em>, <em>dump=&lt;built-in function print&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.crossOverPoints" title="Permalink to this definition">¶</a></dt>
-<dd><p>Build an error model based on the cross-over points.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
-<blockquote>
-<div><p>Survey index to fit the model on. Default is the first.</p>
-</div></blockquote>
-<p><strong>coil</strong> : str, optional</p>
-<blockquote>
-<div><p>Name of the coil.</p>
-</div></blockquote>
-<p><strong>ax</strong> : Matplotlib.Axes, optional</p>
-<blockquote>
-<div><p>Matplotlib axis on which the plot is plotted against if specified.</p>
-</div></blockquote>
-<p><strong>dump</strong> : function, optional</p>
-<blockquote class="last">
-<div><p>Function to print the output.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.forward">
-<code class="descname">forward</code><span class="sig-paren">(</span><em>forwardModel='CS'</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.forward" title="Permalink to this definition">¶</a></dt>
-<dd><p>Forward model.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>forwardModel</strong> : str, optional</p>
-<blockquote>
-<div><dl class="docutils">
-<dt>Type of forward model:</dt>
-<dd><ul class="first last simple">
-<li>CS : Cumulative sensitivity (default)</li>
-<li>FS : Full Maxwell solution with low-induction number (LIN) approximation</li>
-<li>FSandrade : Full Maxwell solution without LIN approximation (see Andrade 2016)</li>
-<li>CSfast : Cumulative sensitivity with jacobian matrix (not minimize) - NOT IMPLEMENTED YET</li>
-<li>CSdiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET</li>
-</ul>
-</dd>
-</dl>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>df</strong> : pandas.DataFrame</p>
-<blockquote class="last">
-<div><p>With the apparent ECa in the same format as input for the Survey class.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.getRMSE">
-<code class="descname">getRMSE</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.getRMSE" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns RMSE for all coils (columns) and all surveys (row).</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.gridData">
-<code class="descname">gridData</code><span class="sig-paren">(</span><em>nx=100</em>, <em>ny=100</em>, <em>method='nearest'</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.gridData" title="Permalink to this definition">¶</a></dt>
-<dd><p>Grid data (for 3D).</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>nx</strong> : int, optional</p>
-<blockquote>
-<div><p>Number of points in x direction.</p>
-</div></blockquote>
-<p><strong>ny</strong> : int, optional</p>
-<blockquote>
-<div><p>Number of points in y direction.</p>
-</div></blockquote>
-<p><strong>method</strong> : str, optional</p>
-<blockquote class="last">
-<div><p>Interpolation method (nearest, cubic or linear see
-<cite>scipy.interpolate.griddata</cite>). Default is <cite>nearest</cite>.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.importGF">
-<code class="descname">importGF</code><span class="sig-paren">(</span><em>fnameLo=None</em>, <em>fnameHi=None</em>, <em>device='CMD Mini-Explorer'</em>, <em>hx=0</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.importGF" title="Permalink to this definition">¶</a></dt>
-<dd><p>Import GF instrument data with Lo and Hi file mode. If spatial data
-a regridding will be performed to match the data.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>fnameLo</strong> : str</p>
-<blockquote>
-<div><p>Name of the file with the Lo settings.</p>
-</div></blockquote>
-<p><strong>fnameHi</strong> : str</p>
-<blockquote>
-<div><p>Name of the file with the Hi settings.</p>
-</div></blockquote>
-<p><strong>device</strong> : str, optional</p>
-<blockquote>
-<div><p>Type of device. Default is Mini-Explorer.</p>
-</div></blockquote>
-<p><strong>hx</strong> : float, optional</p>
-<blockquote class="last">
-<div><p>Height of the device above the ground in meters.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.invert">
-<code class="descname">invert</code><span class="sig-paren">(</span><em>forwardModel='CS'</em>, <em>regularization='l2'</em>, <em>alpha=0.07</em>, <em>beta=0.0</em>, <em>dump=None</em>, <em>method='L-BFGS-B'</em>, <em>bnds=None</em>, <em>fixedDepths=True</em>, <em>options={}</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.invert" title="Permalink to this definition">¶</a></dt>
-<dd><p>Invert the apparent conductivity measurements.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>forwardModel</strong> : str, optional</p>
-<blockquote>
-<div><dl class="docutils">
-<dt>Type of forward model:</dt>
-<dd><ul class="first last simple">
-<li>CS : Cumulative sensitivity (default)</li>
-<li>FS : Full Maxwell solution with low-induction number (LIN) approximation</li>
-<li>FSandrade : Full Maxwell solution without LIN approximation (see Andrade 2016)</li>
-<li>CSgn : Cumulative sensitivity with jacobian matrix (using Gauss-Newton)</li>
-<li>CSgndiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET</li>
-</ul>
-</dd>
-</dl>
-</div></blockquote>
-<p><strong>regularization</strong> : str, optional</p>
-<blockquote>
-<div><p>Type of regularization, either l1 (blocky model) or l2 (smooth model)</p>
-</div></blockquote>
-<p><strong>smoothing</strong> : str, optional</p>
-<blockquote>
-<div><p>Smoothing used (either 1d, 2d, or 3d).</p>
-</div></blockquote>
-<p><strong>alpha</strong> : float, optional</p>
-<blockquote>
-<div><p>Smoothing factor for the inversion.</p>
-</div></blockquote>
-<p><strong>beta</strong> : float, optional</p>
-<blockquote>
-<div><p>Smoothing factor for neightbouring profile.</p>
-</div></blockquote>
-<p><strong>dump</strong> : function, optional</p>
-<blockquote>
-<div><p>Function to print the progression. Default is <cite>print</cite>.</p>
-</div></blockquote>
-<p><strong>method</strong> : str, optional</p>
-<blockquote>
-<div><p>Name of the optimization method for <cite>scipy.optimize.minimize</cite>.</p>
-</div></blockquote>
-<p><strong>bnds</strong> : list of float, optional</p>
-<blockquote>
-<div><p>If specified, will create bounds for the inversion. Doesn’t work with
-Nelder-Mead solver.</p>
-</div></blockquote>
-<p><strong>fixedDepth</strong> : bool, optional</p>
-<blockquote>
-<div><p>If False, the depth will be considered as a parameter to be 
-optimized.</p>
-</div></blockquote>
-<p><strong>options</strong> : optional</p>
-<blockquote class="last">
-<div><p>Additional dictionary arguments will be passed to <cite>scipy.optimize.minimize()</cite>.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.invertGN">
-<code class="descname">invertGN</code><span class="sig-paren">(</span><em>alpha=0.07</em>, <em>alpha_ref=None</em>, <em>dump=&lt;built-in function print&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.invertGN" title="Permalink to this definition">¶</a></dt>
-<dd><p>Fast inversion usign Gauss-Newton and cumulative sensitivity.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>alpha</strong> : float, optional</p>
-<blockquote>
-<div><p>Smoothing factor.</p>
-</div></blockquote>
-<p><strong>alpha_ref</strong> : float, optional</p>
-<blockquote>
-<div><p>Only used for difference inversion to contrain the bottom of
-the profile to not changing (see Annex in Whalley et al., 2017).</p>
-</div></blockquote>
-<p><strong>dump</strong> : function, optional</p>
-<blockquote class="last">
-<div><p>Function to output the running inversion.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.invertQ">
-<code class="descname">invertQ</code><span class="sig-paren">(</span><em>regularization='l2'</em>, <em>alpha=1e-09</em>, <em>beta=0.0</em>, <em>dump=None</em>, <em>method='L-BFGS-B'</em>, <em>bnds=None</em>, <em>fixedDepths=True</em>, <em>options={}</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.invertQ" title="Permalink to this definition">¶</a></dt>
-<dd><p>Invert the apparent conductivity measurements by minimizing the
-quadrature Q.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>regularization</strong> : str, optional</p>
-<blockquote>
-<div><p>Type of regularization, either l1 (blocky model) or l2 (smooth model)</p>
-</div></blockquote>
-<p><strong>smoothing</strong> : str, optional</p>
-<blockquote>
-<div><p>Smoothing used (either 1d, 2d, or 3d).</p>
-</div></blockquote>
-<p><strong>alpha</strong> : float, optional</p>
-<blockquote>
-<div><p>Smoothing factor for the inversion.</p>
-</div></blockquote>
-<p><strong>beta</strong> : float, optional</p>
-<blockquote>
-<div><p>Smoothing factor for neightbouring profile.</p>
-</div></blockquote>
-<p><strong>dump</strong> : function, optional</p>
-<blockquote>
-<div><p>Function to print the progression. Default is <cite>print</cite>.</p>
-</div></blockquote>
-<p><strong>method</strong> : str, optional</p>
-<blockquote>
-<div><p>Name of the optimization method for <cite>scipy.optimize.minimize</cite>.</p>
-</div></blockquote>
-<p><strong>bnds</strong> : list of float, optional</p>
-<blockquote>
-<div><p>If specified, will create bounds for the inversion. Doesn’t work with
-Nelder-Mead solver.</p>
-</div></blockquote>
-<p><strong>fixedDepth</strong> : bool, optional</p>
-<blockquote>
-<div><p>If False, the depth will be considered as a parameter to be 
-optimized.</p>
-</div></blockquote>
-<p><strong>options</strong> : optional</p>
-<blockquote class="last">
-<div><p>Additional dictionary arguments will be passed to <cite>scipy.optimize.minimize()</cite>.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.keepBetween">
-<code class="descname">keepBetween</code><span class="sig-paren">(</span><em>vmin=None</em>, <em>vmax=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.keepBetween" title="Permalink to this definition">¶</a></dt>
-<dd><p>Filter out measurements that are not between vmin and vmax.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>vmin</strong> : float, optional</p>
-<blockquote>
-<div><p>Minimal ECa value, default is minimum observed.</p>
-</div></blockquote>
-<p><strong>vmax</strong> : float, optional</p>
-<blockquote class="last">
-<div><p>Maximum ECa value, default is maximum observed.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.lcurve">
-<code class="descname">lcurve</code><span class="sig-paren">(</span><em>isurvey=0</em>, <em>irow=0</em>, <em>alphas=None</em>, <em>ax=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.lcurve" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute an L-curve given different values of alphas.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>isurvey</strong> : int, optional</p>
-<blockquote>
-<div><p>Index of survey to be used, by default the first one.</p>
-</div></blockquote>
-<p><strong>irow</strong> : int, optional</p>
-<blockquote>
-<div><p>Index of measurements to be used inside the survey. First by default.</p>
-</div></blockquote>
-<p><strong>alpha</strong> : list or array-like, optional</p>
-<blockquote>
-<div><p>List or array of values of alphas to build the L-curve.</p>
-</div></blockquote>
-<p><strong>ax</strong> : matplotlib.Axes, optional</p>
-<blockquote class="last">
-<div><p>If specified, the graph will be plotted agains this axis.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.plotCrossOverMap">
-<code class="descname">plotCrossOverMap</code><span class="sig-paren">(</span><em>index=0</em>, <em>coil=None</em>, <em>ax=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.plotCrossOverMap" title="Permalink to this definition">¶</a></dt>
-<dd><p>Plot the map of the cross-over points for error model.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
-<blockquote>
-<div><p>Survey index to fit the model on. Default is the first.</p>
-</div></blockquote>
-<p><strong>coil</strong> : str, optional</p>
-<blockquote>
-<div><p>Name of the coil.</p>
-</div></blockquote>
-<p><strong>ax</strong> : Matplotlib.Axes, optional</p>
-<blockquote class="last">
-<div><p>Matplotlib axis on which the plot is plotted against if specified.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.rollingMean">
-<code class="descname">rollingMean</code><span class="sig-paren">(</span><em>window=3</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.rollingMean" title="Permalink to this definition">¶</a></dt>
-<dd><p>Perform a rolling mean on the data.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>window</strong> : int, optional</p>
-<blockquote class="last">
-<div><p>Size of the windows for rolling mean.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.setDepths">
-<code class="descname">setDepths</code><span class="sig-paren">(</span><em>depths</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.setDepths" title="Permalink to this definition">¶</a></dt>
-<dd><p>Set the depths of the bottom of each layer. Last layer goes to -inf.
-Depths should be positive going down.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.show">
-<code class="descname">show</code><span class="sig-paren">(</span><em>index=0</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.show" title="Permalink to this definition">¶</a></dt>
-<dd><p>Show the raw data of the survey.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
-<blockquote class="last">
-<div><p>Survey number, by default, the first survey is chosen.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.showMap">
-<code class="descname">showMap</code><span class="sig-paren">(</span><em>index=0</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.showMap" title="Permalink to this definition">¶</a></dt>
-<dd><p>Show spatial map of the selected survey.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
-<blockquote class="last">
-<div><p>Survey number, by default, the first survey is chosen.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.showMisfit">
-<code class="descname">showMisfit</code><span class="sig-paren">(</span><em>index=0</em>, <em>coil='all'</em>, <em>ax=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.showMisfit" title="Permalink to this definition">¶</a></dt>
-<dd><p>Show Misfit after inversion.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
-<blockquote>
-<div><p>Index of the survey to plot.</p>
-</div></blockquote>
-<p><strong>coil</strong> : str, optional</p>
-<blockquote>
-<div><p>Which coil to plot. Default is all.</p>
-</div></blockquote>
-<p><strong>ax</strong> : matplotlib.Axes, optional</p>
-<blockquote class="last">
-<div><p>If specified the graph will be plotted on this axis.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.showOne2one">
-<code class="descname">showOne2one</code><span class="sig-paren">(</span><em>index=0</em>, <em>coil='all'</em>, <em>ax=None</em>, <em>vmin=None</em>, <em>vmax=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.showOne2one" title="Permalink to this definition">¶</a></dt>
-<dd><p>Show one to one plot with inversion results.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
-<blockquote>
-<div><p>Index of the survey to plot.</p>
-</div></blockquote>
-<p><strong>coil</strong> : str, optional</p>
-<blockquote>
-<div><p>Which coil to plot. Default is all.</p>
-</div></blockquote>
-<p><strong>ax</strong> : matplotlib.Axes, optional</p>
-<blockquote>
-<div><p>If specified the graph will be plotted on this axis.</p>
-</div></blockquote>
-<p><strong>vmin</strong> : float, optional</p>
-<blockquote>
-<div><p>Minimum ECa on the graph.</p>
-</div></blockquote>
-<p><strong>vmax</strong> : float, optional</p>
-<blockquote class="last">
-<div><p>Maximum ECa on the graph.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.showResults">
-<code class="descname">showResults</code><span class="sig-paren">(</span><em>index=0</em>, <em>ax=None</em>, <em>vmin=None</em>, <em>vmax=None</em>, <em>maxDepth=None</em>, <em>padding=1</em>, <em>cmap='viridis_r'</em>, <em>contour=False</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.showResults" title="Permalink to this definition">¶</a></dt>
-<dd><p>Show inverted model.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
-<blockquote>
-<div><p>Index of the survey to plot.</p>
-</div></blockquote>
-<p><strong>ax</strong> : Matplotlib.Axes, optional</p>
-<blockquote>
-<div><p>If specified, the graph will be plotted against this axis.</p>
-</div></blockquote>
-<p><strong>vmin</strong> : float, optional</p>
-<blockquote>
-<div><p>Minimum value of the colorbar.</p>
-</div></blockquote>
-<p><strong>vmax</strong> : float, optional</p>
-<blockquote>
-<div><p>Maximum value of the colorbar.</p>
-</div></blockquote>
-<p><strong>maxDepth</strong> : float, optional</p>
-<blockquote>
-<div><p>Maximum negative depths of the graph.</p>
-</div></blockquote>
-<p><strong>padding</strong> : float, optional</p>
-<blockquote>
-<div><p>DONT’T KNOW</p>
-</div></blockquote>
-<p><strong>cmap</strong> : str, optional</p>
-<blockquote>
-<div><p>Name of the Matplotlib colormap to use.</p>
-</div></blockquote>
-<p><strong>contour</strong> : bool, optional</p>
-<blockquote class="last">
-<div><p>If <cite>True</cite> a contour plot will be plotted.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.showResults_old">
-<code class="descname">showResults_old</code><span class="sig-paren">(</span><em>index=0</em>, <em>ax=None</em>, <em>vmin=None</em>, <em>vmax=None</em>, <em>maxDepth=None</em>, <em>padding=1</em>, <em>cmap='viridis_r'</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.showResults_old" title="Permalink to this definition">¶</a></dt>
-<dd><p>Show invertd model.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
-<blockquote>
-<div><p>Index of the survey to plot.</p>
-</div></blockquote>
-<p><strong>ax</strong> : Matplotlib.Axes, optional</p>
-<blockquote>
-<div><p>If specified, the graph will be plotted against this axis.</p>
-</div></blockquote>
-<p><strong>vmin</strong> : float, optional</p>
-<blockquote>
-<div><p>Minimum value of the colorbar.</p>
-</div></blockquote>
-<p><strong>vmax</strong> : float, optional</p>
-<blockquote>
-<div><p>Maximum value of the colorbar.</p>
-</div></blockquote>
-<p><strong>maxDepth</strong> : float, optional</p>
-<blockquote>
-<div><p>Maximum negative depths of the graph.</p>
-</div></blockquote>
-<p><strong>padding</strong> : float, optional</p>
-<blockquote>
-<div><p>Thickness of the bottom infinite layer in [m].</p>
-</div></blockquote>
-<p><strong>cmap</strong> : str, optional</p>
-<blockquote class="last">
-<div><p>Name of the Matplotlib colormap to use.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.showSlice">
-<code class="descname">showSlice</code><span class="sig-paren">(</span><em>index=0</em>, <em>islice=0</em>, <em>contour=False</em>, <em>vmin=None</em>, <em>vmax=None</em>, <em>cmap='viridis_r'</em>, <em>ax=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.showSlice" title="Permalink to this definition">¶</a></dt>
-<dd><p>Show depth slice.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>index</strong> : int, optional</p>
-<blockquote>
-<div><p>Survey index. Default is first.</p>
-</div></blockquote>
-<p><strong>islice</strong> : int, optional</p>
-<blockquote>
-<div><p>Depth index. Default is first depth.</p>
-</div></blockquote>
-<p><strong>contour</strong> : bool, optional</p>
-<blockquote>
-<div><p>If <cite>True</cite> then there will be contouring.</p>
-</div></blockquote>
-<p><strong>vmin</strong> : float, optional</p>
-<blockquote>
-<div><p>Minimum value for colorscale.</p>
-</div></blockquote>
-<p><strong>vmax</strong> : float, optional</p>
-<blockquote>
-<div><p>Maximum value for colorscale.</p>
-</div></blockquote>
-<p><strong>cmap</strong> : str, optional</p>
-<blockquote>
-<div><p>Name of colormap. Default is viridis_r.</p>
-</div></blockquote>
-<p><strong>ax</strong> : Matplotlib.Axes, optional</p>
-<blockquote class="last">
-<div><p>If specified, the graph will be plotted against it.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.tcorrEC">
-<code class="descname">tcorrEC</code><span class="sig-paren">(</span><em>tdepths</em>, <em>tprofile</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.tcorrEC" title="Permalink to this definition">¶</a></dt>
-<dd><p>Temperature correction for inverted models using XXXX formula.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>tdepths</strong> : array-like</p>
-<blockquote>
-<div><p>Depths in meters of the temperature sensors (negative downards).</p>
-</div></blockquote>
-<p><strong>tprofile</strong> : array-like</p>
-<blockquote class="last">
-<div><p>Temperature values corresponding in degree Celsius.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.tcorrECa">
-<code class="descname">tcorrECa</code><span class="sig-paren">(</span><em>tdepths</em>, <em>tprofile</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.tcorrECa" title="Permalink to this definition">¶</a></dt>
-<dd><p>Temperature correction using XXXX formula.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>tdepths</strong> : list of arrays</p>
-<blockquote>
-<div><p>Depths in meters of the temperature sensors (negative downards).</p>
-</div></blockquote>
-<p><strong>tprofile</strong> : list of arrays</p>
-<blockquote class="last">
-<div><p>Temperature values corresponding in degree Celsius.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Problem.Problem.write2vtk">
-<code class="descname">write2vtk</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Problem.Problem.write2vtk" title="Permalink to this definition">¶</a></dt>
-<dd><p>Write .vtk cloud points with the inverted models.</p>
-</dd></dl>
-
-</dd></dl>
-
-<span class="target" id="module-emagpy.Survey"></span><p>Created on Tue Apr 16 20:27:12 2019</p>
-<p>&#64;author: jkl</p>
-<dl class="class">
-<dt id="emagpy.Survey.Survey">
-<em class="property">class </em><code class="descclassname">emagpy.Survey.</code><code class="descname">Survey</code><span class="sig-paren">(</span><em>fname=None</em>, <em>freq=None</em>, <em>hx=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a Survey object containing the raw EMI data.
-Raw EMI file is</p>
-<dl class="method">
-<dt id="emagpy.Survey.Survey.aoi">
-<code class="descname">aoi</code><span class="sig-paren">(</span><em>polyX</em>, <em>polyY</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.aoi" title="Permalink to this definition">¶</a></dt>
-<dd><p>Identify area of interest inside a polygon.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.consPtStat">
-<code class="descname">consPtStat</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.consPtStat" title="Permalink to this definition">¶</a></dt>
-<dd><p>compute geometrical statistics of consective points, azimuth and 
-bearing of walking direction, time between consective measurements and
-distance between consecutive measurements. Results appended to self.df.</p>
-<p class="rubric">Notes</p>
-<p>Requires local coordinates system to be assigned first!</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.convertFromNMEA">
-<code class="descname">convertFromNMEA</code><span class="sig-paren">(</span><em>targetProjection='EPSG:27700'</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.convertFromNMEA" title="Permalink to this definition">¶</a></dt>
-<dd><p>Convert NMEA string to selected CRS projection.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>targetProjection</strong> : str, optional</p>
-<blockquote class="last">
-<div><p>Target CRS, in EPSG number: e.g. <cite>targetProjection=’EPSG:27700’</cite>
-for the British Grid.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.crossOverPoints">
-<code class="descname">crossOverPoints</code><span class="sig-paren">(</span><em>coil=None</em>, <em>ax=None</em>, <em>dump=&lt;built-in function print&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.crossOverPoints" title="Permalink to this definition">¶</a></dt>
-<dd><p>Build an error model based on the cross-over points.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>coil</strong> : str, optional</p>
-<blockquote>
-<div><p>Name of the coil.</p>
-</div></blockquote>
-<p><strong>ax</strong> : Matplotlib.Axes, optional</p>
-<blockquote>
-<div><p>Matplotlib axis on which the plot is plotted against if specified.</p>
-</div></blockquote>
-<p><strong>dump</strong> : function, optional</p>
-<blockquote class="last">
-<div><p>Output function for information.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.driftCrrnt">
-<code class="descname">driftCrrnt</code><span class="sig-paren">(</span><em>coil=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.driftCrrnt" title="Permalink to this definition">¶</a></dt>
-<dd><p>Apply a drift correction to the coil values</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.driftStn">
-<code class="descname">driftStn</code><span class="sig-paren">(</span><em>xStn=None</em>, <em>yStn=None</em>, <em>tolerance=0.5</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.driftStn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Extract values taken at a given x y point. By default the drift 
-station is taken at the location where the survey starts.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>xStn</strong> : float, optional</p>
-<blockquote>
-<div><p>X coordinate of drift station (using local coordinate system, 
-not long and lat)</p>
-</div></blockquote>
-<p><strong>yStn</strong> : float, optional</p>
-<blockquote>
-<div><p>Y coordinate of drift station (using local coordinate system, 
-not long and lat)</p>
-</div></blockquote>
-<p><strong>tolerance</strong> : float, optional</p>
-<blockquote>
-<div><p>Maximum distance away from the drift station using local units.</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>self.drift_df</strong> : pandas dataframe</p>
-<blockquote class="last">
-<div><p>Truncated dataframe leaving only the measurements from the drift
-station.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.fitDrift">
-<code class="descname">fitDrift</code><span class="sig-paren">(</span><em>coil=None</em>, <em>order=1</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.fitDrift" title="Permalink to this definition">¶</a></dt>
-<dd><p>Fit a polynomail model to the drift</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.gfCorrection">
-<code class="descname">gfCorrection</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.gfCorrection" title="Permalink to this definition">¶</a></dt>
-<dd><p>Apply the correction due to the 1m calibration.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.gridData">
-<code class="descname">gridData</code><span class="sig-paren">(</span><em>nx=100</em>, <em>ny=100</em>, <em>method='idw'</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.gridData" title="Permalink to this definition">¶</a></dt>
-<dd><p>Grid data (for 3D).</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>nx</strong> : int, optional</p>
-<blockquote>
-<div><p>Number of points in x direction.</p>
-</div></blockquote>
-<p><strong>ny</strong> : int, optional</p>
-<blockquote>
-<div><p>Number of points in y direction.</p>
-</div></blockquote>
-<p><strong>method</strong> : str, optional</p>
-<blockquote class="last">
-<div><p>Interpolation method (nearest, cubic or linear see
-<cite>scipy.interpolate.griddata</cite>) or IDW (default).</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.importGF">
-<code class="descname">importGF</code><span class="sig-paren">(</span><em>fnameLo=None</em>, <em>fnameHi=None</em>, <em>device='CMD Mini-Explorer'</em>, <em>hx=0</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.importGF" title="Permalink to this definition">¶</a></dt>
-<dd><p>Import GF instrument data with Lo and Hi file mode. If spatial data
-a regridding will be performed to match the data.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>fnameLo</strong> : str</p>
-<blockquote>
-<div><p>Name of the file with the Lo settings.</p>
-</div></blockquote>
-<p><strong>fnameHi</strong> : str, optional</p>
-<blockquote>
-<div><p>Name of the file with the Hi settings.</p>
-</div></blockquote>
-<p><strong>device</strong> : str, optional</p>
-<blockquote>
-<div><p>Type of device. Default is Mini-Explorer.</p>
-</div></blockquote>
-<p><strong>hx</strong> : float, optional</p>
-<blockquote class="last">
-<div><p>Height of the device above the ground in meters.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.keepBetween">
-<code class="descname">keepBetween</code><span class="sig-paren">(</span><em>vmin=None</em>, <em>vmax=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.keepBetween" title="Permalink to this definition">¶</a></dt>
-<dd><p>Filter out measurements that are not between vmin and vmax.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>vmin</strong> : float, optional</p>
-<blockquote>
-<div><p>Minimal ECa value, default is minimum observed.</p>
-</div></blockquote>
-<p><strong>vmax</strong> : float, optional</p>
-<blockquote class="last">
-<div><p>Maximum ECa value, default is maximum observed.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.plotCrossOverMap">
-<code class="descname">plotCrossOverMap</code><span class="sig-paren">(</span><em>coil=None</em>, <em>ax=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.plotCrossOverMap" title="Permalink to this definition">¶</a></dt>
-<dd><p>Plot the map of the cross-over points for error model.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>coil</strong> : str, optional</p>
-<blockquote>
-<div><p>Name of the coil.</p>
-</div></blockquote>
-<p><strong>ax</strong> : Matplotlib.Axes, optional</p>
-<blockquote class="last">
-<div><p>Matplotlib axis on which the plot is plotted against if specified.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.plotDrift">
-<code class="descname">plotDrift</code><span class="sig-paren">(</span><em>coil=None</em>, <em>ax=None</em>, <em>fit=True</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.plotDrift" title="Permalink to this definition">¶</a></dt>
-<dd><p>Plot drift through time.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.pointsKiller">
-<code class="descname">pointsKiller</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.pointsKiller" title="Permalink to this definition">¶</a></dt>
-<dd><p>Interactively kill points. Then save df after that.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.rmBearing">
-<code class="descname">rmBearing</code><span class="sig-paren">(</span><em>phiMin</em>, <em>phiMax</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.rmBearing" title="Permalink to this definition">¶</a></dt>
-<dd><p>Remove measurments recorded in a certian bearing range. Where phiMax -
-phiMin is the bearing range to remove.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>phiMin</strong> : float, optional</p>
-<blockquote>
-<div><p>Minimum angle, in degrees.</p>
-</div></blockquote>
-<p><strong>phiMax</strong> : float, optional</p>
-<blockquote>
-<div><p>Maximum angle, in degrees</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>self.fil_df</strong> : pandas dataframe</p>
-<blockquote class="last">
-<div><p>Truncated dataframe leaving only the measurements from outside the 
-given bearing range.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.rmRepeatPt">
-<code class="descname">rmRepeatPt</code><span class="sig-paren">(</span><em>tolerance=0.2</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.rmRepeatPt" title="Permalink to this definition">¶</a></dt>
-<dd><p>Remove points taken too close together consecutively.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>tolerance</strong> : float, optional</p>
-<blockquote>
-<div><p>Minimum distance away previous point in order to be retained.</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>self.fil_df</strong> : pandas dataframe</p>
-<blockquote class="last">
-<div><p>Truncated dataframe leaving only the measurements which are spaced 
-more than [tolerance value] apart.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.rollingMean">
-<code class="descname">rollingMean</code><span class="sig-paren">(</span><em>window=3</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.rollingMean" title="Permalink to this definition">¶</a></dt>
-<dd><p>Perform a rolling mean on the data.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>window</strong> : int, optional</p>
-<blockquote class="last">
-<div><p>Size of the windows for rolling mean.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.show">
-<code class="descname">show</code><span class="sig-paren">(</span><em>coil='all'</em>, <em>attr='ECa'</em>, <em>ax=None</em>, <em>contour=False</em>, <em>vmin=None</em>, <em>vmax=None</em>, <em>pts=False</em>, <em>cmap=None</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.show" title="Permalink to this definition">¶</a></dt>
-<dd><p>Show the data.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.showMap">
-<code class="descname">showMap</code><span class="sig-paren">(</span><em>coil=None</em>, <em>contour=False</em>, <em>ax=None</em>, <em>vmin=None</em>, <em>vmax=None</em>, <em>pts=False</em>, <em>cmap='viridis_r'</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.showMap" title="Permalink to this definition">¶</a></dt>
-<dd><p>Display a map of the measurements.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>coil</strong> : str, optional</p>
-<blockquote>
-<div><p>Name of the coil to plot. By default, the first coil is plotted.</p>
-</div></blockquote>
-<p><strong>contour</strong> : bool, optional</p>
-<blockquote>
-<div><p>If <cite>True</cite> filled contour will be plotted using <cite>tricontourf</cite>.</p>
-</div></blockquote>
-<p><strong>ax</strong> : Matplotlib.Axes, optional</p>
-<blockquote>
-<div><p>If specified, the graph will be plotted against the axis.</p>
-</div></blockquote>
-<p><strong>vmin</strong> : float, optional</p>
-<blockquote>
-<div><p>Minimum of the colorscale.</p>
-</div></blockquote>
-<p><strong>vmax</strong> : float, optional</p>
-<blockquote>
-<div><p>Maximum of the colorscale.</p>
-</div></blockquote>
-<p><strong>pts</strong> : bool, optional</p>
-<blockquote class="last">
-<div><p>If <cite>True</cite> the measurements location will be plotted on the graph.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="emagpy.Survey.Survey.tcorrECa">
-<code class="descname">tcorrECa</code><span class="sig-paren">(</span><em>tdepths</em>, <em>tprofile</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.Survey.tcorrECa" title="Permalink to this definition">¶</a></dt>
-<dd><p>Temperature correction using XXXX formula.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>tdepths</strong> : array-like</p>
-<blockquote>
-<div><p>Depths in meters of the temperature sensors (negative downards).</p>
-</div></blockquote>
-<p><strong>tprofile</strong> : array-like</p>
-<blockquote class="last">
-<div><p>Temperature values corresponding in degree Celsius.</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="function">
-<dt id="emagpy.Survey.clipConvexHull">
-<code class="descclassname">emagpy.Survey.</code><code class="descname">clipConvexHull</code><span class="sig-paren">(</span><em>xdata</em>, <em>ydata</em>, <em>x</em>, <em>y</em>, <em>z</em><span class="sig-paren">)</span><a class="headerlink" href="#emagpy.Survey.clipConvexHull" title="Permalink to this definition">¶</a></dt>
-<dd><p>set to nan data outside the convex hull of xdata, yxdata</p>
-<dl class="docutils">
-<dt>Parameters:</dt>
-<dd>xdata, ydata (arrays) : x and y position of the data collected
-x, y (arrays) : x and y position of the computed interpolation points
-z (arrays) : value of the interpolation</dd>
-<dt>Return:</dt>
-<dd>znew (array) : a copy of z with nan when outside convexHull</dd>
-</dl>
-</dd></dl>
-
-</div>
-</div>
-<div class="section" id="indices-and-tables">
-<h1><a class="toc-backref" href="#id6">Indices and tables</a><a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
-<ul class="simple">
-<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
-<li><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></li>
-<li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="getting-started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gui.html">Graphical User Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html#indices-and-tables">Indices and tables</a></li>
 </ul>
 </div>
+</div>
+</div>
 
 
+           </div>
+           
           </div>
-        </div>
-      </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper">
-            <p class="logo"><a href="#">
-              <img class="logo" src="_static/logo.png" alt="Logo"/>
-            </a></p>
-  <h3><a href="#">Table of Contents</a></h3>
-  <ul>
-<li><a class="reference internal" href="#">Welcome to EMagPy’s documentation!</a><ul>
-<li><a class="reference internal" href="#graphical-user-interface">Graphical User Interface</a></li>
-<li><a class="reference internal" href="#api-documentation">API documentation</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
-</ul>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="getting-started.html" class="btn btn-neutral float-right" title="Getting Started" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+    </div>
+  
 
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/index.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div>
-<div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
-    </form>
-    </div>
-</div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, G. Blanchy and P. McLachlan
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
         </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related" role="navigation" aria-label="related navigation">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="#">EmagPy v0.0.1 documentation</a> &#187;</li> 
-      </ul>
-    </div>
-    <div class="footer" role="contentinfo">
-        &#169; Copyright 2019, G. Blanchy and P. McLachlan.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.4.
-    </div>
-  </body>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
 </html>
