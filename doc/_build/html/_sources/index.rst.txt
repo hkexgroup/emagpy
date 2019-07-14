@@ -3,21 +3,38 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to EmagPy's documentation!
+    
+Welcome to EMagPy's documentation!
 ==================================
-I like equations such as :math:`\frac{x^2}{\sum_{i=1}^n \sqrt{3+x^3}}`
-
-.. math::
-   :nowrap:
-
-   \begin{eqnarray}
-      y    & = & ax^2 + bx + c \\
-      f(x) & = & x^2 + 2xy + y^2
-   \end{eqnarray}
    
-   
-Beautiful isn't it ?
+.. contents:: Table of contents
 
+Graphical User Interface
+------------------------
+The Graphical User Interface (GUI) is composed of differents tabs.
+
+.. _importing:
+.. figure:: image/importing.png
+    :alt: importing tab
+    
+    Importing tab with the `coverCrop.csv` dataset. Filtering options are availables.
+
+.. _importingMap:
+.. figure:: image/importing-map.png
+    :alt: importing tab with map view
+    
+    The dataset can also be viewed as a contour map if spatial data available.
+    
+
+In :numref:`importing` we can see the general tabbed interface with the `coverCrop.csv` dataset imported. The :numref:`importingMap` show the same dataset but plotted as a contour map.    
+
+
+
+
+
+
+API documentation
+-----------------
 .. toctree::
    :maxdepth: 2
    :caption: Contents:

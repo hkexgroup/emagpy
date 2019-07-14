@@ -47,6 +47,7 @@ extensions = [
 ]
 
 numpydoc_show_class_members = False
+numfig = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -81,6 +82,7 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
+html_logo = 'image/logo.png'
 html_theme = 'nature'
 
 # Theme options are theme-specific and customize the look and feel of a theme
