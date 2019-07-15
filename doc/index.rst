@@ -31,5 +31,14 @@ From the same `src` directory you can import the module from source using python
    getting-started
    gui
    api
-   
+   auto_examples/index
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+
 

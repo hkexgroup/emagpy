@@ -25,7 +25,7 @@ copyright = '2019, G. Blanchy and P. McLachlan'
 author = 'G. Blanchy and P. McLachlan'
 
 # The short X.Y version
-version = ''
+version = '0.0.1'
 # The full version, including alpha/beta/rc tags
 release = 'v0.0.1'
 
@@ -44,10 +44,31 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'numpydoc',
+    #'nbsphinx', # to include jupyter notebook as sphinx doc page
+    #'sphinx_gallery.gen_gallery', # to generate the gallery
+    'sphinx_nbexamples',
 ]
 
+example_gallery_config = {
+    'examples_dirs': '../examples',
+    'gallery_dirs': 'auto_examples',
+    'dont_preprocess': '../examples/foliumTest.ipynb',
+    'pattern': '.+.ipynb',
+    'urls': 'https://gitlab.com/hkex/emagpy/blob/master/examples',
+    'binder_url': 'https://mybinder.org/v2/gl/hkex%2Femagpy/master?filepath=examples',
+}
+
+
 numpydoc_show_class_members = False
-numfig = True
+numfig = True # to have numbered figure
+
+
+#sphinx_gallery_conf = {
+#     'examples_dirs': '../examples',   # path to your example scripts
+#     'gallery_dirs': 'auto_examples',  # path where to save gallery generated examples
+#     'filename_pattern': '/regolith.ipynb'
+#}
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
