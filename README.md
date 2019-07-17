@@ -4,6 +4,7 @@ Python API for inversion/modelling of frequency domain electromagnetic data (FDE
 
 EMagPy is divided into a python API and a standalone graphical user interface (GUI).
 It aims to be a powerfull but simple tool for inverting EMI data obtain from conductimeter.
+EMagPy document can be viewed at https://hkex.gitlab.com/emagpy.
 
 # Getting started
 Clone the repository:
