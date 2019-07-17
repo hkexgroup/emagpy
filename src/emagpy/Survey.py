@@ -60,9 +60,9 @@ def idw(xnew, ynew, xknown, yknown, zknown):
 
 
 class Survey(object):
-    ''' Create a Survey object containing the raw EMI data.
-    Raw EMI file is
-    '''
+    """ Create a Survey object containing the raw EMI data.
+    
+    """
     def __init__(self, fname=None, freq=None, hx=None):
         self.df = None # main dataframe
         self.drift_df = None # drift station dataframe
@@ -85,6 +85,15 @@ class Survey(object):
         
     
     def readFile(self, fname, sensor=None):
+        """Read a .csv file.
+        
+        Parameters
+        ----------
+        fname : str
+            Filename.
+        sensor : str, optional
+            Type of sensor.
+        """
         self.name = os.path.basename(fname)[:-4]
         delimiter=','
         if fname.find('.DAT')!=-1:
@@ -137,7 +146,7 @@ class Survey(object):
         
     
     def keepBetween(self, vmin=None, vmax=None):
-        '''Filter out measurements that are not between vmin and vmax.
+        """Filter out measurements that are not between vmin and vmax.
         
         Parameters
         ----------
@@ -145,7 +154,7 @@ class Survey(object):
             Minimal ECa value, default is minimum observed.
         vmax : float, optional
             Maximum ECa value, default is maximum observed.
-        '''
+        """
         if vmin is not None:
             ie1 = (self.df[self.coils].values > vmin).all(1)
         else:
@@ -160,13 +169,13 @@ class Survey(object):
         
         
     def rollingMean(self, window=3):
-        '''Perform a rolling mean on the data.
+        """Perform a rolling mean on the data.
         
         Parameters
         ----------
         window : int, optional
             Size of the windows for rolling mean.
-        '''
+        """
         cols = ['x','y'] + self.coils + self.coilsInph
         self.df[cols] = self.df[cols].rolling(window).mean()
         i2discard = self.df[self.coils].isna().any(1)
@@ -175,8 +184,8 @@ class Survey(object):
     
     def show(self, coil='all', attr='ECa', ax=None, contour=False, vmin=None, 
              vmax=None, pts=False, cmap=None):
-        ''' Show the data.
-        '''
+        """ Show the data.
+        """
         if coil == 'all':
             cols = self.coils
         else:
@@ -197,7 +206,7 @@ class Survey(object):
         
 
     def tcorrECa(self, tdepths, tprofile):
-        '''Temperature correction using XXXX formula.
+        """Temperature correction using XXXX formula.
         
         Parameters
         ----------
@@ -205,21 +214,21 @@ class Survey(object):
             Depths in meters of the temperature sensors (negative downards).
         tprofile : array-like
             Temperature values corresponding in degree Celsius.
-        '''
+        """
         # TODO if ECa -> compute an 'apparent' temperature
         # TODO what about per survey ?
         pass
 
 
     def convertFromNMEA(self, targetProjection='EPSG:27700'): # British Grid 1936
-        ''' Convert NMEA string to selected CRS projection.
+        """ Convert NMEA string to selected CRS projection.
         
         Parameters
         ----------
         targetProjection : str, optional
             Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
             for the British Grid.
-        '''
+        """
         import pyproj
         
         df = self.df
@@ -278,7 +287,7 @@ class Survey(object):
     
     def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None,
                 pts=False, cmap='viridis_r'):
-        ''' Display a map of the measurements.
+        """ Display a map of the measurements.
         
         Parameters
         ----------
@@ -294,7 +303,7 @@ class Survey(object):
             Maximum of the colorscale.
         pts : bool, optional
             If `True` the measurements location will be plotted on the graph.
-        '''
+        """
         if coil is None:
             coil = self.coils[0]
 #        if coil == 'all': # trick for ui
@@ -341,14 +350,14 @@ class Survey(object):
 
     
     def pointsKiller(self):
-        '''Interactively kill points. Then save df after that.
-        '''
+        """Interactively kill points. Then save df after that.
+        """
         pass
         
     
     
     def gridData(self, nx=100, ny=100, method='idw'):
-        ''' Grid data (for 3D).
+        """ Grid data (for 3D).
         
         Parameters
         ----------
@@ -359,7 +368,7 @@ class Survey(object):
         method : str, optional
             Interpolation method (nearest, cubic or linear see
             `scipy.interpolate.griddata`) or IDW (default).
-        '''
+        """
         x = self.df['x'].values
         y = self.df['y'].values
         X, Y = np.meshgrid(np.linspace(np.min(x), np.max(x), nx),
@@ -384,7 +393,7 @@ class Survey(object):
         
     
     def crossOverPoints(self, coil=None, ax=None, dump=print):
-        ''' Build an error model based on the cross-over points.
+        """ Build an error model based on the cross-over points.
         
         Parameters
         ----------
@@ -394,7 +403,7 @@ class Survey(object):
             Matplotlib axis on which the plot is plotted against if specified.
         dump : function, optional
             Output function for information.
-        '''
+        """
         if coil is None:
             coil = self.coils[0]
         df = self.df
@@ -452,7 +461,7 @@ class Survey(object):
     
     
     def plotCrossOverMap(self, coil=None, ax=None):
-        '''Plot the map of the cross-over points for error model.
+        """Plot the map of the cross-over points for error model.
         
         Parameters
         ----------
@@ -460,7 +469,7 @@ class Survey(object):
             Name of the coil.
         ax : Matplotlib.Axes, optional
             Matplotlib axis on which the plot is plotted against if specified.
-        '''
+        """
         if coil is None:
             coil = self.coils[0]
         df = self.df
@@ -487,11 +496,11 @@ class Survey(object):
 
     
     def gfCorrection(self):
-        ''' Apply the correction due to the 1m calibration.
-        '''
+        """ Apply the correction due to the 1m calibration.
+        """
         
     def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer', hx=0):
-        '''Import GF instrument data with Lo and Hi file mode. If spatial data
+        """Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
         Parameters
@@ -504,7 +513,7 @@ class Survey(object):
             Type of device. Default is Mini-Explorer.
         hx : float, optional
             Height of the device above the ground in meters.
-        '''
+        """
         if fnameLo is None and fnameHi is None:
             raise ValueError('You must specify at least one of fnameLo or fnameHi.')
         if fnameLo is not None:
@@ -699,7 +708,7 @@ class Survey(object):
         self.df = df
     
     def rmRepeatPt(self, tolerance=0.2):
-        '''Remove points taken too close together consecutively.
+        """Remove points taken too close together consecutively.
         
         Parameters
         ----------
@@ -711,7 +720,7 @@ class Survey(object):
         self.fil_df : pandas dataframe
             Truncated dataframe leaving only the measurements which are spaced 
             more than [tolerance value] apart. 
-        '''
+        """
         #error checking
         if not isinstance(tolerance,int) and not isinstance(tolerance,float):
             raise ValueError("tolerance instance should be int or float")
@@ -727,7 +736,7 @@ class Survey(object):
         
     
     def rmBearing(self, phiMin,phiMax):
-        '''Remove measurments recorded in a certian bearing range. Where phiMax -
+        """Remove measurments recorded in a certian bearing range. Where phiMax -
         phiMin is the bearing range to remove. 
         
         Parameters
@@ -742,7 +751,7 @@ class Survey(object):
         self.fil_df : pandas dataframe
             Truncated dataframe leaving only the measurements from outside the 
             given bearing range. 
-        '''
+        """
         #error checking
         if not isinstance(phiMin,int) and not isinstance(phiMin,float):
             raise ValueError("phiMin instance should be int or float")
@@ -766,7 +775,7 @@ class Survey(object):
         self.fil_df = out.reset_index()# its necassary to reset the indexes for other filtering techniques 
         
     def driftStn(self,xStn=None,yStn=None,tolerance=0.5):
-        '''Extract values taken at a given x y point. By default the drift 
+        """Extract values taken at a given x y point. By default the drift 
         station is taken at the location where the survey starts.
         
         Parameters
@@ -786,7 +795,7 @@ class Survey(object):
             Truncated dataframe leaving only the measurements from the drift
             station. 
         
-        '''
+        """
         df = self.df
         x = df.x.values # x values of data frame
         y = df.y.values # y values of data frame 

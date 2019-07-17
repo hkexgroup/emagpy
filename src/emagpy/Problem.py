@@ -17,13 +17,11 @@ from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
                                  buildJacobian, getQs, eca2Q, Q2eca2, Q2eca)
 from emagpy.Survey import Survey
 
-EMagPy_version = '0.0.1'
-
 
 class Problem(object):
-    '''Class defining an inversion problem.
+    """Class defining an inversion problem.
     
-    '''
+    """
     def __init__(self):
         self.depths0 = np.array([1, 2]) # initial depths of the bottom of each layer (last one is -inf)
         self.conds0 = np.array([20, 20, 20]) # initial conductivity for each layer
@@ -38,7 +36,7 @@ class Problem(object):
         
         
     def createSurvey(self, fname, freq=None, hx=None):
-        '''Create a survey object.
+        """Create a survey object.
         
         Parameters
         ----------
@@ -48,7 +46,7 @@ class Problem(object):
             Frequency for all the coils (can also be specified for each coil in the file).
         hx : float, optional
             Height of the instrument above the ground (can also be specified for each coil in the file).
-        '''
+        """
         survey = Survey(fname, freq=freq, hx=hx)
         if len(self.surveys) == 0:
             self.coils = survey.coils
@@ -64,15 +62,15 @@ class Problem(object):
         
         
     def createTimeLapseSurvey(self, dirname):
-        ''' Create a list of surveys object.
-        '''
+        """ Create a list of surveys object.
+        """
         files = sorted(os.listdir(dirname))
         for f in files:
             self.createSurvey(os.path.join(dirname, f))
         
     
     def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer', hx=0):
-        '''Import GF instrument data with Lo and Hi file mode. If spatial data
+        """Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
         Parameters
@@ -85,7 +83,7 @@ class Problem(object):
             Type of device. Default is Mini-Explorer.
         hx : float, optional
             Height of the device above the ground in meters.
-        '''
+        """
         survey = Survey()
         survey.importGF(fnameLo, fnameHi, device, hx)
         self.coils = survey.coils
@@ -97,9 +95,9 @@ class Problem(object):
         
         
     def setDepths(self, depths):
-        ''' Set the depths of the bottom of each layer. Last layer goes to -inf.
+        """ Set the depths of the bottom of each layer. Last layer goes to -inf.
         Depths should be positive going down.
-        '''
+        """
         if len(depths) == 0:
             raise ValueError('No depths specified.')
         if all(np.diff(depths) > 0):
@@ -111,7 +109,7 @@ class Problem(object):
     def invert(self, forwardModel='CS', regularization='l2', alpha=0.07,
                beta=0.0, dump=None, method='L-BFGS-B', bnds=None,
                fixedDepths=True, options={}):
-        '''Invert the apparent conductivity measurements.
+        """Invert the apparent conductivity measurements.
         
         Parameters
         ----------
@@ -142,7 +140,7 @@ class Problem(object):
             optimized.
         options : optional
             Additional dictionary arguments will be passed to `scipy.optimize.minimize()`.
-        '''
+        """
         self.models = []
         self.depths = []
         self.rmses = []
@@ -266,7 +264,7 @@ class Problem(object):
                     
     
     def invertGN(self, alpha=0.07, alpha_ref=None, dump=print):
-        '''Fast inversion usign Gauss-Newton and cumulative sensitivity.
+        """Fast inversion usign Gauss-Newton and cumulative sensitivity.
         
         Parameters
         ----------
@@ -277,7 +275,7 @@ class Problem(object):
             the profile to not changing (see Annex in Whalley et al., 2017).
         dump : function, optional
             Function to output the running inversion.
-        '''
+        """
         self.models = []
         self.rmses = []
         self.depths = []
@@ -323,7 +321,7 @@ class Problem(object):
     def invertQ(self, regularization='l2', alpha=1e-9,
                beta=0.0, dump=None, method='L-BFGS-B', bnds=None,
                fixedDepths=True, options={}):
-        '''Invert the apparent conductivity measurements by minimizing the
+        """Invert the apparent conductivity measurements by minimizing the
         quadrature Q.
         
         Parameters
@@ -348,7 +346,7 @@ class Problem(object):
             optimized.
         options : optional
             Additional dictionary arguments will be passed to `scipy.optimize.minimize()`.
-        '''
+        """
         self.models = []
         self.depths = []
         self.rmses = []
@@ -452,7 +450,7 @@ class Problem(object):
 
 
     def tcorrECa(self, tdepths, tprofile):
-        '''Temperature correction using XXXX formula.
+        """Temperature correction using XXXX formula.
         
         Parameters
         ----------
@@ -460,14 +458,14 @@ class Problem(object):
             Depths in meters of the temperature sensors (negative downards).
         tprofile : list of arrays
             Temperature values corresponding in degree Celsius.
-        '''
+        """
         for i, s in enumerate(self.surveys):
             s.tcorr(tdepths[i], tprofile[i])
 
 
             
     def tcorrEC(self, tdepths, tprofile):
-        '''Temperature correction for inverted models using XXXX formula.
+        """Temperature correction for inverted models using XXXX formula.
         
         Parameters
         ----------
@@ -475,35 +473,35 @@ class Problem(object):
             Depths in meters of the temperature sensors (negative downards).
         tprofile : array-like
             Temperature values corresponding in degree Celsius.
-        '''
+        """
         for i, model in enumerate(self.models):
             pass
         #TODO correct ECa or inverted EC ? maybe let this to the user
 
 
     def write2vtk(self):
-        '''Write .vtk cloud points with the inverted models.
-        '''
+        """Write .vtk cloud points with the inverted models.
+        """
         for i, m in enumerate(self.models):
             
             pass
 
 
     def rollingMean(self, window=3):
-        '''Perform a rolling mean on the data.
+        """Perform a rolling mean on the data.
         
         Parameters
         ----------
         window : int, optional
             Size of the windows for rolling mean.
-        '''
+        """
         for survey in self.surveys:
             survey.rollingMean(window=window)
             
             
         
     def forward(self, forwardModel='CS'):
-        '''Forward model.
+        """Forward model.
         
         Parameters
         ----------
@@ -519,7 +517,7 @@ class Problem(object):
         -------
         df : pandas.DataFrame
             With the apparent ECa in the same format as input for the Survey class.
-        '''
+        """
         if forwardModel in ['CS','FS','FSandrade']:
             # define the forward model
             if forwardModel == 'CS':
@@ -547,31 +545,31 @@ class Problem(object):
     
     
     def show(self, index=0, **kwargs):
-        '''Show the raw data of the survey.
+        """Show the raw data of the survey.
         
         Parameters
         ----------
         index : int, optional
             Survey number, by default, the first survey is chosen.
-        '''
+        """
         self.surveys[index].show(**kwargs)
     
     
     
     def showMap(self, index=0, **kwargs):
-        '''Show spatial map of the selected survey.
+        """Show spatial map of the selected survey.
         
         Parameters
         ----------
         index : int, optional
             Survey number, by default, the first survey is chosen.
-        '''
+        """
         self.surveys[index].showMap(**kwargs)
         
     
     
     def gridData(self, nx=100, ny=100, method='nearest'):
-        ''' Grid data (for 3D).
+        """ Grid data (for 3D).
         
         Parameters
         ----------
@@ -582,21 +580,21 @@ class Problem(object):
         method : str, optional
             Interpolation method (nearest, cubic or linear see
             `scipy.interpolate.griddata`). Default is `nearest`.
-        '''
+        """
         
         for survey in self.surveys:
             survey.gridData(nx=nx, ny=ny, method=method)
         
         
     def convertFromNMEA(self,  targetProjection='EPSG:27700'): # British Grid 1936
-        ''' Convert NMEA string to selected CRS projection.
+        """ Convert NMEA string to selected CRS projection.
         
         Parameters
         ----------
         targetProjection : str, optional
             Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
             for the British Grid.
-        '''
+        """
         for survey in self.surveys:
             survey.convertFromNMEA(targetProjection=targetProjection)
     
@@ -604,7 +602,7 @@ class Problem(object):
     
     def showResults_old(self, index=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, padding=1, cmap='viridis_r'):
-        '''Show invertd model.
+        """Show invertd model.
         
         Parameters
         ----------
@@ -622,7 +620,7 @@ class Problem(object):
             Thickness of the bottom infinite layer in [m].
         cmap : str, optional
             Name of the Matplotlib colormap to use.
-        '''            
+        """            
         sig = self.models[index]
         x = np.arange(sig.shape[0])
 #        depths = np.repeat(self.depths0[:,None], sig.shape[0], axis=1).T
@@ -674,7 +672,7 @@ class Problem(object):
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, padding=1, cmap='viridis_r',
                     contour=False):
-        '''Show inverted model.
+        """Show inverted model.
         
         Parameters
         ----------
@@ -694,7 +692,7 @@ class Problem(object):
             Name of the Matplotlib colormap to use.
         contour : bool, optional
             If `True` a contour plot will be plotted.
-        '''            
+        """            
         sig = self.models[index]
         x = np.arange(sig.shape[0])
 #        x = np.sqrt(np.diff(self.surveys[index].df[['x', 'y']].values, axis=1)**2)
@@ -775,8 +773,8 @@ class Problem(object):
 
     
     def getRMSE(self):
-        '''Returns RMSE for all coils (columns) and all surveys (row).
-        '''
+        """Returns RMSE for all coils (columns) and all surveys (row).
+        """
         dfsForward = self.forward()
         def rmse(x, y):
             return np.sqrt(np.sum((x - y)**2)/len(x))
@@ -797,7 +795,7 @@ class Problem(object):
         
         
     def showMisfit(self, index=0, coil='all', ax=None):
-        '''Show Misfit after inversion.
+        """Show Misfit after inversion.
             
         Parameters
         ----------
@@ -807,7 +805,7 @@ class Problem(object):
             Which coil to plot. Default is all.
         ax : matplotlib.Axes, optional
             If specified the graph will be plotted on this axis.
-        '''
+        """
         dfsForward = self.forward()
         survey = self.surveys[index]
         cols = survey.coils
@@ -827,7 +825,7 @@ class Problem(object):
         
         
     def showOne2one(self, index=0, coil='all', ax=None, vmin=None, vmax=None):
-        '''Show one to one plot with inversion results.
+        """Show one to one plot with inversion results.
             
         Parameters
         ----------
@@ -841,7 +839,7 @@ class Problem(object):
             Minimum ECa on the graph.
         vmax : float, optional
             Maximum ECa on the graph.
-        '''
+        """
         dfsForward = self.forward()
         survey = self.surveys[index]
         cols = survey.coils
@@ -866,7 +864,7 @@ class Problem(object):
     
     
     def keepBetween(self, vmin=None, vmax=None):
-        '''Filter out measurements that are not between vmin and vmax.
+        """Filter out measurements that are not between vmin and vmax.
         
         Parameters
         ----------
@@ -874,14 +872,14 @@ class Problem(object):
             Minimal ECa value, default is minimum observed.
         vmax : float, optional
             Maximum ECa value, default is maximum observed.
-        '''
+        """
         for s in self.surveys:
             s.keepBetween(vmin=vmin, vmax=vmax)
     
     
     
     def lcurve(self, isurvey=0, irow=0, alphas=None, ax=None):
-        '''Compute an L-curve given different values of alphas.
+        """Compute an L-curve given different values of alphas.
         
         Parameters
         ----------
@@ -893,7 +891,7 @@ class Problem(object):
             List or array of values of alphas to build the L-curve.
         ax : matplotlib.Axes, optional
             If specified, the graph will be plotted agains this axis.
-        '''
+        """
         app = self.surveys[isurvey].df[self.coils].values[irow,:]
         if alphas is None:
             alphas = np.logspace(-3,2,20)
@@ -926,7 +924,7 @@ class Problem(object):
 
 
     def calibrate(self, fnameECa, fnameEC, forwardModel='CS', ax=None):
-        '''Calibrate ECa with given EC profile.
+        """Calibrate ECa with given EC profile.
         
         Parameters
         ----------
@@ -940,7 +938,7 @@ class Problem(object):
             Forward model to use. Either CS (default), FS or FSandrade.
         ax : matplotlib.Axes
             If specified the graph will be plotted against this axis.
-        '''
+        """
         survey = Survey(fnameECa)
         if survey.freqs[0] is None: # fallback in case the use doesn't specify the frequency in the headers
             try:
@@ -996,7 +994,7 @@ class Problem(object):
         
         
     def crossOverPoints(self, index=0, coil=None, ax=None, dump=print):
-        ''' Build an error model based on the cross-over points.
+        """ Build an error model based on the cross-over points.
         
         Parameters
         ----------
@@ -1008,14 +1006,14 @@ class Problem(object):
             Matplotlib axis on which the plot is plotted against if specified.
         dump : function, optional
             Function to print the output.
-        '''
+        """
         survey = self.surveys[index]
         survey.crossOverPoints(coil=coil, ax=ax, dump=dump)
     
     
     
     def plotCrossOverMap(self, index=0, coil=None, ax=None):
-        '''Plot the map of the cross-over points for error model.
+        """Plot the map of the cross-over points for error model.
         
         Parameters
         ----------
@@ -1025,14 +1023,14 @@ class Problem(object):
             Name of the coil.
         ax : Matplotlib.Axes, optional
             Matplotlib axis on which the plot is plotted against if specified.
-        '''
+        """
         survey = self.surveys[index]
         survey.plotCrossOverMap(coil=coil, ax=ax)
         
     
     def showSlice(self, index=0, islice=0, contour=False, vmin=None, vmax=None,
                   cmap='viridis_r', ax=None):
-        '''Show depth slice.
+        """Show depth slice.
         
         Parameters
         ----------
@@ -1050,7 +1048,7 @@ class Problem(object):
             Name of colormap. Default is viridis_r.
         ax : Matplotlib.Axes, optional
             If specified, the graph will be plotted against it.
-        '''
+        """
         z = self.models[index][:,islice]
         x = self.surveys[index].df['x'].values
         y = self.surveys[index].df['y'].values

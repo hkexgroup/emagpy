@@ -16,7 +16,7 @@ import os
 import sys
 #sys.path.insert(0, os.path.abspath('..'))
 sys.path.append(os.path.relpath('../src'))
-
+from emagpy import EMagPy_version
 
 # -- Project information -----------------------------------------------------
 
@@ -25,9 +25,9 @@ copyright = '2019, G. Blanchy and P. McLachlan'
 author = 'G. Blanchy and P. McLachlan'
 
 # The short X.Y version
-version = '0.0.1'
+version = EMagPy_version
 # The full version, including alpha/beta/rc tags
-release = 'v0.0.1'
+release = EMagPy_version
 
 
 # -- General configuration ---------------------------------------------------
