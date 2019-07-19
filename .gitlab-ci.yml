@@ -11,7 +11,7 @@ pages:
   - pip install -r requirements.txt
   - apt-get update
   - apt-get install --assume-yes pandoc
-  - pip install sphinx numpydoc sphinx_rtd_theme sphinx-nbexamples
+  - pip install sphinx==1.8.4 numpydoc==0.7.0 sphinx_rtd_theme sphinx-nbexamples
   - cd doc
   - make html
   - cd ..

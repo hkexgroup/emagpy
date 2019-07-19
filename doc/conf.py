@@ -46,7 +46,7 @@ extensions = [
     'numpydoc',
     #'nbsphinx', # to include jupyter notebook as sphinx doc page
     #'sphinx_gallery.gen_gallery', # to generate the gallery
-    'sphinx_nbexamples',
+    'sphinx_nbexamples', # needs pandoc (apt-get install pandoc)
 ]
 
 example_gallery_config = {
