@@ -97,8 +97,7 @@ class MatplotlibWidget(QWidget):
         super(MatplotlibWidget, self).__init__(parent) # we can pass a figure but we can replot on it when
         # pushing on a button (I didn't find a way to do it) while with the axes, you can still clear it and
         # plot again on them
-        self.itight = itight
-        figure = Figure()
+        figure = Figure(tight_layout=itight)
         self.canvas = FigureCanvasQTAgg(figure)
         if threed is True:
             ax = figure.add_subplot(111, projection='3d')
@@ -150,8 +149,6 @@ class MatplotlibWidget(QWidget):
         ax.set_aspect('auto')
         callback(ax=ax, **kwargs)
         self.callback = callback
-        if self.itight is True:
-            self.figure.tight_layout()
         self.canvas.draw()
 
     def setCallback(self, callback):
@@ -166,8 +163,6 @@ class MatplotlibWidget(QWidget):
         self.axis = ax
         self.callback(ax=ax, **kwargs)
         ax.set_aspect('auto')
-        if self.itight is True:
-            self.figure.tight_layout()
         self.canvas.draw()
 
     def clear(self):
