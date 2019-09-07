@@ -1075,9 +1075,6 @@ class Problem(object):
         ax.set_title('{:.2f}m - {:.2f}m'.format(depths[islice], depths[islice+1]))
         
         
-            
-
-        
 
 
 if __name__ == '__main__':
