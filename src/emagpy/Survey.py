@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 #from pykrige.ok import OrdinaryKriging
 from scipy.stats import linregress, binned_statistic
 from scipy.spatial.distance import cdist, pdist
-from scipy.interpolate import griddata
+from scipy.interpolate import griddata, NearestNDInterpolator
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
 #if __name__ == '__main__':
@@ -59,6 +59,74 @@ def idw(xnew, ynew, xknown, yknown, zknown):
     return znew
 
 
+def convertFromCoord(df, targetProjection='EPSG:27700'):
+    """Convert coordinates string (NMEA or DMS) to selected CRS projection.
+    
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Dataframe with a 'Latitude' and 'Longitude' columns that contains NMEA
+        string.
+    targetProjection : str, optional
+        Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+        for the British Grid.
+    """
+    import pyproj
+    
+    def NMEA(arg):
+        """ Convert NMEA string to WGS84 (GPS) decimal degree.
+        """
+        letter = arg[-1]
+        if (letter == 'W') | (letter == 'S'):
+            sign = -1
+        else:
+            sign = 1
+        arg = arg[:-1]
+        x = arg.index('.')
+        a = float(arg[:x-2]) # degree
+        b = float(arg[x-2:]) # minutes
+        return (a + b/60)*sign
+    
+    def DMS(arg):
+        """Convert convert degrees, minutes, seconds to decimal degrees
+        """
+        letter = arg[-1]
+        if (letter == 'W') | (letter == 'S'):
+            sign = -1
+        else:
+            sign = 1
+        #extract degrees from string
+        deg_idx = arg.find('°')
+        deg = int(arg[:deg_idx])
+        #extract minutes from string
+        min_idx = arg.find("'")
+        mins = int(arg[(deg_idx+1):min_idx])
+        #extract seconds from string
+        sec_idx = arg.find('"')
+        secs = float(arg[(min_idx+1):sec_idx])
+        DD = deg + (mins/60) + (secs/3600) # decimal degree calculation
+        return sign*DD # return with sign
+    
+    check = df['Latitude'][0]
+    if check.find('°') !=-1 and check.find("'") != -1:
+        print("Coordinates appear to be given as Degrees, minutes, seconds ... adjusting conversion scheme")
+        gps2deg = np.vectorize(DMS)
+    else:
+        gps2deg = np.vectorize(NMEA)
+    
+    
+    df['lat'] = gps2deg(df['Latitude'].values)
+    df['lon'] = gps2deg(df['Longitude'].values)
+    
+    wgs84 = pyproj.Proj("+init=EPSG:4326") # LatLon with WGS84 datum used by GPS units and Google Earth
+    osgb36 = pyproj.Proj("+init=" + targetProjection) # UK Ordnance Survey, 1936 datum
+    
+    df['x'], df['y'] = pyproj.transform(wgs84, osgb36, 
+                          df['lon'].values, df['lat'].values)
+
+    return df
+    
+    
 class Survey(object):
     """ Create a Survey object containing the raw EMI data.
     
@@ -221,72 +289,20 @@ class Survey(object):
 
 
     def convertFromNMEA(self, targetProjection='EPSG:27700'): # British Grid 1936
-        """ Convert NMEA string to selected CRS projection.
-        
+        """Convert coordinates string (NMEA or DMS) to selected CRS projection.
+    
         Parameters
         ----------
         targetProjection : str, optional
             Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
             for the British Grid.
         """
-        import pyproj
-        
-        df = self.df
-        def NMEA(arg):
-            """ Convert NMEA string to WGS84 (GPS) decimal degree.
-            """
-            letter = arg[-1]
-            if (letter == 'W') | (letter == 'S'):
-                sign = -1
-            else:
-                sign = 1
-            arg = arg[:-1]
-            x = arg.index('.')
-            a = float(arg[:x-2]) # degree
-            b = float(arg[x-2:]) # minutes
-            return (a + b/60)*sign
-        
-        def DMS(arg):
-            """Convert convert degrees, minutes, seconds to decimal degrees
-            """
-            letter = arg[-1]
-            if (letter == 'W') | (letter == 'S'):
-                sign = -1
-            else:
-                sign = 1
-            #extract degrees from string
-            deg_idx = arg.find('°')
-            deg = int(arg[:deg_idx])
-            #extract minutes from string
-            min_idx = arg.find("'")
-            mins = int(arg[(deg_idx+1):min_idx])
-            #extract seconds from string
-            sec_idx = arg.find('"')
-            secs = float(arg[(min_idx+1):sec_idx])
-            DD = deg + (mins/60) + (secs/3600) # decimal degree calculation
-            return sign*DD # return with sign
-        
-        check = df['Latitude'][0]
-        if check.find('°') !=-1 and check.find("'") != -1:
-            print("Coordinates appear to be given as Degrees, minutes, seconds ... adjusting conversion scheme")
-            gps2deg = np.vectorize(DMS)
-        else:
-            gps2deg = np.vectorize(NMEA)
-        
-        
-        df['lat'] = gps2deg(df['Latitude'].values)
-        df['lon'] = gps2deg(df['Longitude'].values)
-        
-        wgs84 = pyproj.Proj("+init=EPSG:4326") # LatLon with WGS84 datum used by GPS units and Google Earth
-        osgb36 = pyproj.Proj("+init=" + targetProjection) # UK Ordnance Survey, 1936 datum
-        
-        df['x'], df['y'] = pyproj.transform(wgs84, osgb36, 
-                                              df['lon'].values, df['lat'].values)
-        self.df = df
+        self.df = convertFromCoord(self.df, targetProjection)
+
 
     
     def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None,
-                pts=False, cmap='viridis_r'):
+                pts=False, cmap='viridis_r', xlab='x', ylab='y'):
         """ Display a map of the measurements.
         
         Parameters
@@ -303,6 +319,10 @@ class Survey(object):
             Maximum of the colorscale.
         pts : bool, optional
             If `True` the measurements location will be plotted on the graph.
+        xlab : str, optional
+            X label.
+        ylab : str, optional
+            Y label.
         """
         if coil is None:
             coil = self.coils[0]
@@ -340,8 +360,8 @@ class Survey(object):
                 ax.plot(x, y, 'k+')
         else:
             cax = ax.scatter(x, y, s=15, c=val, vmin=vmin, vmax=vmax, cmap=cmap)
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
+        ax.set_xlabel(xlab)
+        ax.set_ylabel(ylab)
         if coil[-5:] == '_inph':
             fig.colorbar(cax, ax=ax, label='Inphase [ppt]')
         else:
@@ -356,7 +376,8 @@ class Survey(object):
         
     
     
-    def gridData(self, nx=100, ny=100, method='idw'):
+    def gridData(self, nx=100, ny=100, method='idw', xmin=None, xmax=None,
+                 ymin=None, ymax=None):
         """ Grid data (for 3D).
         
         Parameters
@@ -365,14 +386,30 @@ class Survey(object):
             Number of points in x direction.
         ny : int, optional
             Number of points in y direction.
+        xmin : float, optional
+            Mininum X value.
+        xmax : float, optional
+            Maximum X value.
+        ymin : float, optional
+            Minimium Y value.
+        ymax : float, optional
+            Maximum Y value
         method : str, optional
             Interpolation method (nearest, cubic or linear see
             `scipy.interpolate.griddata`) or IDW (default).
         """
         x = self.df['x'].values
         y = self.df['y'].values
-        X, Y = np.meshgrid(np.linspace(np.min(x), np.max(x), nx),
-                           np.linspace(np.min(y), np.max(y), ny))
+        if xmin is None:
+            xmin = np.min(x)
+        if xmax is None:
+            xmax = np.max(x)
+        if ymin is None:
+            ymin = np.min(y)
+        if ymax is None:
+            ymax = np.max(y)
+        X, Y = np.meshgrid(np.linspace(xmin, xmax, nx),
+                           np.linspace(ymin, ymax, ny))
         inside = np.ones(nx*ny)
         inside2 = clipConvexHull(self.df['x'].values,
                                  self.df['y'].values,
@@ -498,8 +535,11 @@ class Survey(object):
     def gfCorrection(self):
         """ Apply the correction due to the 1m calibration.
         """
+        pass
+        # TODO
         
-    def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer', hx=0):
+    def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer',
+                 hx=0, targetProjection='EPSG:27700'):
         """Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
@@ -513,6 +553,10 @@ class Survey(object):
             Type of device. Default is Mini-Explorer.
         hx : float, optional
             Height of the device above the ground in meters.
+        targetProjection : str, optional
+            If both Lo and Hi dataframe contains 'Latitude' with NMEA values
+            a conversion first is done using `self.convertFromNMEA()` before
+            being regrid using nearest neightbours.
         """
         if fnameLo is None and fnameHi is None:
             raise ValueError('You must specify at least one of fnameLo or fnameHi.')
@@ -556,9 +600,26 @@ class Survey(object):
                     df = None
                     raise ValueError('Can not join the dataframe as they have different lengths: {:d} and {:d}'.format(loFile.shape[0], hiFile.shape[0]))
             else:
-                df = None
-                pass
-                # TODO regridding here :/
+                print('Using nearest neighbours to assign values to all merged positions.')
+                # transformation of NMEA to x, y coordinates
+                loFile = convertFromCoord(loFile, targetProjection)
+                hiFile = convertFromCoord(hiFile, targetProjection)
+                
+                # regridding using nearest neighbour
+                df = pd.concat([loFile, hiFile], sort=False).reset_index(drop=True)
+                ie = np.zeros(df.shape[0], dtype=bool)
+                ie[:loFile.shape[0]] = True
+                pointsLo = loFile[['x','y']].values
+                pointsHi = hiFile[['x','y']].values
+                for col in loCols:
+                    values = loFile[col].values
+                    interpolator = NearestNDInterpolator(pointsLo, values)
+                    df.loc[~ie, col] = interpolator(pointsHi)
+                for col in hiCols:
+                    values = hiFile[col].values
+                    interpolator = NearestNDInterpolator(pointsHi, values)
+                    df.loc[ie, col] = interpolator(pointsLo)
+                    
             coils = loCols[:3] + hiCols[:3]
             coilsInph = loCols[3:] + hiCols[3:]
         elif fnameLo is not None:
@@ -568,13 +629,11 @@ class Survey(object):
             coils = loCols[:3]
             coilsInph = loCols[3:]
         elif fnameHi is not None:
-            df = loFile
+            df = hiFile
             df['x'] = np.arange(df.shape[0])
             df['y'] = 0
             coils = hiCols[:3]
             coilsInph = hiCols[3:]
-        
-
 
         if df is not None:
             self.coils = coils
@@ -735,7 +794,7 @@ class Survey(object):
         self.fil_df = out.reset_index()
         
     
-    def rmBearing(self, phiMin,phiMax):
+    def rmBearing(self, phiMin, phiMax):
         """Remove measurments recorded in a certian bearing range. Where phiMax -
         phiMin is the bearing range to remove. 
         
@@ -744,7 +803,7 @@ class Survey(object):
         phiMin : float, optional
             Minimum angle, in degrees. 
         phiMax : float, optional
-            Maximum angle, in degrees
+            Maximum angle, in degrees.
         
         Returns 
         -------
@@ -774,7 +833,8 @@ class Survey(object):
         #return out.reset_index() 
         self.fil_df = out.reset_index()# its necassary to reset the indexes for other filtering techniques 
         
-    def driftStn(self,xStn=None,yStn=None,tolerance=0.5):
+        
+    def driftStn(self, xStn=None, yStn=None, tolerance=0.5):
         """Extract values taken at a given x y point. By default the drift 
         station is taken at the location where the survey starts.
         
@@ -791,10 +851,9 @@ class Survey(object):
         
         Returns
         -------
-        self.drift_df : pandas dataframe
+        self.drift_df : pandas.DataFrame
             Truncated dataframe leaving only the measurements from the drift
             station. 
-        
         """
         df = self.df
         x = df.x.values # x values of data frame
@@ -810,8 +869,18 @@ class Survey(object):
 
         self.drift_df = df[ioi].copy() #return df[ioi].copy()
         
-    def plotDrift(self, coil = None, ax = None, fit = True):
+        
+    def plotDrift(self, coil=None, ax=None, fit=True):
         """ Plot drift through time.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Coil for which to plot the drift.
+        ax : matplotlib.Axes, optional
+            If specified, the graph will be plotted against.
+        fit : boolean, optional
+            If `True` a relatinship will be fitted.
         """
         if ax is None:
             fig, ax = plt.subplots()
@@ -833,16 +902,30 @@ class Survey(object):
             cond_mdl = np.polyval(self.drift_mdl,seconds)
             ax.plot(times,cond_mdl)
         
-    def fitDrift(self, coil= None, order=1):
-        """Fit a polynomail model to the drift
+        
+    def fitDrift(self, coil=None, order=1):
+        """Fit a polynomial model to the drift.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Coil for which to plot the drift.
+        order : int, optional
+            Order of the polyfit. Default is 1.
         """
         seconds = self.drift_df['elasped(sec)'].values
         cond = self.drift_df[coil].values
         mdl = np.polyfit(seconds,cond,order)
         self.drift_mdl = mdl
         
-    def driftCrrnt(self, coil = None):
-        """ Apply a drift correction to the coil values
+        
+    def applyDriftCorrection(self, coil=None):
+        """Apply a drift correction to the coil values.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Coil for which to plot the drift.
         """
         try:
             mdl = self.drift_mdl
@@ -855,21 +938,29 @@ class Survey(object):
         correction = np.polyval(mdl,df['elasped(sec)'].values)
         self.df[coil] = vals - correction
         
-    def aoi(self,polyX,polyY):
-        """Identify area of interest inside a polygon. 
-        """
-        df = self.df
-        try:
-            x = df.x.values # x values of data frame
-            y = df.y.values # y values of data frame
-        except AttributeError:
-            raise KeyError(" %s \n ... It looks like no local coordinate system has been assigned, try running self.convertFromNMEA() first")        
-        inside = iip.isinpolygon(x,y,[polyX,polyY])
-        self.df['AOI'] = inside
+        
+#    def aoi(self, polyX, polyY):
+#        """Identify area of interest inside a polygon.
+#        
+#        Parameters
+#        ----------
+#        polyX : ???
+#        
+#        polyY : ???
+#        """
+#        df = self.df
+#        try:
+#            x = df.x.values # x values of data frame
+#            y = df.y.values # y values of data frame
+#        except AttributeError:
+#            raise KeyError(" %s \n ... It looks like no local coordinate system has been assigned, try running self.convertFromNMEA() first")        
+#        inside = iip.isinpolygon(x,y,[polyX,polyY]) # dependencies not satisfied
+#        self.df['AOI'] = inside
+
+
 
 #%% test
-
-
+        
 if __name__ == '__main__':
 #    s = Survey('test/coverCrop.csv')
     #s.show(coils='HCP0.32')
@@ -894,9 +985,9 @@ if __name__ == '__main__':
 
 #%%
     s = Survey()
-    #s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat')
-    s.readFile('test/potatoesLo.csv')
-    s.convertFromNMEA()
-    s.consPtStat() # bearing
-    s.rmRepeatPt() # 
+    s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat')
+#    s.readFile('test/potatoesLo.csv')
+#    s.convertFromNMEA()
+#    s.consPtStat() # bearing
+#    s.rmRepeatPt() # 
     
