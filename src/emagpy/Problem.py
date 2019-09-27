@@ -1029,7 +1029,7 @@ class Problem(object):
         
     
     def showSlice(self, index=0, islice=0, contour=False, vmin=None, vmax=None,
-                  cmap='viridis_r', ax=None):
+                  cmap='viridis_r', ax=None, pts=True):
         """Show depth slice.
         
         Parameters
@@ -1048,6 +1048,8 @@ class Problem(object):
             Name of colormap. Default is viridis_r.
         ax : Matplotlib.Axes, optional
             If specified, the graph will be plotted against it.
+        pts : boolean, optional
+            If `True` (default) the data points will be plotted over the contour.
         """
         z = self.models[index][:,islice]
         x = self.surveys[index].df['x'].values
@@ -1067,7 +1069,8 @@ class Problem(object):
         else:
             levels = np.linspace(vmin, vmax, 7)
             cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
-            ax.plot(x, y, 'k+')
+            if pts:
+                ax.plot(x, y, 'k+')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
         fig.colorbar(cax, ax=ax, label='Conductivity [mS/m]')

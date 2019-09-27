@@ -365,7 +365,7 @@ class Survey(object):
         if coil[-5:] == '_inph':
             fig.colorbar(cax, ax=ax, label='Inphase [ppt]')
         else:
-            fig.colorbar(cax, ax=ax, label='Conductivity [mS/m]')
+            fig.colorbar(cax, ax=ax, label='Apparent Conductivity [mS/m]')
         
 
     
