@@ -82,7 +82,8 @@ class Problem(object):
         device : str, optional
             Type of device. Default is Mini-Explorer.
         hx : float, optional
-            Height of the device above the ground in meters.
+            Height of the device above the ground in meters according to the
+            calibration use (e.g. `F-Ground` -> 0 m, `F-1m` -> 1 m).
         """
         survey = Survey()
         survey.importGF(fnameLo, fnameHi, device, hx)

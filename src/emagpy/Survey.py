@@ -17,6 +17,7 @@ from scipy.spatial.distance import cdist, pdist
 from scipy.interpolate import griddata, NearestNDInterpolator
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
+from invertHelper import emSens
 #if __name__ == '__main__':
 #    import isinpolygon as iip
 #else:
@@ -552,7 +553,8 @@ class Survey(object):
         device : str, optional
             Type of device. Default is Mini-Explorer.
         hx : float, optional
-            Height of the device above the ground in meters.
+            Height of the device above the ground in meters according to the
+            calibration use (e.g. `F-Ground` -> 0 m, `F-1m` -> 1 m).
         targetProjection : str, optional
             If both Lo and Hi dataframe contains 'Latitude' with NMEA values
             a conversion first is done using `self.convertFromNMEA()` before
@@ -640,9 +642,16 @@ class Survey(object):
             self.coilsInph = coilsInph
             coilInfo = [self.getCoilInfo(c) for c in self.coils]
             self.freqs = np.repeat([freq], len(self.coils))
-            self.hx = np.repeat([hx], len(self.coils))
             self.cspacing = [a['coilSeparation'] for a in coilInfo]
             self.cpos = [a['orientation'] for a in coilInfo]
+            self.hx = np.repeat([hx], len(self.coils))*0 # as we corrected it before
+            # applying correction for GF instruments
+            if hx > 0:
+                print('applying GF correction for hx={:d}m device'.format(hx))
+                coefs = np.zeros(len(coils))
+                for i in range(len(coils)):
+                    coefs[i] = emSens(np.array([1]), self.cspacing[i], self.cpos[i], hx=0)[0]
+                df.loc[:,coils] = df.loc[:, coils]*coefs
             self.df = df
             self.sensor = device
         
@@ -985,7 +994,7 @@ if __name__ == '__main__':
 
 #%%
     s = Survey()
-    s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat')
+    s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat', hx=1)
 #    s.readFile('test/potatoesLo.csv')
 #    s.convertFromNMEA()
 #    s.consPtStat() # bearing
