@@ -646,12 +646,30 @@ class Survey(object):
             self.cpos = [a['orientation'] for a in coilInfo]
             self.hx = np.repeat([hx], len(self.coils))*0 # as we corrected it before
             # applying correction for GF instruments
-            if hx > 0:
-                print('applying GF correction for hx={:d}m device'.format(hx))
-                coefs = np.zeros(len(coils))
-                for i in range(len(coils)):
-                    coefs[i] = emSens(np.array([1]), self.cspacing[i], self.cpos[i], hx=0)[0]
-                df.loc[:,coils] = df.loc[:, coils]*coefs
+            if hx == 0:
+                gfcoefs = {'HCP0.32': 24.87076856,
+                           'HCP0.71': 7.34836983,
+                           'HCP1.18': 3.18322873,
+                           'VCP0.32': 23.96851467,
+                           'VCP0.71': 6.82559412,
+                           'VCP1.18': 2.81033124}
+                for i, coil in enumerate(coils):
+                    qvalues = 0+df[coil].values/gfcoefs[coil]*1e-3j # in part per thousand
+                    df.loc[:, coil] = Q2eca(qvalues, self.cspacing[i], f=30000)*1000
+#                coefs = np.zeros(len(coils))
+#                for i in range(len(coils)):
+#                    coefs[i] = emSens(np.array([1]), self.cspacing[i], self.cpos[i], hx=0)[0]
+#                df.loc[:,coils] = df.loc[:, coils]*coefs
+            if hx == 1:
+                gfcoefs = {'HCP0.32': 43.714823,
+                           'HCP0.71': 9.22334343,
+                           'HCP1.18': 3.51201955,
+                           'VCP0.32': 77.90907085,
+                           'VCP0.71': 14.02757873,
+                           'VCP1.18': 4.57001088}
+                for i, coil in enumerate(coils):
+                    qvalues = 0+df[coil].values/gfcoefs[coil]*1e-3j # in part per thousand
+                    df.loc[:, coil] = Q2eca(qvalues, self.cspacing[i], f=10000)*1000
             self.df = df
             self.sensor = device
         
@@ -967,7 +985,6 @@ class Survey(object):
 #        self.df['AOI'] = inside
 
 
-
 #%% test
         
 if __name__ == '__main__':
@@ -999,4 +1016,4 @@ if __name__ == '__main__':
 #    s.convertFromNMEA()
 #    s.consPtStat() # bearing
 #    s.rmRepeatPt() # 
-    
+    print(s.df.head())

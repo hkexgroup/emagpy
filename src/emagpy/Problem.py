@@ -1079,7 +1079,7 @@ class Problem(object):
         ax.set_title('{:.2f}m - {:.2f}m'.format(depths[islice], depths[islice+1]))
         
         
-
+#%%
 
 if __name__ == '__main__':
     # cover crop example
@@ -1093,11 +1093,12 @@ if __name__ == '__main__':
 #    k.show()
 #    k.lcurve()
 #    k.invertGN(alpha=0.07)
+#    k.invert()
 #    k.invert(forwardModel='CS', alpha=0.07, method='L-BFGS-B', options={'maxiter':100}, beta=0, fixedDepths=False) # this doesn't work well
 #    k.invertGN() # similar as CG with nit=2
     k.invertQ()
 #    k.showMisfit()
-    k.showResults()
+    k.showResults(vmin=30, vmax=50)
 #    k.showOne2one()
 #    k.showMisfit()
 #    k.models[0] = np.ones(k.models[0].shape)*20
