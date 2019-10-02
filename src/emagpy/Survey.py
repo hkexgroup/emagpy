@@ -646,6 +646,7 @@ class Survey(object):
             self.cpos = [a['orientation'] for a in coilInfo]
             self.hx = np.repeat([hx], len(self.coils))*0 # as we corrected it before
             # applying correction for GF instruments
+            print('Transformation to LIN ECa for {:s} at F-{:d}m calibration'.format(device, hx))
             if hx == 0:
                 gfcoefs = {'HCP1.48': 24.87076856,
                            'HCP2.82': 7.34836983,
@@ -1026,4 +1027,4 @@ if __name__ == '__main__':
 #    s.convertFromNMEA()
 #    s.consPtStat() # bearing
 #    s.rmRepeatPt() # 
-    print(s.df.head())
+#    print(s.df.head())
