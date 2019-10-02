@@ -17,7 +17,7 @@ from scipy.spatial.distance import cdist, pdist
 from scipy.interpolate import griddata, NearestNDInterpolator
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
-from emagpy.invertHelper import emSens
+from emagpy.invertHelper import emSens, Q2eca
 #if __name__ == '__main__':
 #    import isinpolygon as iip
 #else:
