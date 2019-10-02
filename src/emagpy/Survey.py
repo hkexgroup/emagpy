@@ -647,29 +647,38 @@ class Survey(object):
             self.hx = np.repeat([hx], len(self.coils))*0 # as we corrected it before
             # applying correction for GF instruments
             if hx == 0:
-                gfcoefs = {'HCP0.32': 24.87076856,
-                           'HCP0.71': 7.34836983,
-                           'HCP1.18': 3.18322873,
-                           'VCP0.32': 23.96851467,
-                           'VCP0.71': 6.82559412,
-                           'VCP1.18': 2.81033124}
+                gfcoefs = {'HCP1.48': 24.87076856,
+                           'HCP2.82': 7.34836983,
+                           'HCP4.49': 3.18322873,
+                           'VCP1.48': 23.96851467,
+                           'VCP2.82': 6.82559412,
+                           'VCP4.49': 2.81033124,
+                           'HCP0.32': 169.35849385,
+                           'HCP0.71': 35.57031603,
+                           'HCP1.18': 13.42529324,
+                           'VCP0.32': 167.10523718,
+                           'VCP0.71': 34.50404729,
+                           'VCP1.18': 12.744378}
+                for i, coil in enumerate(coils):
+                    qvalues = 0+df[coil].values/gfcoefs[coil]*1e-3j
+                    df.loc[:, coil] = Q2eca(qvalues, self.cspacing[i], f=self.freqs[i])*1000 # mS/m
+            if hx == 1:
+                gfcoefs = {'HCP1.48': 43.714823,
+                           'HCP2.82': 9.22334343,
+                           'HCP4.49': 3.51201955,
+                           'VCP1.48': 77.90907085,
+                           'VCP2.82': 14.02757873,
+                           'VCP4.49': 4.57001088}
+                ''' from mS/m to Q in ppt using GF calibration
+                from Q (not in ppt) to ECa LIN using Q2eca
+                '''
                 for i, coil in enumerate(coils):
                     qvalues = 0+df[coil].values/gfcoefs[coil]*1e-3j # in part per thousand
-                    df.loc[:, coil] = Q2eca(qvalues, self.cspacing[i], f=30000)*1000
+                    df.loc[:, coil] = Q2eca(qvalues, self.cspacing[i], f=self.freqs[i])*1000
 #                coefs = np.zeros(len(coils))
 #                for i in range(len(coils)):
 #                    coefs[i] = emSens(np.array([1]), self.cspacing[i], self.cpos[i], hx=0)[0]
 #                df.loc[:,coils] = df.loc[:, coils]*coefs
-            if hx == 1:
-                gfcoefs = {'HCP0.32': 43.714823,
-                           'HCP0.71': 9.22334343,
-                           'HCP1.18': 3.51201955,
-                           'VCP0.32': 77.90907085,
-                           'VCP0.71': 14.02757873,
-                           'VCP1.18': 4.57001088}
-                for i, coil in enumerate(coils):
-                    qvalues = 0+df[coil].values/gfcoefs[coil]*1e-3j # in part per thousand
-                    df.loc[:, coil] = Q2eca(qvalues, self.cspacing[i], f=10000)*1000
             self.df = df
             self.sensor = device
         
@@ -1011,7 +1020,8 @@ if __name__ == '__main__':
 
 #%%
     s = Survey()
-    s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat', hx=1)
+#    s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat', hx=0)
+    s.importGF('test/trimpLo.dat', 'test/trimpHi.dat', hx=1, device='CMD Explorer')
 #    s.readFile('test/potatoesLo.csv')
 #    s.convertFromNMEA()
 #    s.consPtStat() # bearing

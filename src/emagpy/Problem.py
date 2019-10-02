@@ -1080,7 +1080,6 @@ class Problem(object):
         
         
 #%%
-
 if __name__ == '__main__':
     # cover crop example
     k = Problem()
