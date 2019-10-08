@@ -976,7 +976,8 @@ class Problem(object):
             fig, ax = plt.subplots()
         ax.plot(obsECa, simECa, '.')
         x = np.r_[obsECa.flatten(), simECa.flatten()]
-        vmin, vmax = np.min(x), np.max(x)
+        x = x[~np.isnan(x)]
+        vmin, vmax = np.nanmin(x), np.nanmax(x)
         ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
         ax.set_xlim([vmin, vmax])
         ax.set_ylim([vmin, vmax])
@@ -987,7 +988,9 @@ class Problem(object):
         # plot equation, apply it or not directly
         predECa = np.zeros(obsECa.shape)
         for i, coil in enumerate(survey.coils):
-            slope, intercept, r_value, p_value, std_err = linregress(obsECa[:,i], simECa[:,i])
+            x, y = obsECa[:,i], simECa[:,i]
+            inan = ~np.isnan(x)& ~np.isnan(y)
+            slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
             print(coil, '{:.2f} * x + {:.2f} (R={:.2f})'.format(slope, intercept, r_value))
             predECa[:,i] = obsECa[:,i]*slope + intercept
         ax.set_prop_cycle(None)

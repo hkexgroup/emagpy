@@ -581,7 +581,7 @@ class Survey(object):
         hiCols = ['HCP{:.2f}'.format(a) for a in csep]*2
         hiCols += [a + '_inph' for a in hiCols]
         cols = ['Cond.1[mS/m]', 'Cond.2[mS/m]', 'Cond.3[mS/m]', # if downloaded from computer
-                'Cond1.[mS/m]', 'Cond2.[mS/m]', 'Cond3.[mS/m]', # if downloaded from USB stick
+                'Cond.1 [mS/m]', 'Cond.2 [mS/m]', 'Cond.3 [mS/m]', # if downloaded from USB stick
                 'Inph.1[ppt]', 'Inph.2[ppt]', 'Inph.3[ppt]']
         
         if fnameLo is not None:
@@ -646,7 +646,7 @@ class Survey(object):
             self.cpos = [a['orientation'] for a in coilInfo]
             self.hx = np.repeat([hx], len(self.coils))*0 # as we corrected it before
             # applying correction for GF instruments
-            print('Transformation to LIN ECa for {:s} at F-{:d}m calibration'.format(device, hx))
+            print('Transformation to LIN ECa for {:s} at F-{:.0f}m calibration'.format(device, hx))
             if hx == 0:
                 gfcoefs = {'HCP1.48': 24.87076856,
                            'HCP2.82': 7.34836983,
