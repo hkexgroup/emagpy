@@ -13,7 +13,7 @@ a = Analysis(['ui.py'],
                     ('./emagpy/hankelpts.txt', './emagpy'),
                     ('./emagpy/hankelwts0.txt', './emagpy'),
                     ('./emagpy/hankelwts1.txt', './emagpy'),
-                    ('./loadingLogo.png', '.')]
+                    ('./loadingLogo.png', '.')],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
