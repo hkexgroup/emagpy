@@ -231,7 +231,7 @@ class Problem(object):
                 model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
                 depth = np.zeros((apps.shape[0], len(self.depths0)))*np.nan
                 dump('Survey {:d}/{:d}'.format(i+1, len(self.surveys)))
-                for j in range(survey.df.shape[0]):
+                for j in range(survey.df.shape[0]): # this could be done in //
                     if self.ikill:
                         break
                     app = apps[j,:]
@@ -567,6 +567,16 @@ class Problem(object):
         """
         self.surveys[index].showMap(**kwargs)
         
+    
+    def saveMap(self, index=0, **kwargs):
+        """Save georefenced .tiff.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Survey number, by default, the first survey is chosen.
+        """
+        self.surveys[index].saveMap(**kwargs)
     
     
     def gridData(self, nx=100, ny=100, method='nearest'):
@@ -1091,17 +1101,17 @@ if __name__ == '__main__':
     k.createSurvey('test/coverCrop.csv', freq=30000)
 #    k.convertFromNMEA()
 #    k.createSurvey('test/warren170316.csv', freq=30000)
-    k.surveys[0].df = k.surveys[0].df[:5]
+    k.surveys[0].df = k.surveys[0].df[:10]
 #    k.show()
 #    k.lcurve()
 #    k.invertGN(alpha=0.07)
-#    k.invert()
+    k.invert(method='CG')
 #    k.invert(forwardModel='CS', alpha=0.07, method='L-BFGS-B', options={'maxiter':100}, beta=0, fixedDepths=False) # this doesn't work well
 #    k.invertGN() # similar as CG with nit=2
-    k.invertQ()
+#    k.invertQ()
 #    k.showMisfit()
-    k.showResults(vmin=30, vmax=50)
-#    k.showOne2one()
+#    k.showResults(vmin=30, vmax=50)
+    k.showOne2one()
 #    k.showMisfit()
 #    k.models[0] = np.ones(k.models[0].shape)*20
 #    k.forward(forwardModel='FSandrade')

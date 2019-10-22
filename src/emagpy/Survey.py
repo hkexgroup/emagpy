@@ -303,7 +303,7 @@ class Survey(object):
 
     
     def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None,
-                pts=False, cmap='viridis_r', xlab='x', ylab='y'):
+                pts=False, cmap='viridis_r', xlab='x', ylab='y', nlevel=7):
         """ Display a map of the measurements.
         
         Parameters
@@ -324,6 +324,8 @@ class Survey(object):
             X label.
         ylab : str, optional
             Y label.
+        nlevel : int, optional
+            Number of levels for the contourmap. Default is 7.
         """
         if coil is None:
             coil = self.coils[0]
@@ -342,7 +344,7 @@ class Survey(object):
             vmax = np.nanpercentile(val, 95)
         ax.set_title(coil)
         if contour is True:
-            levels = np.linspace(vmin, vmax, 7)
+            levels = np.linspace(vmin, vmax, nlevel)
 #            nx = 100
 #            ny = 100
 #            X, Y = np.meshgrid(np.linspace(np.min(x), np.max(x), nx),
@@ -369,6 +371,81 @@ class Survey(object):
             fig.colorbar(cax, ax=ax, label='Apparent Conductivity [mS/m]')
         
 
+    def saveMap(self, fname, coil=None, nx=100, ny=100, method='nearest',
+                xmin=None, xmax=None, ymin=None, ymax=None):
+        """Save a georeferenced raster TIFF file.
+        
+        Parameters
+        ----------
+        fname : str
+            Path of where to save the .tiff file.
+        coil : str, optional
+            Name of the coil to plot. By default, the first coil is plotted.
+        nx : int, optional
+            Number of points in x direction.
+        ny : int, optional
+            Number of points in y direction.
+        xmin : float, optional
+            Mininum X value.
+        xmax : float, optional
+            Maximum X value.
+        ymin : float, optional
+            Minimium Y value.
+        ymax : float, optional
+            Maximum Y value
+        method : str, optional
+            Interpolation method (nearest, cubic or linear see
+            `scipy.interpolate.griddata`) or IDW (default).
+        """
+        import rasterio
+        from rasterio.transform import from_origin
+        
+        if coil is None:
+            coil = self.coils[0]
+        xknown = self.df['x'].values
+        yknown = self.df['y'].values
+        if xmin is None:
+            xmin = np.min(xknown)
+        if xmax is None:
+            xmax = np.max(xknown)
+        if ymin is None:
+            ymin = np.min(yknown)
+        if ymax is None:
+            ymax = np.max(yknown)
+        X, Y = np.meshgrid(np.linspace(xmin, xmax, nx),
+                           np.linspace(ymin, ymax, ny))
+        x, y = X.flatten(), Y.flatten()
+        values = self.df[coil].values
+        if method == 'idw':
+            z = idw(x, y, xknown, yknown, values)
+        else:
+            z = griddata(np.c_[xknown, yknown], values, (X, Y), method=method)
+        inside = np.ones(nx*ny)
+        inside2 = clipConvexHull(xknown, yknown, x, y, inside)
+        ie = np.isnan(inside2).reshape(z.shape)
+        z[ie] = np.nan
+        Z = np.flipud(z.T)
+        
+        # distance between corners
+        dist0 = np.abs(xmax - xmin)
+        dist1 = np.abs(ymax - ymin)        
+    
+        Z = np.fliplr(np.flipud(Z.T))
+        yscale = dist1/Z.shape[0]
+        xscale = dist0/Z.shape[1]
+        
+        tOffsetScaling = from_origin(xmin - xscale/2, ymax - yscale/2, xscale, yscale)
+        tt = tOffsetScaling
+        
+        with rasterio.open(fname, 'w',
+                           driver='GTiff',
+                           height=Z.shape[0],
+                           width=Z.shape[1], count=1, dtype=Z.dtype,
+                           crs='+init=epsg:27700', transform=tt) as dst:
+            dst.write(Z, 1)
+                
+
+
     
     def pointsKiller(self):
         """Interactively kill points. Then save df after that.
@@ -377,7 +454,7 @@ class Survey(object):
         
     
     
-    def gridData(self, nx=100, ny=100, method='idw', xmin=None, xmax=None,
+    def gridData(self, nx=100, ny=100, method='nearest', xmin=None, xmax=None,
                  ymin=None, ymax=None):
         """ Grid data (for 3D).
         
@@ -1021,10 +1098,12 @@ if __name__ == '__main__':
 
 #%%
     s = Survey()
-#    s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat', hx=0)
-    s.importGF('test/trimpLo.dat', 'test/trimpHi.dat', hx=1, device='CMD Explorer')
+    s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat', hx=0)
+#    s.importGF('test/trimpLo.dat', 'test/trimpHi.dat', hx=1, device='CMD Explorer')
 #    s.readFile('test/potatoesLo.csv')
 #    s.convertFromNMEA()
 #    s.consPtStat() # bearing
 #    s.rmRepeatPt() # 
 #    print(s.df.head())
+#    s.showMap()
+    s.saveMap('test/potatoes.tiff', nx=100, ny=300)
