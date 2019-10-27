@@ -109,7 +109,7 @@ class Problem(object):
         
     def invert(self, forwardModel='CS', regularization='l2', alpha=0.07,
                beta=0.0, dump=None, method='L-BFGS-B', bnds=None,
-               fixedDepths=True, options={}):
+               fixedDepths=True, options={}, Lscaling=False):
         """Invert the apparent conductivity measurements.
         
         Parameters
@@ -139,8 +139,11 @@ class Problem(object):
         fixedDepth : bool, optional
             If False, the depth will be considered as a parameter to be 
             optimized.
-        options : optional
+        options : dict, optional
             Additional dictionary arguments will be passed to `scipy.optimize.minimize()`.
+        Lscaling : bool, optional
+            If True the regularization matrix will be weighted based on 
+            centroids of layers differences.
         """
         self.models = []
         self.depths = []
@@ -196,6 +199,20 @@ class Problem(object):
 
             # build objective function (RMSE based)
             L = buildSecondDiff(len(self.conds0)) # L is used inside the smooth objective fct
+            # each constrain is proportional to the distance between the centroid of the two layers
+            centroids = np.r_[self.depths0[0]/2, self.depths0[:-1] + np.diff(self.depths0)/2]
+            if len(self.depths0) > 2:
+                distCentroids = np.r_[centroids[1] - centroids[0],
+                                     centroids[2:] - centroids[:-2],
+                                     centroids[-1] - centroids[-2],
+                                     1] # last layer is infinite so we don't apply any weights
+            else:
+                distCentroids = np.r_[centroids[1] - centroids[0],
+                                      centroids[-1] - centroids[-2],
+                                      1]
+            if Lscaling is True:
+                L = L/distCentroids[:,None]
+            # TODO what for 3 layers ? sum of those distances ?
 
             def dataMisfit(p, app):
                 return fmodel(p) - app
