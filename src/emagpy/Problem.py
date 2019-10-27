@@ -553,8 +553,11 @@ class Problem(object):
         index : int, optional
             Survey number, by default, the first survey is chosen.
         """
-        self.surveys[index].show(**kwargs)
-    
+        coil = kwargs['coil'] if 'coil' in kwargs else 'all'
+        vmin = kwargs['vmin'] if 'vmin' in kwargs else None
+        vmax = kwargs['vmax'] if 'vmax' in kwargs else None
+        ax = kwargs['ax'] if 'ax' in kwargs else None
+        self.surveys[index].show(coil=coil, vmin=vmin, vmax=vmax, ax=ax)
     
     
     def showMap(self, index=0, **kwargs):
@@ -565,7 +568,15 @@ class Problem(object):
         index : int, optional
             Survey number, by default, the first survey is chosen.
         """
-        self.surveys[index].showMap(**kwargs)
+        coil = kwargs['coil'] if 'coil' in kwargs else 'all'
+        vmin = kwargs['vmin'] if 'vmin' in kwargs else None
+        vmax = kwargs['vmax'] if 'vmax' in kwargs else None
+        contour = kwargs['contour'] if 'contour' in kwargs else False
+        pts = kwargs['pts'] if 'pts' in kwargs else False
+        cmap = kwargs['cmap'] if 'cmap' in kwargs else 'viridis_r'
+        ax = kwargs['ax'] if 'ax' in kwargs else None
+        self.surveys[index].showMap(coil=coil, vmin=vmin, vmax=vmax,
+                    contour=contour, pts=pts, cmap=cmap, ax=ax)
         
     
     def saveMap(self, index=0, **kwargs):

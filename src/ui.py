@@ -393,9 +393,8 @@ class App(QMainWindow):
         
         # manual point killer selection
         def ptsKillerBtnFunc():
-            pass
-            print('deleted 0/X points')
-            # TODO delete selected
+            self.problem.surveys[showParams['index']].dropSelected()
+            mwRaw.replot(**showParams)
         ptsKillerBtn = QPushButton('Delete selected points')
         ptsKillerBtn.clicked.connect(ptsKillerBtnFunc)
         ptsKillerBtn.setEnabled(False)

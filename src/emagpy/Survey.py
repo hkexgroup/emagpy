@@ -145,6 +145,7 @@ class Survey(object):
         self.coilsInph = [] # name of the coils with inphase value in [ppt]
         self.hx = [] # height of the instrument above the ground [m]
         self.name = ''
+        self.iselect = []
         if fname is not None:
             self.readFile(fname)
             if freq is not None:
@@ -251,8 +252,9 @@ class Survey(object):
         self.df = self.df[~i2discard]
         print('dataset shrink of {:d} measurements'.format(np.sum(i2discard)))        
     
-    def show(self, coil='all', attr='ECa', ax=None, contour=False, vmin=None, 
-             vmax=None, pts=False, cmap=None):
+    
+    def show(self, coil='all', attr='ECa', ax=None, vmin=None, 
+             vmax=None):
         """ Show the data.
         """
         if coil == 'all':
@@ -262,9 +264,37 @@ class Survey(object):
         
         if ax is None:
             fig, ax = plt.subplots()
-       
+     
+        # interactive point selection
+        self.iselect = np.zeros(self.df.shape[0], dtype=bool)
+        xpos = np.arange(self.df.shape[0])
+        
+        def setSelect(ie, boolVal):
+            ipoints[ie] = boolVal
+            self.iselect = ipoints
+    
+        def onpick(event):
+            xid = xpos[event.ind[0]]
+            isame = xpos == xid
+            if (ipoints[isame] == True).all():
+                setSelect(isame, False)
+            else:
+                setSelect(isame, True)
+            if len(y.shape) == 1:
+                killed.set_xdata(x[ipoints])
+                killed.set_ydata(y[ipoints])
+            else:
+                xtmp = []
+                ytmp = []
+                for i in range(y.shape[1]):
+                    xtmp.append(x[ipoints])
+                    ytmp.append(y[ipoints, i])
+                killed.set_xdata(xtmp)
+                killed.set_ydata(ytmp)
+            killed.figure.canvas.draw()
+    
         ax.set_title(coil)
-        ax.plot(self.df[cols].values, 'o-')
+        caxs = ax.plot(self.df[cols].values, 'o-', picker=5)
         ax.legend(cols)
         ax.set_ylim([vmin, vmax])
         ax.set_xlabel('Measurements')
@@ -272,7 +302,18 @@ class Survey(object):
             ax.set_ylabel('Inphase [ppt]')
         else:
             ax.set_ylabel('Apparent Conductivity [mS/m]')
-        
+        for cax in caxs:
+            cax.figure.canvas.mpl_connect('pick_event', onpick)        
+        killed, = ax.plot([],[],'rx')
+        x = xpos
+        y = self.df[cols].values
+        ipoints = np.zeros(len(x), dtype=bool)
+
+
+    def dropSelected(self):
+        self.df = self.df[~self.iselect]
+        print('{:d} points removed'.format(np.sum(self.iselect)))        
+
 
     def tcorrECa(self, tdepths, tprofile):
         """Temperature correction using XXXX formula.
@@ -452,6 +493,96 @@ class Survey(object):
         """
         pass
         
+        geom = True
+        resist = self.df['resist'].values
+        clabel = 'Apparent Resistivity [$\Omega.m$]'
+        if label == '':
+            label = clabel
+        inan = np.isnan(resist)
+        resist = resist.copy()[~inan]
+        array = array.copy()[~inan]
+        self.iselect = np.zeros(len(inan), dtype=bool)
+        
+        def setSelect(ie, boolVal):
+            ipoints[ie] = boolVal
+            self.iselect[~inan] = ipoints
+        spacing = np.mean(np.diff(self.elec[:,0]))
+        nelec = np.max(array)
+        elecpos = np.arange(0, spacing*nelec, spacing)
+        
+        self.eselect = np.zeros(len(elecpos), dtype=bool)
+        
+        if geom: # compute and applied geometric factor
+            apos = elecpos[array[:,0]-1]
+            bpos = elecpos[array[:,1]-1]
+            mpos = elecpos[array[:,2]-1]
+            npos = elecpos[array[:,3]-1]
+            AM = np.abs(apos-mpos)
+            BM = np.abs(bpos-mpos)
+            AN = np.abs(apos-npos)
+            BN = np.abs(bpos-npos)
+            K = 2*np.pi/((1/AM)-(1/BM)-(1/AN)+(1/BN)) # geometric factor
+            resist = resist*K
+            
+        if log:
+            resist = np.sign(resist)*np.log10(np.abs(resist))
+        
+        array = np.sort(array, axis=1) # need to sort the array to make good wenner pseudo section
+        cmiddle = np.min([elecpos[array[:,0]-1], elecpos[array[:,1]-1]], axis=0) \
+            + np.abs(elecpos[array[:,0]-1]-elecpos[array[:,1]-1])/2
+        pmiddle = np.min([elecpos[array[:,2]-1], elecpos[array[:,3]-1]], axis=0) \
+            + np.abs(elecpos[array[:,2]-1]-elecpos[array[:,3]-1])/2
+        xpos = np.min([cmiddle, pmiddle], axis=0) + np.abs(cmiddle-pmiddle)/2
+        ypos = - np.sqrt(2)/2*np.abs(cmiddle-pmiddle)
+        
+        
+        def onpick(event):
+            if lines[event.artist] == 'data':
+                xid, yid = xpos[event.ind[0]], ypos[event.ind[0]]
+                isame = (xpos == xid) & (ypos == yid)
+                if (ipoints[isame] == True).all():
+                    setSelect(isame, False)
+                else:
+                    setSelect(isame, True)
+            
+            if lines[event.artist] == 'elec':
+                ie = (array == (event.ind[0]+1)).any(-1)
+                if all(ipoints[ie] == True):
+                    setSelect(ie, False)
+                else:
+                    setSelect(ie, True)
+                if self.eselect[event.ind[0]] == True:
+                    self.eselect[event.ind[0]] = False
+                else:
+                    self.eselect[event.ind[0]] = True
+                elecKilled.set_xdata(elecpos[self.eselect])
+                elecKilled.set_ydata(np.zeros(len(elecpos))[self.eselect])
+            killed.set_xdata(x[ipoints])
+            killed.set_ydata(y[ipoints])
+            killed.figure.canvas.draw()                
+                
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
+        caxElec, = ax.plot(elecpos, np.zeros(len(elecpos)), 'ko', picker=5)
+        cax = ax.scatter(xpos, ypos, c=resist, marker='o', picker=5, vmin=vmin,
+                         vmax=vmax)
+        cbar = fig.colorbar(cax, ax=ax)
+        cbar.set_label(label)
+        cax.figure.canvas.mpl_connect('pick_event', onpick)
+        
+        killed, = cax.axes.plot([],[],'rx')
+        elecKilled, = cax.axes.plot([],[],'rx')
+        x = cax.get_offsets()[:,0]
+        y = cax.get_offsets()[:,1]
+        
+        ipoints = np.zeros(len(y),dtype=bool)
+
+        lines = {cax:'data',caxElec:'elec',killed:'killed'}
+          
+    
+    
     
     
     def gridData(self, nx=100, ny=100, method='nearest', xmin=None, xmax=None,
@@ -1097,8 +1228,8 @@ if __name__ == '__main__':
 
 
 #%%
-    s = Survey()
-    s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat', hx=0)
+    s = Survey('emagpy/test/coverCrop.csv')
+#    s.importGF('test/potatoesLo.dat', 'test/potatoesHi.dat', hx=0)
 #    s.importGF('test/trimpLo.dat', 'test/trimpHi.dat', hx=1, device='CMD Explorer')
 #    s.readFile('test/potatoesLo.csv')
 #    s.convertFromNMEA()
@@ -1106,4 +1237,5 @@ if __name__ == '__main__':
 #    s.rmRepeatPt() # 
 #    print(s.df.head())
 #    s.showMap()
-    s.saveMap('test/potatoes.tiff', nx=100, ny=300)
+#    s.saveMap('test/potatoes.tiff', nx=100, ny=300)
+    s.show(s.coils[0])
