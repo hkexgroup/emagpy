@@ -568,7 +568,7 @@ class Problem(object):
         index : int, optional
             Survey number, by default, the first survey is chosen.
         """
-        coil = kwargs['coil'] if 'coil' in kwargs else 'all'
+        coil = kwargs['coil'] if 'coil' in kwargs else None
         vmin = kwargs['vmin'] if 'vmin' in kwargs else None
         vmax = kwargs['vmax'] if 'vmax' in kwargs else None
         contour = kwargs['contour'] if 'contour' in kwargs else False
