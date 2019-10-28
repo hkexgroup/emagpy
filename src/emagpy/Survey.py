@@ -784,19 +784,31 @@ class Survey(object):
         else:
             raise ValueError('Device ' + device + ' unknown.')
 
-        loCols = ['VCP{:.2f}'.format(a) for a in csep]*2
+        loCols = ['VCP{:.2f}'.format(a) for a in csep]
         loCols += [a + '_inph' for a in loCols]
-        hiCols = ['HCP{:.2f}'.format(a) for a in csep]*2
+        hiCols = ['HCP{:.2f}'.format(a) for a in csep]
         hiCols += [a + '_inph' for a in hiCols]
-        cols = ['Cond.1[mS/m]', 'Cond.2[mS/m]', 'Cond.3[mS/m]', # if downloaded from computer
-                'Cond.1 [mS/m]', 'Cond.2 [mS/m]', 'Cond.3 [mS/m]', # if downloaded from USB stick
+        cols = ['Cond.1[mS/m]', 'Cond.2[mS/m]', 'Cond.3[mS/m]',
                 'Inph.1[ppt]', 'Inph.2[ppt]', 'Inph.3[ppt]']
+        
+        def harmonizeHeaders(df):
+            x = df.columns.values
+            tmp = []
+            for a in x:
+                tmp.append(a.replace(' [','[') # when dowloaded from usb
+                            .replace('Cond1.','Cond.1') # when downloaded from usb and manual
+                            .replace('Cond2.','Cond.2')
+                            .replace('Cond3.','Cond.3'))
+            df = df.rename(columns=dict(zip(x, tmp)))
+            return df
         
         if fnameLo is not None:
             loFile = pd.read_csv(fnameLo, sep='\t')
+            loFile = harmonizeHeaders(loFile)
             loFile = loFile.rename(columns=dict(zip(cols, loCols)))
         if fnameHi is not None:
             hiFile = pd.read_csv(fnameHi, sep='\t')
+            hiFile = harmonizeHeaders(hiFile)
             hiFile = hiFile.rename(columns=dict(zip(cols, hiCols)))
 
         if fnameLo is not None and fnameHi is not None:
