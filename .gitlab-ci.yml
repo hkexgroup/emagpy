@@ -3,6 +3,7 @@ image: python:3.7-stretch
 test:
   script:
   - pip install -r requirements.txt
+  - pip install rasterio
   - cd src
   - python test.py
 
