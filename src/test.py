@@ -66,4 +66,13 @@ k.createSurvey(testdir + 'coverCrop.csv')
 k.invert(forwardModel='CS', alpha=0.1, beta=1)
 k.showResults()
 
+#%% mapping
+k = Problem()
+k.createSurvey('emagpy/test/regolith.csv')
+k.convertFromNMEA()
+k.invertGN()
+k.showSlice()
+k.saveMap(fname='emagpy/test/map.tiff', method='idw')
+k.saveSlice(fname='emagpy/test/slice.tiff')
+
 

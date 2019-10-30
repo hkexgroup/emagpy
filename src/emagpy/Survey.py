@@ -459,6 +459,7 @@ class Survey(object):
         values = self.df[coil].values
         if method == 'idw':
             z = idw(x, y, xknown, yknown, values)
+            z = z.reshape(X.shape)
         else:
             z = griddata(np.c_[xknown, yknown], values, (X, Y), method=method)
         inside = np.ones(nx*ny)

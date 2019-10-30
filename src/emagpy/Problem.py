@@ -15,7 +15,7 @@ from scipy.stats import linregress
 
 from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
                                  buildJacobian, getQs, eca2Q, Q2eca2, Q2eca)
-from emagpy.Survey import *
+from emagpy.Survey import Survey, idw, clipConvexHull, griddata
 
 
 class Problem(object):
@@ -655,6 +655,7 @@ class Problem(object):
         x, y = X.flatten(), Y.flatten()
         if method == 'idw':
             z = idw(x, y, xknown, yknown, values)
+            z = z.reshape(X.shape)
         else:
             z = griddata(np.c_[xknown, yknown], values, (X, Y), method=method)
         inside = np.ones(nx*ny)
