@@ -15,7 +15,7 @@ from scipy.stats import linregress
 
 from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
                                  buildJacobian, getQs, eca2Q, Q2eca2, Q2eca)
-from emagpy.Survey import Survey
+from emagpy.Survey import *
 
 
 class Problem(object):
@@ -607,6 +607,81 @@ class Problem(object):
         self.surveys[index].saveMap(**kwargs)
     
     
+    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='nearest',
+                xmin=None, xmax=None, ymin=None, ymax=None):
+        """Save a georeferenced raster TIFF file for the specified inverted depths.
+        
+        Parameters
+        ----------
+        fname : str
+            Path of where to save the .tiff file.
+        index : int, optional
+            Survey index. Default is first.
+        islice : int, optional
+            Depth index. Default is first depth.
+        nx : int, optional
+            Number of points in x direction.
+        ny : int, optional
+            Number of points in y direction.
+        xmin : float, optional
+            Mininum X value.
+        xmax : float, optional
+            Maximum X value.
+        ymin : float, optional
+            Minimium Y value.
+        ymax : float, optional
+            Maximum Y value
+        method : str, optional
+            Interpolation method (nearest, cubic or linear see
+            `scipy.interpolate.griddata`) or IDW (default).
+        """
+        import rasterio
+        from rasterio.transform import from_origin
+
+        values = self.models[index][:,islice]
+        xknown = self.surveys[index].df['x'].values
+        yknown = self.surveys[index].df['y'].values
+
+        if xmin is None:
+            xmin = np.min(xknown)
+        if xmax is None:
+            xmax = np.max(xknown)
+        if ymin is None:
+            ymin = np.min(yknown)
+        if ymax is None:
+            ymax = np.max(yknown)
+        X, Y = np.meshgrid(np.linspace(xmin, xmax, nx),
+                           np.linspace(ymin, ymax, ny))
+        x, y = X.flatten(), Y.flatten()
+        if method == 'idw':
+            z = idw(x, y, xknown, yknown, values)
+        else:
+            z = griddata(np.c_[xknown, yknown], values, (X, Y), method=method)
+        inside = np.ones(nx*ny)
+        inside2 = clipConvexHull(xknown, yknown, x, y, inside)
+        ie = np.isnan(inside2).reshape(z.shape)
+        z[ie] = np.nan
+        Z = np.flipud(z.T)
+        
+        # distance between corners
+        dist0 = np.abs(xmax - xmin)
+        dist1 = np.abs(ymax - ymin)        
+    
+        Z = np.fliplr(np.flipud(Z.T))
+        yscale = dist1/Z.shape[0]
+        xscale = dist0/Z.shape[1]
+        
+        tOffsetScaling = from_origin(xmin - xscale/2, ymax - yscale/2, xscale, yscale)
+        tt = tOffsetScaling
+        
+        with rasterio.open(fname, 'w',
+                           driver='GTiff',
+                           height=Z.shape[0],
+                           width=Z.shape[1], count=1, dtype=Z.dtype,
+                           crs='+init=epsg:27700', transform=tt) as dst:
+            dst.write(Z, 1)
+        
+            
     def gridData(self, nx=100, ny=100, method='nearest'):
         """ Grid data (for 3D).
         
