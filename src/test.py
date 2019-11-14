@@ -75,4 +75,10 @@ k.showSlice()
 k.saveMap(fname='emagpy/test/map.tiff', method='idw')
 k.saveSlice(fname='emagpy/test/slice.tiff')
 
+#%% inverting iwith SCUEA
+k = Problem()
+k.createSurvey(testdir + 'coverCrop.csv')
+k.surveys[0].df = k.surveys[0].df[:5]
+k.invertSCUEA()
+
 

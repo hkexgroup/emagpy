@@ -123,8 +123,6 @@ class Problem(object):
                 - CSgndiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
         regularization : str, optional
             Type of regularization, either l1 (blocky model) or l2 (smooth model)
-        smoothing : str, optional
-            Smoothing used (either 1d, 2d, or 3d).
         alpha : float, optional
             Smoothing factor for the inversion.
         beta : float, optional
@@ -153,8 +151,8 @@ class Problem(object):
         if dump is None:
             dump = print
         
-        if 'maxiter' not in options.keys():
-            options = {'maxiter':15}
+#        if 'maxiter' not in options.keys():
+#            options = {'maxiter':15}
             
         if bnds is not None:
             top = np.ones(len(self.conds0))*bnds[1]
@@ -279,7 +277,157 @@ class Problem(object):
                     
     # TODO add smoothing 3D: maybe invert all profiles once with GN and then
     # invert them again with a constrain on the 5 nearest profiles by distance
-                    
+
+    def invertMCMC(self, forwardModel='CS', regularization='l2',
+               dump=None, bnds=None, sampler='rope', fixedDepths=True, rep=100):
+        """Invert the apparent conductivity measurements using SCEUA algorithm.
+        
+        Parameters
+        ----------
+        forwardModel : str, optional
+            Type of forward model:
+                - CS : Cumulative sensitivity (default)
+                - FS : Full Maxwell solution with low-induction number (LIN) approximation
+                - FSandrade : Full Maxwell solution without LIN approximation (see Andrade 2016)
+                - CSgn : Cumulative sensitivity with jacobian matrix (using Gauss-Newton)
+                - CSgndiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
+        regularization : str, optional
+            Type of regularization, either l1 (blocky model) or l2 (smooth model)
+        dump : function, optional
+            Function to print the progression. Default is `print`.
+        bnds : list of float, optional
+            If specified, will create bounds for the inversion. Doesn't work with
+            Nelder-Mead solver.
+        sampler : str, optional
+            Name of the sampler to user (default is ROPE).
+        fixedDepth : bool, optional
+            If False, the depth will be considered as a parameter to be 
+            optimized.
+        rep : int, optional
+            Number of sample per measurement.
+        """
+        try:
+            import spotpy
+        except ImportError:
+            print('Please install spotpy to use `invertSCUEA()` method.')
+            return
+
+        self.models = []
+        self.depths = []
+        self.rmses = []
+        self.ikill = False
+        
+        if dump is None:
+            dump = print
+
+        nc = len(self.conds0)
+            
+        if bnds is not None:
+            top = np.ones(nc)*bnds[1]
+            bot = np.ones(nc)*bnds[0]
+            bounds = list(tuple(zip(bot, top)))
+        else:
+            top = np.ones(nc)*2
+            bot = np.ones(nc)*100
+            bounds = list(tuple(zip(bot, top)))        
+        
+        if fixedDepths is False:
+            mdepths = self.depths0[:-1] + np.diff(self.depths0)/2
+            bot = np.r_[np.ones(nc)*2, np.r_[0.2, mdepths]]
+            top = np.r_[np.ones(nc)*100, np.r_[mdepths, self.depths0[-1] + 0.2]]
+            bounds = list(tuple(zip(bot, top)))
+
+        print('bounds chosen:', bounds)
+        
+        if forwardModel in ['CS','FS','FSandrade']:
+            # define the forward model
+            if forwardModel == 'CS':
+                if fixedDepths is True:
+                    def fmodel(p):
+                        return fCS(p, self.depths0, self.cspacing, self.cpos, hx=self.hx[0])
+                else:
+                    def fmodel(p):
+                        return fCS(p[:nc], p[nc:], self.cspacing, self.cpos, hx=self.hx[0])
+            elif forwardModel == 'FS':
+                if fixedDepths is True:
+                    def fmodel(p):
+                        return fMaxwellECa(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+                else:
+                    def fmodel(p):
+                        return fMaxwellECa(p[:nc], p[nc:], self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+            elif forwardModel == 'FSandrade':
+                if fixedDepths is True:
+                    def fmodel(p):
+                        return fMaxwellQ(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+                else:
+                    def fmodel(p):
+                        return fMaxwellQ(p[:nc], p[nc:], self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+
+            # define the spotpy setup class
+            class spotpy_setup(object):
+                def __init__(self, obsVals):
+                    self.params = []
+                    for i, bnd in enumerate(bounds):
+                        self.params.append(
+                                spotpy.parameter.Uniform(
+                                        'x{:d}'.format(i), bnd[0], bnd[1], 10, 10, bnd[0], bnd[1]))
+                    self.obsVals = obsVals
+                def parameters(self):
+                    return spotpy.parameter.generate(self.params)
+            
+                def simulation(self, vector):
+                    x = np.array(vector)
+                    simulations = fmodel(x).flatten()
+                    return simulations
+                
+                def evaluation(self): # what the function return when called with the optimal values
+                    observations = self.obsVals.flatten()
+                    return observations
+                
+                def objectivefunction(self, simulation, evaluation):
+                    objfunc = -spotpy.objectivefunctions.rmse(evaluation, simulation)
+            #        objfunc = -np.sqrt(np.sum((simulation-evaluation)**2)/len(simulation.flatten()))        
+                    return objfunc
+        
+            def dataMisfit(p, app):
+                return fmodel(p) - app
+            
+            # inversion row by row
+            cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
+            for i, survey in enumerate(self.surveys):
+                if self.ikill:
+                    break
+                apps = survey.df[self.coils].values
+                rmse = np.zeros(apps.shape[0])*np.nan
+                model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
+                depth = np.zeros((apps.shape[0], len(self.depths0)))*np.nan
+                dump('Survey {:d}/{:d}'.format(i+1, len(self.surveys)))
+                for j in range(survey.df.shape[0]): # this could be done in //
+                    if self.ikill:
+                        break
+                    app = apps[j,:]                    
+                    spotpySetup = spotpy_setup(apps[j,:])
+           
+                    # rope and dream do well
+                    sampler = spotpy.algorithms.rope(spotpySetup, dbname='invertSCEUA', dbformat='csv')
+#                    sampler = spotpy.algorithms.scuea(spotpySetup, dbname='invertSCEUA', dbformat='csv')
+                    sampler.sample(rep)
+                    results = np.array(sampler.getdata())
+                    ibest = np.argmin(np.abs(results['like1']))
+                    out = np.array(list(results[ibest][cols]))
+                    if fixedDepths is False:
+                        depth[j,:] = out[-len(self.depths0):]
+                    else:
+                        depth[j,:] = self.depths0
+                    model[j,:] = out[:nc]
+                    rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/len(app))
+                    status = 'ok'
+                    dump('{:d}/{:d} inverted ({:s})'.format(j+1, apps.shape[0], status))
+                self.models.append(model)
+                self.depths.append(depth)
+                self.rmses.append(rmse)
+                
+
     
     def invertGN(self, alpha=0.07, alpha_ref=None, dump=print):
         """Fast inversion usign Gauss-Newton and cumulative sensitivity.
