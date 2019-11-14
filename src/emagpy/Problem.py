@@ -278,8 +278,8 @@ class Problem(object):
     # TODO add smoothing 3D: maybe invert all profiles once with GN and then
     # invert them again with a constrain on the 5 nearest profiles by distance
 
-    def invertMCMC(self, forwardModel='CS', regularization='l2',
-               dump=None, bnds=None, sampler='rope', fixedDepths=True, rep=100):
+    def invertMCMC(self, forwardModel='CS',
+               dump=None, bnds=None, method='rope', fixedDepths=True, rep=100):
         """Invert the apparent conductivity measurements using SCEUA algorithm.
         
         Parameters
@@ -291,15 +291,13 @@ class Problem(object):
                 - FSandrade : Full Maxwell solution without LIN approximation (see Andrade 2016)
                 - CSgn : Cumulative sensitivity with jacobian matrix (using Gauss-Newton)
                 - CSgndiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
-        regularization : str, optional
-            Type of regularization, either l1 (blocky model) or l2 (smooth model)
         dump : function, optional
             Function to print the progression. Default is `print`.
         bnds : list of float, optional
             If specified, will create bounds for the inversion. Doesn't work with
             Nelder-Mead solver.
-        sampler : str, optional
-            Name of the sampler to user (default is ROPE).
+        method : str, optional
+            Name of the sampler to user (default is 'rope').
         fixedDepth : bool, optional
             If False, the depth will be considered as a parameter to be 
             optimized.
@@ -365,19 +363,20 @@ class Problem(object):
 
             # define the spotpy setup class
             class spotpy_setup(object):
-                def __init__(self, obsVals):
+                def __init__(self, obsVals, fmodel, bounds):
                     self.params = []
                     for i, bnd in enumerate(bounds):
                         self.params.append(
                                 spotpy.parameter.Uniform(
                                         'x{:d}'.format(i), bnd[0], bnd[1], 10, 10, bnd[0], bnd[1]))
                     self.obsVals = obsVals
+                    self.fmodel = fmodel
                 def parameters(self):
                     return spotpy.parameter.generate(self.params)
             
                 def simulation(self, vector):
                     x = np.array(vector)
-                    simulations = fmodel(x).flatten()
+                    simulations = self.fmodel(x).flatten()
                     return simulations
                 
                 def evaluation(self): # what the function return when called with the optimal values
@@ -406,10 +405,14 @@ class Problem(object):
                     if self.ikill:
                         break
                     app = apps[j,:]                    
-                    spotpySetup = spotpy_setup(apps[j,:])
+                    spotpySetup = spotpy_setup(apps[j,:], fmodel, bounds)
            
                     # rope and dream do well
-                    sampler = spotpy.algorithms.rope(spotpySetup, dbname='invertSCEUA', dbformat='csv')
+                    if method == 'rope':
+                        sampler = spotpy.algorithms.rope(spotpySetup, dbname='invertSCEUA', dbformat='csv')
+                    else:
+                        raise ValueError('Method {:s} unkown'.format(method))
+                        return
 #                    sampler = spotpy.algorithms.scuea(spotpySetup, dbname='invertSCEUA', dbformat='csv')
                     sampler.sample(rep)
                     results = np.array(sampler.getdata())
@@ -482,6 +485,143 @@ class Problem(object):
             self.rmses.append(rmse)
             depth = np.repeat(self.depths0[None,:], apps.shape[0], axis=0)
             self.depths.append(depth)
+    
+    
+    
+    def invertMCMCq(self, dump=None, bnds=None, method='rope',
+               fixedDepths=True, rep=100):
+        """Invert the apparent conductivity measurements by minimizing the
+        quadrature Q.
+        
+        Parameters
+        ----------
+        dump : function, optional
+            Function to print the progression. Default is `print`.
+        bnds : list of float, optional
+            If specified, will create bounds for the inversion. Doesn't work with
+            Nelder-Mead solver.
+        method : str, optional
+            Name of the sampler to user (default is 'rope').
+        fixedDepth : bool, optional
+            If False, the depth will be considered as a parameter to be 
+            optimized.
+        rep : int, optional
+            Number of sample per measurements.
+        """
+        try:
+            import spotpy
+        except ImportError:
+            print('Please install spotpy to use `invertMCMC()` method.')
+            return
+
+        self.models = []
+        self.depths = []
+        self.rmses = []
+        self.ikill = False
+        
+        if dump is None:
+            dump = print
+        
+        nc = len(self.conds0)
+            
+        if bnds is not None:
+            top = np.ones(nc)*bnds[1]
+            bot = np.ones(nc)*bnds[0]
+            bounds = list(tuple(zip(bot, top)))
+        else:
+            top = np.ones(nc)*2
+            bot = np.ones(nc)*100
+            bounds = list(tuple(zip(bot, top)))        
+        
+        if fixedDepths is False:
+            mdepths = self.depths0[:-1] + np.diff(self.depths0)/2
+            bot = np.r_[np.ones(nc)*2, np.r_[0.2, mdepths]]
+            top = np.r_[np.ones(nc)*100, np.r_[mdepths, self.depths0[-1] + 0.2]]
+            bounds = list(tuple(zip(bot, top)))
+
+        print('bounds chosen:', bounds)
+        
+        # define the forward model
+        #WARNING assumption is made all coils got the same frequency
+        if fixedDepths is True:
+            def fmodel(p):
+                return getQs(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+        else:
+            def fmodel(p):
+                return getQs(p[:nc], p[nc:], self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+       
+        # define the spotpy setup class
+        class spotpy_setup(object):
+            def __init__(self, obsVals, fmodel, bounds):
+                self.params = []
+                for i, bnd in enumerate(bounds):
+                    self.params.append(
+                            spotpy.parameter.Uniform(
+                                    'x{:d}'.format(i), bnd[0], bnd[1], 10, 10, bnd[0], bnd[1]))
+                self.obsVals = obsVals
+                self.fmodel = fmodel
+                
+            def parameters(self):
+                return spotpy.parameter.generate(self.params)
+        
+            def simulation(self, vector):
+                x = np.array(vector)
+                simulations = np.imag(self.fmodel(x).flatten())
+                return simulations
+            
+            def evaluation(self): # what the function return when called with the optimal values
+                observations = self.obsVals.flatten()
+                return observations
+            
+            def objectivefunction(self, simulation, evaluation):
+                objfunc = -spotpy.objectivefunctions.rmse(evaluation, simulation)
+                return objfunc
+                
+        # inversion row by row
+        def dataMisfit(p, q):
+            return np.imag(fmodel(p)) - q
+            
+        # inversion row by row
+        cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
+        for i, survey in enumerate(self.surveys):
+            if self.ikill:
+                break
+            apps = survey.df[self.coils].values
+            rmse = np.zeros(apps.shape[0])*np.nan
+            model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
+            depth = np.zeros((apps.shape[0], len(self.depths0)))*np.nan
+            dump('Survey {:d}/{:d}'.format(i+1, len(self.surveys)))
+            for j in range(survey.df.shape[0]):
+                if self.ikill:
+                    break
+                app = apps[j,:]
+                Qs = np.array([eca2Q(a*1e-3, s) for a, s in zip(app, self.cspacing)])
+                print('Qs = ', Qs)
+                spotpySetup = spotpy_setup(Qs, fmodel, bounds)
+                # rope and dream do well
+                if method == 'rope':
+                    sampler = spotpy.algorithms.rope(spotpySetup, dbname='invertSCEUA', dbformat='csv')
+                else:
+                    raise ValueError('Method {;s} unkown.'.format(method))
+                    return
+                sampler.sample(rep)
+                results = np.array(sampler.getdata())
+                ibest = np.argmin(np.abs(results['like1']))
+                out = np.array(list(results[ibest][cols]))
+                print(out)
+                print(dataMisfit(out, Qs))
+                if fixedDepths is False:
+                    depth[j,:] = out[-len(self.depths0):]
+                else:
+                    depth[j,:] = self.depths0
+                model[j,:] = out[:nc]
+                rmse[j] = np.sqrt(np.sum(dataMisfit(out, Qs)**2)/len(Qs))
+                status = 'ok'
+                dump('{:d}/{:d} inverted ({:s})'.format(j+1, apps.shape[0], status))
+            self.models.append(model)
+            self.depths.append(depth)
+            self.rmses.append(rmse)
+            
             
 
     def invertQ(self, regularization='l2', alpha=1e-9,
@@ -612,7 +752,7 @@ class Problem(object):
             self.models.append(model)
             self.depths.append(depth)
             self.rmses.append(rmse)
-                    
+            
 
 
     def tcorrECa(self, tdepths, tprofile):

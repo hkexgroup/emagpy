@@ -79,6 +79,10 @@ k.saveSlice(fname='emagpy/test/slice.tiff')
 k = Problem()
 k.createSurvey(testdir + 'coverCrop.csv')
 k.surveys[0].df = k.surveys[0].df[:5]
-k.invertSCUEA()
+#k.invertMCMC()
+k.invertMCMCq(rep=500)
+k.showMisfit()
+#k.showOne2one()
+#k.showResults()
 
 
