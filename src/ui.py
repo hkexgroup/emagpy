@@ -331,7 +331,7 @@ class App(QMainWindow):
         
         
         def showGF(arg):
-            visibles = np.array([True, False, False, False, False, False])
+            visibles = [True, False, False, False, False, False]
             objs = [self.importBtn, self.importGFLo, self.importGFHi,
                     self.hxLabel, self.hxEdit, self.importGFApply]
             if arg is True:
@@ -747,6 +747,8 @@ class App(QMainWindow):
                 self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
                 
             def setTable(self, depths0, conds0):
+                if len(conds0) < 2:
+                    return
                 self.clear()
                 self.setHorizontalHeaderLabels(self.headers)
                 self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -786,15 +788,14 @@ class App(QMainWindow):
             
             def addRow(self):
                 depths0, conds0 = self.getTable()
-                self.nrow += 1
-                self.setRowCount(self.nrow)
+                depths0 = np.r_[depths0, depths0[-1]+1]
+                conds0 = np.r_[conds0, conds0[-1]]
                 self.setTable(depths0, conds0)
                 
             def delRow(self):
                 depths0, conds0 = self.getTable()
-                self.nrow -= 1
-                self.setTable(depths0, conds0)
-                self.setRowCount(self.nrow)
+                self.setTable(depths0[:-1], conds0[:-1])
+                
                 
 
         
