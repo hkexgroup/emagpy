@@ -6,6 +6,10 @@ EMagPy is divided into a python API and a standalone graphical user interface (G
 It aims to be a powerfull but simple tool for inverting EMI data obtain from conductimeter.
 EMagPy document can be viewed at https://hkex.gitlab.io/emagpy.
 
+# Graphical User Interface (GUI)
+<img src='src/image/gui.gif' width="600">
+
+
 # Getting started
 Clone the repository:
 ```sh
