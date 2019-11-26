@@ -12,6 +12,7 @@ import sys
 import time
 
 from emagpy import Problem
+import numpy as np
 
 from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButton, QWidget,
     QTabWidget, QVBoxLayout, QLabel, QLineEdit, QMessageBox,
@@ -23,6 +24,12 @@ from PyQt5.QtCore import QThread, pyqtSignal#, QProcess, QSize
 from PyQt5.QtCore import Qt
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True) # for high dpi display
 QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+from matplotlib import rcParams
+rcParams.update({'font.size': 12}) # CHANGE HERE for graph font size
 
 
 #%% General crash ERROR
@@ -193,21 +200,9 @@ class App(QMainWindow):
         self.datadir = os.path.join(bundle_dir, 'emagpy', 'test')
         self.fnameHi = None
         self.fnameLo = None
-
-        def errorDump(text, flag=1):
-            text = str(text)
-            timeStamp = time.strftime('%H:%M:%S')
-            if flag == 1: # error in red
-                col = 'red'
-            else:
-                col = 'black'
-            errorLabel.setText('<i style="color:'+col+'">['+timeStamp+']: '+text+'</i>')
-        errorLabel = QLabel('<i style="color:black">Error messages will be displayed here</i>')
+        
+        self.errorLabel = QLabel('<i style="color:black">Error messages will be displayed here</i>')
         QApplication.processEvents()
-
-
-        def infoDump(text):
-            errorDump(text, flag=0)
 
         self.table_widget = QWidget()
         self.layout = QVBoxLayout()
@@ -247,60 +242,14 @@ class App(QMainWindow):
         
         # import data
         def importBtnFunc():
-            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
+            self._dialog = QFileDialog()
+            fname, _ = self._dialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
             if fname != '':
-                self.importBtn.setText(os.path.basename(fname))
-                self.problem.surveys = [] # empty the list of current survey
-                self.problem.createSurvey(fname)
-                infoDump(fname + ' well imported')
-                setupUI()
-            
-        def setupUI():
-            self.mwRaw.setCallback(self.problem.show)
-            self.mwRaw.replot()
-            
-            # fill the combobox with survey and coil names
-            self.coilErrCombo.clear()
-            self.coilCombo.clear()
-            for coil in self.problem.coils:
-                self.coilCombo.addItem(coil)
-                self.coilErrCombo.addItem(coil)
-            self.coilCombo.addItem('all')
-            self.coilCombo.setCurrentIndex(len(self.problem.coils))
-            self.surveyCombo.clear()
-            self.surveyInvCombo.clear()
-            self.surveyInvMapCombo.clear()
-            for survey in self.problem.surveys:
-                self.surveyCombo.addItem(survey.name)
-                self.surveyErrCombo.addItem(survey.name)
-                self.surveyInvCombo.addItem(survey.name)
-                self.surveyInvMapCombo.addItem(survey.name)
-            
-            # set to default values
-            self.showRadio.setChecked(True)
-            self.contourCheck.setChecked(False)
-
-            # enable widgets
-            if 'Latitude' in survey.df.columns:
-                self.projBtn.setEnabled(True)
-                self.projEdit.setEnabled(True)
-                projBtnFunc() # automatically convert NMEA string
-            self.keepApplyBtn.setEnabled(True)
-            self.rollingBtn.setEnabled(True)
-            self.ptsKillerBtn.setEnabled(True)
-            self.coilCombo.setEnabled(True)
-            self.surveyCombo.setEnabled(True)
-            self.showRadio.setEnabled(True)
-            self.mapRadio.setEnabled(True)
-            self.applyBtn.setEnabled(True)
-            self.cmapCombo.setEnabled(True)
-            self.contourCheck.setEnabled(True)
-            self.ptsCheck.setEnabled(True)
-            
+                self.processFname(fname)
+                    
         self.importBtn = QPushButton('Import Data')
         self.importBtn.setStyleSheet('background-color:orange')
         self.importBtn.clicked.connect(importBtnFunc)
-        
         
         def importGFLoFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)
@@ -323,8 +272,8 @@ class App(QMainWindow):
             hx = float(self.hxEdit.text()) if self.hxEdit.text() != '' else 0
             device = self.sensorCombo.itemText(self.sensorCombo.currentIndex())
             self.problem.importGF(self.fnameLo, self.fnameHi, device, hx)
-            infoDump('Surveys well imported')
-            setupUI()
+            self.infoDump('Surveys well imported')
+            self.setupUI()
         self.importGFApply = QPushButton('Import')
         self.importGFApply.setStyleSheet('background-color: orange')
         self.importGFApply.clicked.connect(importGFApplyFunc)
@@ -673,7 +622,7 @@ class App(QMainWindow):
         
         # apply the calibration to the ECa measurements of the survey imported
         def applyCalibBtnFunc():
-            infoDump('Calibration applied')
+            self.infoDump('Calibration applied')
             #TODO we need a good dataset to test this !
         self.applyCalibBtn = QPushButton('Apply Calibration')
         self.applyCalibBtn.clicked.connect(applyCalibBtnFunc)
@@ -1169,11 +1118,71 @@ class App(QMainWindow):
         #%% general Ctrl+Q shortcut + general tab layout
 
         self.layout.addWidget(self.tabs)
-        self.layout.addWidget(errorLabel)
+        self.layout.addWidget(self.errorLabel)
         self.table_widget.setLayout(self.layout)
         self.setCentralWidget(self.table_widget)
         self.show()
 
+    def processFname(self, fname):
+        self.importBtn.setText(os.path.basename(fname))
+        self.problem.surveys = [] # empty the list of current survey
+        self.problem.createSurvey(fname)
+        self.infoDump(fname + ' well imported')
+        self.setupUI()
+        
+    def setupUI(self):
+        self.mwRaw.setCallback(self.problem.show)
+        self.mwRaw.replot()
+        
+        # fill the combobox with survey and coil names
+        self.coilErrCombo.clear()
+        self.coilCombo.clear()
+        for coil in self.problem.coils:
+            self.coilCombo.addItem(coil)
+            self.coilErrCombo.addItem(coil)
+        self.coilCombo.addItem('all')
+        self.coilCombo.setCurrentIndex(len(self.problem.coils))
+        self.surveyCombo.clear()
+        self.surveyInvCombo.clear()
+        self.surveyInvMapCombo.clear()
+        for survey in self.problem.surveys:
+            self.surveyCombo.addItem(survey.name)
+            self.surveyErrCombo.addItem(survey.name)
+            self.surveyInvCombo.addItem(survey.name)
+            self.surveyInvMapCombo.addItem(survey.name)
+        
+        # set to default values
+        self.showRadio.setChecked(True)
+        self.contourCheck.setChecked(False)
+
+        # enable widgets
+        if 'Latitude' in survey.df.columns:
+            self.projBtn.setEnabled(True)
+            self.projEdit.setEnabled(True)
+            projBtnFunc() # automatically convert NMEA string
+        self.keepApplyBtn.setEnabled(True)
+        self.rollingBtn.setEnabled(True)
+        self.ptsKillerBtn.setEnabled(True)
+        self.coilCombo.setEnabled(True)
+        self.surveyCombo.setEnabled(True)
+        self.showRadio.setEnabled(True)
+        self.mapRadio.setEnabled(True)
+        self.applyBtn.setEnabled(True)
+        self.cmapCombo.setEnabled(True)
+        self.contourCheck.setEnabled(True)
+        self.ptsCheck.setEnabled(True)
+        
+    def errorDump(self, text, flag=1):
+        text = str(text)
+        timeStamp = time.strftime('%H:%M:%S')
+        if flag == 1: # error in red
+            col = 'red'
+        else:
+            col = 'black'
+        self.errorLabel.setText('<i style="color:'+col+'">['+timeStamp+']: '+text+'</i>')
+
+    def infoDump(self, text):
+        self.errorDump(text, flag=0)
 
     def keyPressEvent(self, e):
         if (e.modifiers() == Qt.ControlModifier) & (e.key() == Qt.Key_Q):
@@ -1234,22 +1243,13 @@ if __name__ == '__main__':
     app.processEvents()
 
     # in this section all import are made except the one for pyQt
-    print('importing matplotlib')
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-    from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
-    from matplotlib.figure import Figure
-    from matplotlib import rcParams
-    rcParams.update({'font.size': 12}) # CHANGE HERE for graph font size
+#    print('importing matplotlib')
+#    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+#    from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
+#    from matplotlib.figure import Figure
+#    from matplotlib import rcParams
+#    rcParams.update({'font.size': 12}) # CHANGE HERE for graph font size
     progressBar.setValue(2)
-    app.processEvents()
-
-    print('importing numpy')
-    import numpy as np
-    progressBar.setValue(4)
-    app.processEvents()
-
-    print ('importing pandas')
-    progressBar.setValue(6)
     app.processEvents()
 
     # library needed for update checker + wine checker
