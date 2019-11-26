@@ -331,11 +331,11 @@ class App(QMainWindow):
         
         
         def showGF(arg):
-            visibles = [True, False, False, False, False, False]
+            visibles = np.array([True, False, False, False, False, False])
             objs = [self.importBtn, self.importGFLo, self.importGFHi,
                     self.hxLabel, self.hxEdit, self.importGFApply]
             if arg is True:
-                [o.setVisible(~v) for o,v in zip(objs, visibles)]
+                [o.setVisible(v) for o,v in zip(objs, ~visibles)]
             else:
                 [o.setVisible(v) for o,v in zip(objs, visibles)]
         showGF(False)
@@ -467,6 +467,9 @@ class App(QMainWindow):
                 self.showRadio.setChecked(False)
                 showMapOptions(True)
                 self.mwRaw.setCallback(self.problem.showMap)
+                if showParams['coil'] == 'all':
+                    self.coilCombo.setCurrentIndex(0)
+                    coilComboFunc(0)
                 self.mwRaw.replot(**showParams)
             else:
                 self.showRadio.setChecked(True)
@@ -1211,7 +1214,7 @@ class App(QMainWindow):
 
 #%% main function
 if __name__ == '__main__':
-#    catchErrors()
+    catchErrors() # prevent crash of the app
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     app.setWindowIcon(QIcon(os.path.join(bundle_dir, 'logo.png'))) # that's the true app icon
