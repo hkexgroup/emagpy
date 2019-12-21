@@ -149,7 +149,8 @@ class Problem(object):
         self.ikill = False
         
         if dump is None:
-            dump = print
+            def dump(x):
+                print('\r' + x, end='')
         
 #        if 'maxiter' not in options.keys():
 #            options = {'maxiter':15}
@@ -234,6 +235,7 @@ class Problem(object):
                                    + beta*np.sum((p[:nc] - pn)**2)/len(p))
                     
             # inversion row by row
+            c = 0 # number of inversion that converged
             if fixedDepths is True:
                 x0 = self.conds0
             else:
@@ -241,6 +243,7 @@ class Problem(object):
             for i, survey in enumerate(self.surveys):
                 if self.ikill:
                     break
+                c = 0
                 apps = survey.df[self.coils].values
                 rmse = np.zeros(apps.shape[0])*np.nan
                 model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
@@ -268,10 +271,13 @@ class Problem(object):
                     model[j,:] = out[:nc]
                     rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/len(app))
                     status = 'converged' if res.success else 'not converged'
+                    if res.success:
+                        c += 1
                     dump('{:d}/{:d} inverted ({:s})'.format(j+1, apps.shape[0], status))
                 self.models.append(model)
                 self.depths.append(depth)
                 self.rmses.append(rmse)
+                dump('{:d} measurements inverted ({:d} converged)\n'.format(apps.shape[0], c))
         else:
             self.invertGN(alpha=alpha, alpha_ref=None, dump=dump)
                     
@@ -432,7 +438,7 @@ class Problem(object):
                 
 
     
-    def invertGN(self, alpha=0.07, alpha_ref=None, dump=print):
+    def invertGN(self, alpha=0.07, alpha_ref=None, dump=None):
         """Fast inversion usign Gauss-Newton and cumulative sensitivity.
         
         Parameters
@@ -448,6 +454,11 @@ class Problem(object):
         self.models = []
         self.rmses = []
         self.depths = []
+        
+        if dump is None:
+            def dump(x):
+                print('\r' + x, end='')
+                
         J = buildJacobian(self.depths0, self.cspacing, self.cpos)
         L = buildSecondDiff(J.shape[1])
         def fmodel(p):

@@ -406,6 +406,8 @@ class Survey(object):
             cax = ax.scatter(x, y, s=15, c=val, vmin=vmin, vmax=vmax, cmap=cmap)
         ax.set_xlabel(xlab)
         ax.set_ylabel(ylab)
+        ax.set_xlim([np.nanmin(x), np.nanmax(x)])
+        ax.set_ylim([np.nanmin(y), np.nanmax(y)])
         if coil[-5:] == '_inph':
             fig.colorbar(cax, ax=ax, label='Inphase [ppt]')
         else:
