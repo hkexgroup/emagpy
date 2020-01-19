@@ -907,7 +907,8 @@ class Problem(object):
     
     
     def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='nearest',
-                xmin=None, xmax=None, ymin=None, ymax=None):
+                xmin=None, xmax=None, ymin=None, ymax=None, color=False,
+                cmap='viridis', vmin=None, vmax=None):
         """Save a georeferenced raster TIFF file for the specified inverted depths.
         
         Parameters
@@ -922,6 +923,9 @@ class Problem(object):
             Number of points in x direction.
         ny : int, optional
             Number of points in y direction.
+        method : str, optional
+            Interpolation method (nearest, cubic or linear see
+            `scipy.interpolate.griddata`) or IDW (default).
         xmin : float, optional
             Mininum X value.
         xmax : float, optional
@@ -930,9 +934,14 @@ class Problem(object):
             Minimium Y value.
         ymax : float, optional
             Maximum Y value
-        method : str, optional
-            Interpolation method (nearest, cubic or linear see
-            `scipy.interpolate.griddata`) or IDW (default).
+        color : bool, optional
+            If True a colormap will be applied.
+        cmap : str, optional
+            If `color == True`, name of the colormap. Default is viridis.
+        vmin : float, optional
+            Minimum value for colomap.
+        vmax : float, optional
+            Maximum value for colormap.
         """
         import rasterio
         from rasterio.transform import from_origin
@@ -974,12 +983,30 @@ class Problem(object):
         tOffsetScaling = from_origin(xmin - xscale/2, ymax - yscale/2, xscale, yscale)
         tt = tOffsetScaling
         
-        with rasterio.open(fname, 'w',
+        if color == True:
+            if vmin is None:
+                vmin = np.nanpercentile(Z.flatten(), 2)
+            if vmax is None:
+                vmax = np.nanpercentile(Z.flatten(), 98)
+            norm = plt.Normalize(vmin=vmin, vmax=vmax)
+            Z = plt.get_cmap(cmap)(norm(Z))
+            for i in range(4):
+                Z[np.fliplr(ie.T).T, i] = np.nan
+        
+            with rasterio.open(fname, 'w',
                            driver='GTiff',
                            height=Z.shape[0],
-                           width=Z.shape[1], count=1, dtype=Z.dtype,
+                           width=Z.shape[1], count=4, dtype=Z.dtype,
                            crs='+init=epsg:27700', transform=tt) as dst:
-            dst.write(Z, 1)
+                for i in range(4):
+                    dst.write(Z[:,:,i], i+1)
+        else:
+            with rasterio.open(fname, 'w',
+                               driver='GTiff',
+                               height=Z.shape[0],
+                               width=Z.shape[1], count=1, dtype=Z.dtype,
+                               crs='+init=epsg:27700', transform=tt) as dst:
+                dst.write(Z, 1)
         
             
     def gridData(self, nx=100, ny=100, method='nearest'):
