@@ -11,7 +11,6 @@ from datetime import time, datetime
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-#from pykrige.ok import OrdinaryKriging
 from scipy.stats import linregress, binned_statistic
 from scipy.spatial.distance import cdist, pdist
 from scipy.interpolate import griddata, NearestNDInterpolator
@@ -49,13 +48,13 @@ def clipConvexHull(xdata,ydata,x,y,z):
     return znew
 
 
-def idw(xnew, ynew, xknown, yknown, zknown):
+def idw(xnew, ynew, xknown, yknown, zknown, n=1):
     znew = np.zeros(len(xnew))
     for i,(x,y) in enumerate(zip(xnew, ynew)):
 #        dist = pdist(x, y, xknown, yknown)
         dist = np.sqrt((x-xknown)**2+(y-yknown)**2)
         # if we consider all the points (might be not good)
-        w = (1/dist)**2 # exponent to be chosen
+        w = (1/dist)**n # exponent to be chosen
         znew[i] = np.sum(zknown*w)/np.sum(w)
     return znew
 
@@ -253,6 +252,26 @@ class Survey(object):
         print('dataset shrink of {:d} measurements'.format(np.sum(i2discard)))        
     
     
+    def filterDiff(self, coil=None, thresh=5):
+        """Filter out consecutive measurements when the difference between them
+        is larger than val.
+        
+        Parameters
+        ----------
+        thresh : float, optional
+            Value of absolute consecutive difference above which the second 
+            data point will be discarded.
+        coil : str, optional
+            Coil on which to apply the processing.
+        """
+        if coil is None:
+            coil = self.coils[0]
+        val = self.df[coil].values
+        i2keep = np.r_[0, np.abs(np.diff(val))] < thresh
+        print('filterDiff: {:d}/{:d} measurements removed.'.format(np.sum(~i2keep), len(i2keep)))
+        self.df = self.df[i2keep]
+    
+    
     def show(self, coil='all', attr='ECa', ax=None, vmin=None, 
              vmax=None):
         """ Show the data.
@@ -414,9 +433,9 @@ class Survey(object):
             fig.colorbar(cax, ax=ax, label='Apparent Conductivity [mS/m]')
         
 
-    def saveMap(self, fname, coil=None, nx=100, ny=100, method='nearest',
+    def saveMap(self, fname, coil=None, nx=100, ny=100, method='linear',
                 xmin=None, xmax=None, ymin=None, ymax=None, color=False,
-                cmap='viridis', vmin=None, vmax=None):
+                cmap='viridis_r', vmin=None, vmax=None, nlevel=7):
         """Save a georeferenced raster TIFF file.
         
         Parameters
@@ -448,6 +467,8 @@ class Survey(object):
             Minimum value for colomap.
         vmax : float, optional
             Maximum value for colormap.
+        nlevel : int, optional
+            Number of level in the colormap. Default 7.
         """
         import rasterio
         from rasterio.transform import from_origin
@@ -471,6 +492,13 @@ class Survey(object):
         if method == 'idw':
             z = idw(x, y, xknown, yknown, values)
             z = z.reshape(X.shape)
+        elif method == 'kriging':
+            from pykrige.ok import OrdinaryKriging
+            gridx = np.linspace(xmin, xmax, nx)
+            gridy = np.linspace(ymin, ymax, ny)
+            OK = OrdinaryKriging(xknown, yknown, values, variogram_model='linear',
+                                 verbose=True, enable_plotting=False, nlags=25)
+            z, ss = OK.execute('grid', gridx, gridy)
         else:
             z = griddata(np.c_[xknown, yknown], values, (X, Y), method=method)
         inside = np.ones(nx*ny)
@@ -496,9 +524,11 @@ class Survey(object):
             if vmax is None:
                 vmax = np.nanpercentile(Z.flatten(), 98)
             norm = plt.Normalize(vmin=vmin, vmax=vmax)
-            Z = plt.get_cmap(cmap)(norm(Z))
+            Z = plt.get_cmap(cmap, nlevel)(norm(Z))
+            Z = 255*Z
+            Z = Z.astype('uint8')
             for i in range(4):
-                Z[np.fliplr(ie.T).T, i] = np.nan
+                Z[np.fliplr(ie.T).T, i] = 0
         
             with rasterio.open(fname, 'w',
                            driver='GTiff',

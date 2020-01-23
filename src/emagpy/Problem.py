@@ -815,6 +815,23 @@ class Problem(object):
         for survey in self.surveys:
             survey.rollingMean(window=window)
             
+    
+    
+    def filterDiff(self, coil=None, thresh=5):
+        """Filter out consecutive measurements when the difference between them
+        is larger than val.
+        
+        Parameters
+        ----------
+        thresh : float, optional
+            Value of absolute consecutive difference above which the second 
+            data point will be discarded.
+        coil : str, optional
+            Coil on which to apply the processing.
+        """
+        for s in self.surveys:
+            s.filterDiff(coil=coil, thresh=thresh)
+            
             
         
     def forward(self, forwardModel='CS'):
@@ -990,8 +1007,10 @@ class Problem(object):
                 vmax = np.nanpercentile(Z.flatten(), 98)
             norm = plt.Normalize(vmin=vmin, vmax=vmax)
             Z = plt.get_cmap(cmap)(norm(Z))
+            Z = 255*Z
+            Z = Z.astype('uint8')
             for i in range(4):
-                Z[np.fliplr(ie.T).T, i] = np.nan
+                Z[np.fliplr(ie.T).T, i] = 0
         
             with rasterio.open(fname, 'w',
                            driver='GTiff',
