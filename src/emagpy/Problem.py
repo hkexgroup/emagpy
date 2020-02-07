@@ -63,10 +63,25 @@ class Problem(object):
         
     def createTimeLapseSurvey(self, dirname):
         """ Create a list of surveys object.
+        
+        Parameters
+        ----------
+        dirname : str
+            Directory with files to be parsed or list of file to be parsed.
         """
-        files = sorted(os.listdir(dirname))
+        files = dirname
+        if isinstance(dirname, list): # it's a list of filename
+            if len(dirname) < 2:
+                raise ValueError('at least two files needed for timelapse inversion')
+            files = dirname
+        else: # it's a directory and we import all the files inside
+            if os.path.isdir(dirname):
+                files = [os.path.join(dirname, f) for f in np.sort(os.listdir(dirname)) if f[0] != '.']
+                # this filter out hidden file as well
+            else:
+                raise ValueError('dirname should be a directory path or a list of filenames')
         for f in files:
-            self.createSurvey(os.path.join(dirname, f))
+            self.createSurvey(f)
         
     
     def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer', hx=0):
@@ -248,7 +263,7 @@ class Problem(object):
                 rmse = np.zeros(apps.shape[0])*np.nan
                 model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
                 depth = np.zeros((apps.shape[0], len(self.depths0)))*np.nan
-                dump('Survey {:d}/{:d}'.format(i+1, len(self.surveys)))
+                dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
                 for j in range(survey.df.shape[0]): # this could be done in //
                     if self.ikill:
                         break
@@ -406,7 +421,7 @@ class Problem(object):
                 rmse = np.zeros(apps.shape[0])*np.nan
                 model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
                 depth = np.zeros((apps.shape[0], len(self.depths0)))*np.nan
-                dump('Survey {:d}/{:d}'.format(i+1, len(self.surveys)))
+                dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
                 for j in range(survey.df.shape[0]): # this could be done in //
                     if self.ikill:
                         break
@@ -435,7 +450,8 @@ class Problem(object):
                 self.models.append(model)
                 self.depths.append(depth)
                 self.rmses.append(rmse)
-                
+                dump('{:d} measurements inverted\n'.format(apps.shape[0]))
+
 
     
     def invertGN(self, alpha=0.07, alpha_ref=None, dump=None):
@@ -474,7 +490,7 @@ class Problem(object):
             apps = survey.df[self.coils].values
             rmse = np.zeros(apps.shape[0])*np.nan
             model = np.zeros((apps.shape[0], len(self.conds0)))*np.nan
-            dump('Survey {:d}/{:d}'.format(i+1, len(self.surveys)))
+            dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             for j in range(survey.df.shape[0]):
                 app = apps[j,:]
                 cond = np.ones((len(self.conds0),1))*np.nanmean(app) # initial EC is the mean of the apparent (doesn't matter)
@@ -496,6 +512,7 @@ class Problem(object):
             self.rmses.append(rmse)
             depth = np.repeat(self.depths0[None,:], apps.shape[0], axis=0)
             self.depths.append(depth)
+            dump('{:d} measurements inverted\n'.format(apps.shape[0]))
     
     
     
@@ -1305,6 +1322,7 @@ class Problem(object):
         cols = survey.coils
         obsECa = survey.df[cols].values
         simECa = dfsForward[index][cols].values
+        print('number of nan', np.sum(np.isnan(obsECa)), np.sum(np.isnan(simECa)))
         rmse = np.sqrt(np.sum((obsECa.flatten() - simECa.flatten())**2)/len(obsECa.flatten()))
         rmses = np.sqrt(np.sum((obsECa - simECa)**2, axis=0)/obsECa.shape[0])
         if vmin is None:
