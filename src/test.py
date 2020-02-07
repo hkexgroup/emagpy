@@ -7,7 +7,7 @@ Created on Thu Jul 11 20:36:28 2019
 """
 
 from emagpy import Problem
-testdir = './emagpy/test/'
+testdir = '../examples/'
 
 #%% importing from GF instrument
 k = Problem()
