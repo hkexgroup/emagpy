@@ -49,13 +49,14 @@ extensions = [
     'sphinx_nbexamples', # needs pandoc (apt-get install pandoc)
 ]
 
+
 example_gallery_config = {
-    'examples_dirs': '../examples',
+    'examples_dirs': '../jupyter-notebook',
     'gallery_dirs': 'auto_examples',
-    'dont_preprocess': '../examples/foliumTest.ipynb',
+    'dont_preprocess': '../jupyter-notebook/comparison-inversion-cover-crop.ipynb',
     'pattern': '.+.ipynb',
-    'urls': 'https://gitlab.com/hkex/emagpy/blob/master/examples',
-    'binder_url': 'https://mybinder.org/v2/gl/hkex%2Femagpy/master?filepath=examples',
+    'urls': 'https://gitlab.com/hkex/emagpy/blob/master/jupyter-notebook',
+    'binder_url': 'https://mybinder.org/v2/gl/hkex%2Femagpy/stable?filepath=examples',
 }
 
 
@@ -158,7 +159,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'emagpy.tex', 'EmagPy Documentation',
+    (master_doc, 'emagpy.tex', 'EMagPy Documentation',
      'G. Blanchy and P. McLachlan', 'manual'),
 ]
 
@@ -168,7 +169,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'emagpy', 'EmagPy Documentation',
+    (master_doc, 'emagpy', 'EMagPy Documentation',
      [author], 1)
 ]
 
@@ -179,8 +180,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'EmagPy', 'EmagPy Documentation',
-     author, 'EmagPy', 'Processing and inversion of EMI data (FDEM)',
+    (master_doc, 'EMagPy', 'EMagPy Documentation',
+     author, 'EMagPy', 'Processing and inversion of EMI data (FDEM)',
      'Processing and inversion of frequency electromagnetic induction data (EMI).'),
 ]
 
