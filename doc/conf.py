@@ -21,7 +21,7 @@ from emagpy import EMagPy_version
 # -- Project information -----------------------------------------------------
 
 project = 'EMagPy'
-copyright = '2019, G. Blanchy and P. McLachlan'
+copyright = '2020, G. Blanchy and P. McLachlan'
 author = 'G. Blanchy and P. McLachlan'
 
 # The short X.Y version
