@@ -56,7 +56,7 @@ example_gallery_config = {
     'dont_preprocess': '../jupyter-notebook/comparison-inversion-cover-crop.ipynb',
     'pattern': '.+.ipynb',
     'urls': 'https://gitlab.com/hkex/emagpy/blob/master/jupyter-notebook',
-    'binder_url': 'https://mybinder.org/v2/gl/hkex%2Femagpy/stable?filepath=examples',
+    'binder_url': 'https://mybinder.org/v2/gl/hkex%2Femagpy/stable?filepath=jupyter-notebook',
 }
 
 
