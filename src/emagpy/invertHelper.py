@@ -490,7 +490,7 @@ def emSens(depths,s,coilPosition, hx=0, rescaled=False):
 #fig.show()
 
 
-def forward1d_full(cond,depths,s,cpos, hx=None, rescaled=False):
+def forward1d_full(cond, depths, s, cpos, hx=None, rescaled=False):
     if hx is None:
         hx = np.zeros(len(s))
     if len(cond.shape)>1:
@@ -500,7 +500,7 @@ def forward1d_full(cond,depths,s,cpos, hx=None, rescaled=False):
         print('ERROR: first depth should be zero, will add it for you')
         depths = np.r_[0, depths]
     if len(depths) != len(cond):
-        print('ERROR: unmatching depths and conds')
+        raise ValueError('forward1d_full: unmatching depths and conds')
         return
     if np.sum(depths < 0) > 0:
         print('ERROR: depth contains negative depth. Please input only positive depth')

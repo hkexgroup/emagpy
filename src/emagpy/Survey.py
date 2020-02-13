@@ -130,6 +130,7 @@ def convertFromCoord(df, targetProjection='EPSG:27700'):
 class Survey(object):
     """ Create a Survey object containing the raw EMI data.
     
+    
     """
     def __init__(self, fname=None, freq=None, hx=None):
         self.df = None # main dataframe
@@ -163,11 +164,18 @@ class Survey(object):
         sensor : str, optional
             Type of sensor.
         """
-        self.name = os.path.basename(fname)[:-4]
+        name = os.path.basename(fname)[:-4]
         delimiter=','
         if fname.find('.DAT')!=-1:
             delimiter = '\t'
-        df = pd.read_csv(fname,delimiter=delimiter)
+        df = pd.read_csv(fname, delimiter=delimiter)
+        self.readDF(df, name, sensor)
+        
+        
+    def readDF(self, df, name=None, sensor=None):
+        """Parse dataframe.
+        """
+        self.name = 'Survey 1' if name is None else name
         for c in df.columns:
             orientation = c[:3]
             if ((orientation == 'VCP') | (orientation == 'VMD') | (orientation == 'PRP') |

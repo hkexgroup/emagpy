@@ -342,15 +342,18 @@ class Problem(object):
         nc = len(self.conds0)
             
         if bnds is not None:
-            top = np.ones(nc)*bnds[1]
-            bot = np.ones(nc)*bnds[0]
-            bounds = list(tuple(zip(bot, top)))
+            if len(bnds) == 2: # just min/max specified
+                top = np.ones(nc)*bnds[1]
+                bot = np.ones(nc)*bnds[0]
+                bounds = list(tuple(zip(bot, top)))
+            else:
+                bounds = bnds
         else:
             top = np.ones(nc)*2
             bot = np.ones(nc)*100
             bounds = list(tuple(zip(bot, top)))        
         
-        if fixedDepths is False:
+        if fixedDepths is False and bnds is None:
             mdepths = self.depths0[:-1] + np.diff(self.depths0)/2
             bot = np.r_[np.ones(nc)*2, np.r_[0.2, mdepths]]
             top = np.r_[np.ones(nc)*100, np.r_[mdepths, self.depths0[-1] + 0.2]]
@@ -851,7 +854,7 @@ class Problem(object):
             
             
         
-    def forward(self, forwardModel='CS'):
+    def forward(self, forwardModel='CS', coils=None, noise=0.0):
         """Forward model.
         
         Parameters
@@ -863,33 +866,90 @@ class Problem(object):
                 - FSandrade : Full Maxwell solution without LIN approximation (see Andrade 2016)
                 - CSfast : Cumulative sensitivity with jacobian matrix (not minimize) - NOT IMPLEMENTED YET
                 - CSdiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
+        coils : list of str, optional
+            If `None`, then the default attribute of the object will be used (foward
+            mode on inverted solution).
+            If specified, the coil spacing, orientation and height above the ground
+            will be set. In this case you need to assign at models and depths (full forward mode).
+            The ECa values generated will be incorporated as a new Survey object.
+        noise : float, optional
+            Percentage of noise to add on the generated apparent conductivities.
         
         Returns
         -------
         df : pandas.DataFrame
             With the apparent ECa in the same format as input for the Survey class.
+        If `coils` argument is specified a new Survey object will be added as well.
         """
+        if coils is None: # forward mode on inverted solution
+            cspacing = self.cspacing
+            cpos = self.cpos
+            hxs = self.hx
+            freqs = self.freqs
+            iForward = False
+        else: # full forward mode
+            print('Forward modelling')
+            iForward = True
+            self.coils = coils
+            self.depths0 = self.depths[0][0,:]
+            self.conds0 = self.models[0][0,:]
+            cspacing = []
+            cpos = []
+            hxs = []
+            freqs = []
+            for arg in coils:
+                cpos.append(arg[:3].lower())
+                b = arg[3:].split('f')
+                cspacing.append(float(b[0]))
+                if len(b) > 1:
+                    c = b[1].split('h')
+                    freqs.append(float(c[0]))
+                    if len(c) > 1:
+                        hxs.append(float(c[1]))
+                    else:
+                        hxs.append(0)
+                else:
+                    freqs.append(30000) # Hz default is not specified !!
+                    hxs.append(0)
+            self.cspacing = cspacing
+            self.cpos = cpos
+            self.hx = hxs
+            self.freqs = freqs
+            
+        
         if forwardModel in ['CS','FS','FSandrade']:
             # define the forward model
             if forwardModel == 'CS':
-                def fmodel(p):
-                    return fCS(p, self.depths0, self.cspacing, self.cpos, hx=self.hx[0])
+                def fmodel(p, depth):
+                    return fCS(p, depth, cspacing, cpos, hx=hxs[0])
             elif forwardModel == 'FS':
-                def fmodel(p):
-                    return fMaxwellECa(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+                def fmodel(p, depth):
+                    return fMaxwellECa(p, depth, cspacing, cpos, f=freqs[0], hx=hxs[0])
             elif forwardModel == 'FSandrade':
-                def fmodel(p):
-                    return fMaxwellQ(p, self.depths0, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
+                def fmodel(p, depth):
+                    return fMaxwellQ(p, depth, cspacing, cpos, f=freqs[0], hx=hxs[0])
+        
+        def addnoise(x, level=0.05):
+            return x + np.random.randn(len(x))*x*level
         
         dfs = []
         for i, model in enumerate(self.models):
+            depths = self.depths[i]
             apps = np.zeros((model.shape[0], len(self.coils)))*np.nan
             for j in range(model.shape[0]):
                 conds = model[j,:]
-                apps[j,:] = fmodel(conds)
+                depth = depths[j,:]
+                apps[j,:] = addnoise(fmodel(conds, depth), level=noise)
         
             df = pd.DataFrame(apps, columns=self.coils)
             dfs.append(df)
+        
+        if iForward:
+            self.surveys = []
+            for df in dfs:
+                s = Survey()
+                s.readDF(df)
+                self.surveys.append(s)
         
         return dfs
     
@@ -1062,7 +1122,32 @@ class Problem(object):
         for survey in self.surveys:
             survey.gridData(nx=nx, ny=ny, method=method)
         
+    
+    def setInit(self, depths0, conds0=None):
+        """Set the initial depths and conductivity for the inversion.
         
+        Parameters
+        ----------
+        depths0 : list or array
+            Depth as positive number of the bottom of each layer.
+            There is N-1 depths for N layers as the last layer is infinite.
+        conds0 : list or array, optional
+            Starting conductivity in mS/m of each layer.
+            By default a homogeneous conductivity of 20 mS/m is defined.
+        """
+        if np.sum(depths0 < 0) > 0:
+            raise ValueError('All depth should be specified as positive number.')
+        if np.sum(depths0 == 0) > 0:
+            raise ValueError('No depth should be equals to 0 (infinitely thin layer)')
+        if conds0 is None:
+            conds0 = np.ones(len(depths0)+1)*20
+        if len(depths0) + 1 != len(conds0):
+            raise ValueError('length of conds0 should be equals to length of depths0 + 1')
+        else:
+            self.depths0 = depths0
+            self.conds0 = conds0
+
+    
     def convertFromNMEA(self,  targetProjection='EPSG:27700'): # British Grid 1936
         """ Convert NMEA string to selected CRS projection.
         
