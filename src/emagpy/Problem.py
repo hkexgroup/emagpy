@@ -1229,7 +1229,7 @@ class Problem(object):
             coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
             coll.set_clim(vmin=vmin, vmax=vmax)
             ax.add_collection(coll)
-            fig.colorbar(coll, label='Conductivity [mS/m]')
+            fig.colorbar(coll, label='Conductivity [mS/m]', ax=ax)
 
         ax.set_xlabel('X position')
         ax.set_ylabel('Depth [m]')
