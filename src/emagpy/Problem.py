@@ -123,7 +123,7 @@ class Problem(object):
     
         
     def invert(self, forwardModel='CS', regularization='l2', alpha=0.07,
-               beta=0.0, dump=None, method='L-BFGS-B', bnds=None,
+               beta=0.0, gamma=0.0, dump=None, method='L-BFGS-B', bnds=None,
                fixedDepths=True, options={}, Lscaling=False):
         """Invert the apparent conductivity measurements.
         
@@ -142,6 +142,8 @@ class Problem(object):
             Smoothing factor for the inversion.
         beta : float, optional
             Smoothing factor for neightbouring profile.
+        gamma : float, optional
+            Smoothing factor between surveys (for time-lapse only).
         dump : function, optional
             Function to print the progression. Default is `print`.
         method : str, optional
@@ -1333,6 +1335,56 @@ class Problem(object):
         fig.tight_layout()
 
 
+    def setModels(self, depths, models):
+        """Set the models (depth-specific EC) and the depths. Use
+        for forward modelling.
+        
+        Parameters
+        ----------
+        depths : list of array
+            List of array. Each array is npos x ndepths. Each depth
+            is a positive number representing the bottom of each layer.
+            There is not depth 0.
+        models : list of array
+            List of array of size npos x nlayers. nlayer should be equals
+            exactly to ndepths + 1. All specified in mS/m.
+        """
+        if len(depths) != len(models):
+            raise ValueError('depths and models list should have the same length.')
+        for m, d in zip(models, depths):
+            if m.shape[1] != d.shape[1] + 1:
+                raise ValueError('Number of layer should be equal to number of depths + 1 exactly.')
+            if m.shape[0] != d.shape[0]:
+                raise ValueError('Number of position in layers and depths array should match.')
+        self.depths = depths
+        self.models = models
+
+    
+    def invertChange(self, **kwargs):
+        """Compute depth-specific change in EC based on the difference in ECa
+        from the first survey (considered as reference survey). The inversion
+        is performed using `invertGN()`.
+        """
+        self.surveys = []
+        for s in self.surveys[1:]:
+            s.df[:,self.coils] = s.df[self.coils].values - self.surveys[0].df[self.coils].values
+        self.invertGN(**kwargs)
+        
+    
+    def computeChange(self, ref=0):
+        """Compute the difference between inverted models compared
+        to the ref model.
+        
+        Parameters
+        ----------
+        ref : int, optional
+            Index of the reference model. By defaut the first model
+            (corresponding to the first survey) is used as reference.
+        """
+        m0 = self.models[0]
+        for m in self.models:
+            m = m - m0
+        
     
     def getRMSE(self):
         """Returns RMSE for all coils (columns) and all surveys (row).

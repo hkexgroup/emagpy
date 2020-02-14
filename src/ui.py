@@ -11,6 +11,18 @@ import os
 import sys
 import time
 
+print('''
+===========================================================
+######## ##     ##    ###     ######   ########  ##    ## 
+##       ###   ###   ## ##   ##    ##  ##     ##  ##  ##  
+##       #### ####  ##   ##  ##        ##     ##   ####   
+######   ## ### ## ##     ## ##   #### ########     ##    
+##       ##     ## ######### ##    ##  ##           ##    
+##       ##     ## ##     ## ##    ##  ##           ##    
+######## ##     ## ##     ##  ######   ##           ##    
+===========================================================
+''')
+
 from emagpy import Problem
 import numpy as np
 
@@ -47,7 +59,7 @@ def errorMessage(etype, value, tb):
     msg = QMessageBox()
     msg.setIcon(QMessageBox.Critical)
     msg.setText("<b>Critical error:</b>")
-    msg.setInformativeText('''Please see the detailed error below.<br>You can report the errors at:<p><a href='https://gitlab.com/hkex/pyr2/issues'>https://gitlab.com/hkex/pyr2/issues</a></p><br>''')
+    msg.setInformativeText('''Please see the detailed error below.<br>You can report the errors at:<p><a href='https://gitlab.com/hkex/emagpy/issues'>https://gitlab.com/hkex/emagpy/issues</a></p><br>''')
     msg.setWindowTitle("Error!")
 #    msg.setWindowFlags(Qt.FramelessWindowHint)
     msg.setDetailedText('%s' % (finalError))
@@ -197,9 +209,10 @@ class App(QMainWindow):
         self.setGeometry(100,100,1100,600)
 
         self.problem = None
-        self.datadir = os.path.join(bundle_dir, 'emagpy', 'test')
+        self.datadir = os.path.join(bundle_dir, 'examples')
         self.fnameHi = None
         self.fnameLo = None
+        self.running = False # True when inverison is running
         
         self.errorLabel = QLabel('<i style="color:black">Error messages will be displayed here</i>')
         QApplication.processEvents()
@@ -248,6 +261,7 @@ class App(QMainWindow):
                 self.processFname(fname)
                     
         self.importBtn = QPushButton('Import Data')
+        self.importBtn.setAutoDefault(True)
         self.importBtn.setStyleSheet('background-color:orange')
         self.importBtn.clicked.connect(importBtnFunc)
         
@@ -872,9 +886,18 @@ class App(QMainWindow):
         self.logText.setReadOnly(True)
         
         def invertBtnFunc():
+            if self.running == False:
+                self.problem.ikill = False
+                self.running = True
+                self.invertBtn.setText('Kill')
+                self.invertBtn.setStyleSheet('background-color:red')
+            else: # button press while running => killing
+                print('killing')
+                self.problem.ikill = True
+                return
             outputStack.setCurrentIndex(0)
             self.logText.clear()
-            
+
             # collect parameters
             depths0, conds0 = self.modelTable.getTable()
             self.problem.depths0 = depths0
@@ -905,14 +928,22 @@ class App(QMainWindow):
                                     beta=beta, fixedDepths=fixedDepths)
             
             # plot results
-            self.mwInv.setCallback(self.problem.showResults)
-            self.mwInv.replot(**showInvParams)
-            self.mwInvMap.setCallback(self.problem.showSlice)
-            self.mwInvMap.replot(**showInvMapParams)
-            self.mwMisfit.plot(self.problem.showMisfit)
-            self.mwOne2One.plot(self.problem.showOne2one)
-            outputStack.setCurrentIndex(1)
-            #TODO add kill feature
+            if self.problem.ikill == False: # program wasn't killed
+                self.mwInv.setCallback(self.problem.showResults)
+                self.mwInv.replot(**showInvParams)
+                self.mwInvMap.setCallback(self.problem.showSlice)
+                self.mwInvMap.replot(**showInvMapParams)
+                self.mwMisfit.plot(self.problem.showMisfit)
+                self.mwOne2One.plot(self.problem.showOne2one)
+                outputStack.setCurrentIndex(1)
+            
+            # reset button
+            self.running = False
+            self.problem.ikill = False
+            self.invertBtn.setText('Invert')
+            self.invertBtn.setStyleSheet('background-color:orange')
+               
+            
         self.invertBtn = QPushButton('Invert')
         self.invertBtn.setStyleSheet('background-color:orange')
         self.invertBtn.clicked.connect(invertBtnFunc)
