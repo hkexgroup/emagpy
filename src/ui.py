@@ -24,6 +24,7 @@ print('''
 ''')
 
 from emagpy import Problem
+from emagpy import EMagPy_version
 import numpy as np
 
 from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButton, QWidget,
@@ -205,7 +206,7 @@ class App(QMainWindow):
 #        tupdate.signal.connect(self.updateCheckerShow)
 #        tupdate.start()
         
-        self.setWindowTitle('EMagPy')
+        self.setWindowTitle('EMagPy v{:s}'.format(EMagPy_version))
         self.setGeometry(100,100,1100,600)
 
         self.problem = None
@@ -1226,7 +1227,62 @@ class App(QMainWindow):
         postTab.setLayout(postLayout)
         
         
-        #about tab
+        #%%about tab
+        tabAbout = QTabWidget()
+        self.tabs.addTab(tabAbout, 'About')
+
+        infoLayout = QVBoxLayout()
+        aboutText = QLabel()
+        aboutText.setText('''<h1>About EMagPy</h1>
+<p><b>Version: {:s}</b></p>
+<p><i>EMagPy is a free and open source software for inversion of 1D electromagnetic data</i></p>
+<p>If you encouter any issues or would like to submit a feature request, please raise an issue on our gitlab repository at:</p>
+<p><a href="https://gitlab.com/hkex/emagpy/issues">https://gitlab.com/hkex/emagpy/issues</a></p>
+<p>EMagPy uses a few Python packages: numpy, pandas, matplotlib, scipy, spotpy, pyproj.
+<ul>
+<li>Travis E, Oliphant. <strong>A guide to NumPy</strong>,
+USA: Trelgol Publishing, (2006).
+</li>
+<li>
+John D. Hunter.
+<strong>Matplotlib: A 2D Graphics Environment</strong>,
+Computing in Science &amp; Engineering, <strong>9</strong>, 90-95 (2007),
+<a class="reference external" href="https://doi.org/10.1109/MCSE.2007.55">DOI:10.1109/MCSE.2007.55</a>
+</li>
+
+<li>
+Wes McKinney. <strong>Data Structures for Statistical Computing in Python</strong>,
+Proceedings of the 9th Python in Science Conference, <strong>51-56</strong> (2010)
+</li>
+<li>
+K. Jarrod Millman and Michael Aivazis.
+<strong>Python for Scientists and Engineers</strong>,
+Computing in Science & Engineering, <strong>13</strong>, 9-12 (2011),
+<a class="reference external" href="https://doi.org/10.1109/MCSE.2011.36">DOI:10.1109/MCSE.2011.36</a>
+</li>
+<li>
+Houska, T., Kraft, P., Chamorro-Chavez, A. and Breuer, L.
+<strong>SPOTting Model Parameters Using a Ready-Made Python Package</strong>,
+PLoS ONE, <strong>10</strong>,12 (2015)
+<a class="reference external" href="https://doi.org/10.1371/journal.pone.0145180">DOI:10.1371/journal.pone.0145180</a>
+</li>
+<li><a class="reference external" href="http://pyproj4.github.io/pyproj/stable/">pyproj</a>
+</li>
+</ul>
+</p>
+<p><strong>EMagPy's core developers: Guillaume Blanchy and Paul McLachlan.<strong></p>
+<p>Contributors: Jimmy Boyd</p>
+'''.format(EMagPy_version))
+#<p><b>Citing ResIPy</b>:<br>Blanchy G., Saneiyan S., Boyd J., McLachlan P. and Binley A. 2020.<br>“ResIPy, an Intuitive Open Source Software for Complex Geoelectrical Inversion/Modeling.”<br>Computers & Geosciences, February, 104423. <a href="https://doi.org/10.1016/j.cageo.2020.104423">https://doi.org/10.1016/j.cageo.2020.104423</a>.</p>
+
+        aboutText.setOpenExternalLinks(True)
+        aboutText.setWordWrap(True)
+        aboutText.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        infoLayout.addWidget(aboutText)
+
+        tabAbout.setLayout(infoLayout)
+        
+        
         #%% general Ctrl+Q shortcut + general tab layout
 
         self.layout.addWidget(self.tabs)
