@@ -308,12 +308,9 @@ class App(QMainWindow):
         self.projEdit = QLineEdit('27700')
         self.projEdit.setValidator(QDoubleValidator())
         self.projEdit.setEnabled(False)
-        def projBtnFunc():
-            val = float(self.projEdit.text()) if self.projEdit.text() != '' else None
-            self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
-            self.mwRaw.replot(**showParams)
+
         self.projBtn = QPushButton('Convert NMEA')
-        self.projBtn.clicked.connect(projBtnFunc)
+        self.projBtn.clicked.connect(self.projBtnFunc)
         self.projBtn.setEnabled(False)
         
         
@@ -332,7 +329,7 @@ class App(QMainWindow):
             vmin = float(self.vminfEdit.text()) if self.vminfEdit.text() != '' else None
             vmax = float(self.vmaxfEdit.text()) if self.vmaxfEdit.text() != '' else None
             self.problem.keepBetween(vmin, vmax)
-            self.mwRaw.replot(**showParams)
+            self.mwRaw.replot(**self.showParams)
         self.keepApplyBtn = QPushButton('Apply')
         self.keepApplyBtn.clicked.connect(keepApplyBtnFunc)
         self.keepApplyBtn.setEnabled(False)
@@ -345,7 +342,7 @@ class App(QMainWindow):
         def rollingBtnFunc():
             window = int(self.rollingEdit.text()) if self.rollingEdit.text() != '' else None
             self.problem.rollingMean(window=window)
-            self.mwRaw.replot(**showParams)
+            self.mwRaw.replot(**self.showParams)
         self.rollingBtn = QPushButton('Rolling Mean')
         self.rollingBtn.clicked.connect(rollingBtnFunc)
         self.rollingBtn.setEnabled(False)
@@ -353,8 +350,8 @@ class App(QMainWindow):
         
         # manual point killer selection
         def ptsKillerBtnFunc():
-            self.problem.surveys[showParams['index']].dropSelected()
-            self.mwRaw.replot(**showParams)
+            self.problem.surveys[self.showParams['index']].dropSelected()
+            self.mwRaw.replot(**self.showParams)
         self.ptsKillerBtn = QPushButton('Delete selected points')
         self.ptsKillerBtn.clicked.connect(ptsKillerBtnFunc)
         self.ptsKillerBtn.setEnabled(False)
@@ -367,27 +364,27 @@ class App(QMainWindow):
         
         # survey selection (useful in case of time-lapse dataset)
         def surveyComboFunc(index):
-            showParams['index'] = index
-            self.mwRaw.replot(**showParams)
+            self.showParams['index'] = index
+            self.mwRaw.replot(**self.showParams)
         self.surveyCombo = QComboBox()
         self.surveyCombo.activated.connect(surveyComboFunc)
         self.surveyCombo.setEnabled(False)
         
         # coil selection
         def coilComboFunc(index):
-            showParams['coil'] = self.coilCombo.itemText(index)
-            self.mwRaw.replot(**showParams)
+            self.showParams['coil'] = self.coilCombo.itemText(index)
+            self.mwRaw.replot(**self.showParams)
         self.coilCombo = QComboBox()
         self.coilCombo.activated.connect(coilComboFunc)
         self.coilCombo.setEnabled(False)
         
-        showParams = {'index': 0, 'coil':'all', 'contour':False, 'vmin':None,
-                      'vmax':None,'pts':False, 'cmap':'viridis_r'} 
+        self.showParams = {'index': 0, 'coil':'all', 'contour':False, 'vmin':None,
+                           'vmax':None,'pts':False, 'cmap':'viridis_r'} 
         
         # switch between Raw data and map view
 #        def showRadioFunc(state):
 #            mwRaw.setCallback(self.problem.show)
-#            mwRaw.replot(**showParams)
+#            mwRaw.replot(**self.showParams)
 #        showRadio = QRadioButton('Raw')
 #        showRadio.setChecked(True)
 #        showRadio.toggled.connect(showRadioFunc)
@@ -395,7 +392,7 @@ class App(QMainWindow):
 #        def mapRadioFunc(state):
 #            showMapOptions(state)
 #            mwRaw.setCallback(self.problem.showMap)
-#            mwRaw.replot(**showParams)
+#            mwRaw.replot(**self.showParams)
 #        mapRadio = QRadioButton('Map')
 #        mapRadio.setEnabled(False)
 #        mapRadio.setChecked(False)
@@ -416,7 +413,7 @@ class App(QMainWindow):
                 self.mapRadio.setChecked(False)
                 showMapOptions(False)
                 self.mwRaw.setCallback(self.problem.show)
-                self.mwRaw.replot(**showParams)
+                self.mwRaw.replot(**self.showParams)
             else:
                 self.mapRadio.setChecked(True)
         self.showRadio = QPushButton('Raw')
@@ -430,10 +427,10 @@ class App(QMainWindow):
                 self.showRadio.setChecked(False)
                 showMapOptions(True)
                 self.mwRaw.setCallback(self.problem.showMap)
-                if showParams['coil'] == 'all':
+                if self.showParams['coil'] == 'all':
                     self.coilCombo.setCurrentIndex(0)
                     coilComboFunc(0)
-                self.mwRaw.replot(**showParams)
+                self.mwRaw.replot(**self.showParams)
             else:
                 self.showRadio.setChecked(True)
         self.mapRadio = QPushButton('Map')
@@ -471,9 +468,9 @@ class App(QMainWindow):
         self.vmaxEdit = QLineEdit('')
         self.vmaxEdit.setValidator(QDoubleValidator())        
         def applyBtnFunc():
-            showParams['vmin'] = float(self.vminEdit.text()) if self.vminEdit.text() != '' else None
-            showParams['vmax'] = float(self.vmaxEdit.text()) if self.vmaxEdit.text() != '' else None
-            self.mwRaw.replot(**showParams)
+            self.showParams['vmin'] = float(self.vminEdit.text()) if self.vminEdit.text() != '' else None
+            self.showParams['vmax'] = float(self.vmaxEdit.text()) if self.vmaxEdit.text() != '' else None
+            self.mwRaw.replot(**self.showParams)
         self.applyBtn = QPushButton('Apply')
         self.applyBtn.clicked.connect(applyBtnFunc)
         self.applyBtn.setEnabled(False)
@@ -481,8 +478,8 @@ class App(QMainWindow):
         
         # select different colormap
         def cmapComboFunc(index):
-            showParams['cmap'] = cmaps[index]
-            self.mwRaw.replot(**showParams)
+            self.showParams['cmap'] = cmaps[index]
+            self.mwRaw.replot(**self.showParams)
         self.cmapCombo = QComboBox()
         cmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow']
         for cmap in cmaps:
@@ -495,8 +492,8 @@ class App(QMainWindow):
         self.contourLabel = QLabel('Contour')
         self.contourLabel.setVisible(False)
         def contourCheckFunc(state):
-            showParams['contour'] = state
-            self.mwRaw.replot(**showParams)
+            self.showParams['contour'] = state
+            self.mwRaw.replot(**self.showParams)
         self.contourCheck = QCheckBox()
         self.contourCheck.setEnabled(False)
         self.contourCheck.clicked.connect(contourCheckFunc)
@@ -506,8 +503,8 @@ class App(QMainWindow):
         self.ptsLabel = QLabel('Points')
         self.ptsLabel.setVisible(False)
         def ptsCheckFunc(state):
-            showParams['pts'] = state
-            self.mwRaw.replot(**showParams)
+            self.showParams['pts'] = state
+            self.mwRaw.replot(**self.showParams)
         self.ptsCheck = QCheckBox()
         self.ptsCheck.clicked.connect(ptsCheckFunc)
         self.ptsCheck.setToolTip('Show measurements points')
@@ -671,7 +668,7 @@ class App(QMainWindow):
             index = self.surveyErrCombo.currentIndex()
             coil = self.coilErrCombo.itemText(self.coilErrCombo.currentIndex())
             self.mwErr.setCallback(self.problem.crossOverPoints)
-            self.mwErr.replot(index=index, coil=coil, dump=infoDump)
+            self.mwErr.replot(index=index, coil=coil, dump=self.infoDump)
             self.mwErrMap.setCallback(self.problem.plotCrossOverMap)
             self.mwErrMap.replot(index=index, coil=coil)
         self.fitErrBtn = QPushButton('Fit Error Model based on colocated measurements')
@@ -703,7 +700,7 @@ class App(QMainWindow):
         self.tabs.addTab(settingsTab, 'Inversion Settings')
         
         class ModelTable(QTableWidget):
-            def __init__(self, nrow=3, headers=['Bottom depth of layer [m]', 'EC [mS/m]']):
+            def __init__(self, nrow=3, headers=['Layer bottom depth [m]', 'Fixed', 'EC [mS/m]', 'Fixed']):
                 ncol = len(headers)
                 super(ModelTable, self).__init__(nrow, ncol)
                 self.nrow = nrow
@@ -711,8 +708,9 @@ class App(QMainWindow):
                 self.headers = headers
                 self.setHorizontalHeaderLabels(self.headers)
                 self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                self.horizontalHeader().sortIndicatorChanged.connect(self.setAllFixed)
                 
-            def setTable(self, depths0, conds0):
+            def setTable(self, depths0, conds0, fixedDepths=None, fixedConds=None):
                 if len(conds0) < 2:
                     return
                 self.clear()
@@ -727,9 +725,11 @@ class App(QMainWindow):
                 self.setItem(self.nrow - 1, 0, QTableWidgetItem('-'))
                 self.item(self.nrow - 1, 0).setFlags(Qt.ItemIsEnabled)
                 for i, cond in enumerate(conds0):
-                    self.setItem(i, 1, QTableWidgetItem('{:.2f}'.format(cond)))
+                    self.setItem(i, 2, QTableWidgetItem('{:.2f}'.format(cond)))
                 for j in range(i+1, self.nrow):
-                    self.setItem(j, 1, QTableWidgetItem('20.0'))
+                    self.setItem(j, 2, QTableWidgetItem('20.0'))
+                self.setFixedDepths(fixedDepths)
+                self.setFixedConds(fixedConds)
 
 #            def keyPressEvent(self, e):
 ##                print(e.modifiers(), 'and', e.key())
@@ -749,21 +749,82 @@ class App(QMainWindow):
                 for i in range(self.nrow -1):
                     depths0[i] = float(self.item(i, 0).text())
                 for i in range(self.nrow):
-                    conds0[i] = float(self.item(i, 1).text())
-                return depths0, conds0
+                    conds0[i] = float(self.item(i, 2).text())
+                fixedDepths = self.getFixedDepths()
+                fixedConds = self.getFixedConds()
+                return depths0, conds0, fixedDepths, fixedConds
             
             def addRow(self):
-                depths0, conds0 = self.getTable()
+                depths0, conds0, fixedDepths, fixedConds = self.getTable()
                 depths0 = np.r_[depths0, depths0[-1]+1]
                 conds0 = np.r_[conds0, conds0[-1]]
-                self.setTable(depths0, conds0)
+                fixedDepths = np.r_[fixedDepths, fixedDepths[-1]]
+                fixedConds = np.r_[fixedConds, fixedConds[-1]]
+                self.setTable(depths0, conds0, fixedDepths, fixedConds)
                 
             def delRow(self):
-                depths0, conds0 = self.getTable()
-                self.setTable(depths0[:-1], conds0[:-1])
+                depths0, conds0, fixedDepths, fixedConds = self.getTable()
+                self.setTable(depths0[:-1], conds0[:-1],
+                              fixedDepths[:-1], fixedConds[:-1])
+                
+            def setFixedDepths(self, vals=None):
+                if vals is None:
+                    vals = np.ones(self.nrow-1, dtype=bool)
+                for i in range(len(vals)):
+                    checkBoxWidget = QWidget()
+                    checkBoxLayout = QHBoxLayout()
+                    checkBoxLayout.setContentsMargins(5,5,5,5)
+                    checkBoxLayout.setAlignment(Qt.AlignCenter)
+                    fixedCheck = QCheckBox()
+                    fixedCheck.setChecked(bool(vals[i]))
+                    checkBoxLayout.addWidget(fixedCheck)
+                    checkBoxWidget.setLayout(checkBoxLayout)
+                    self.setCellWidget(i, 1, checkBoxWidget)
+                self.setItem(self.nrow - 1, 1, QTableWidgetItem('-'))
+                self.item(self.nrow - 1, 1).setFlags(Qt.ItemIsEnabled)
                 
                 
+            def setFixedConds(self, vals=None):
+                if vals is None:
+                    vals = np.zeros(self.nrow, dtype=bool)
+                for i in range(len(vals)):
+                    checkBoxWidget = QWidget()
+                    checkBoxLayout = QHBoxLayout()
+                    checkBoxLayout.setContentsMargins(5,5,5,5)
+                    checkBoxLayout.setAlignment(Qt.AlignCenter)
+                    fixedCheck = QCheckBox()
+                    fixedCheck.setChecked(bool(vals[i]))
+                    checkBoxLayout.addWidget(fixedCheck)
+                    checkBoxWidget.setLayout(checkBoxLayout)
+                    self.setCellWidget(i, 3, checkBoxWidget)
 
+            def setAllFixed(self, colIndex):
+                if self.headers[colIndex] == 'Fixed':
+                    j = colIndex
+                    n = self.row-1 if colIndex == 1 else self.row
+                    for i in range(n):
+                        fixedCheck = self.cellWidget(i, j).findChildren(QCheckBox)[0]
+                        if fixedCheck.isChecked() is True:
+                            fixedCheck.setChecked(False)
+                        else:
+                            fixedCheck.setChecked(True)
+                            
+            def getFixedDepths(self):
+                fixedDepths = np.zeros(self.nrow - 1, dtype=bool)
+                for i in range(self.nrow-1):
+                    fixedCheck = self.cellWidget(i, 1).findChildren(QCheckBox)[0]
+                    if fixedCheck.isChecked() is True:
+                        fixedDepths[i] = True
+                return fixedDepths
+            
+            def getFixedConds(self):
+                fixedConds = np.zeros(self.nrow, dtype=bool)
+                for i in range(self.nrow):
+                    fixedCheck = self.cellWidget(i, 3).findChildren(QCheckBox)[0]
+                    if fixedCheck.isChecked() is True:
+                        fixedConds[i] = True
+                return fixedConds
+            
         
         self.modelLabel = QLabel('Bottom depth and starting conductivity of each layer.')
         
@@ -850,11 +911,33 @@ class App(QMainWindow):
         forwardModels = ['CS', 'CS (fast)', 'FS', 'FSandrade', 'Q']
         for forwardModel in forwardModels:
             self.forwardCombo.addItem(forwardModel)
+        self.forwardCombo.setToolTip('''Choice of forward model:
+        CS fast : Cumulative Sensitivity with
+        Gauss-Newton solver (faster).
+        CS : Cumulative Sensitivity with minimize solver
+        FS : Full solution with LIN conversion
+        FSandrade : Full solution without LIN conversion''')
         
+        def methodComboFunc(index):
+            if methods[index] in mMCMC:
+                [o.setEnabled(False) for o in opts]
+            else:
+                [o.setEnabled(True) for o in opts]
         self.methodCombo = QComboBox()
-        methods = ['L-BFGS-B', 'CG', 'TNC', 'Nelder-Mead']
+        self.methodCombo.setToolTip('''Choice of solver:
+        L-BFGS-B : minimize, faster
+        CG : Congugate Gradient, fast
+        TNC : Truncated Newton, robust
+        Nelder-Mead : more robust
+        ROPE : MCMC-based
+        SCEUA : MCMC-based
+        DREAM : MCMC-based''')
+        mMinimize = ['L-BFGS-B', 'CG', 'TNC', 'Nelder-Mead']
+        mMCMC = ['ROPE', 'SCEUA', 'DREAM']
+        methods = mMinimize + mMCMC
         for method in methods:
             self.methodCombo.addItem(method)
+        self.methodCombo.currentIndexChanged.connect(methodComboFunc)
         
         self.alphaLabel = QLabel('Vertical smoothing:')
         self.alphaEdit = QLineEdit('0.07')
@@ -875,14 +958,16 @@ class App(QMainWindow):
         self.nitEdit.setToolTip('Maximum Number of Iterations')
         self.nitEdit.setValidator(QIntValidator())
         
-        self.fixedLabel = QLabel('Fixed depth:')
-        self.fixedCheck = QCheckBox()
-        self.fixedCheck.setChecked(True)
+        opts = [self.alphaLabel, self.alphaEdit, self.betaLabel, self.betaEdit,
+                self.lCombo, self.nitLabel, self.nitEdit]
+        # self.fixedLabel = QLabel('Fixed depth:')
+        # self.fixedCheck = QCheckBox()
+        # self.fixedCheck.setChecked(True)
         
         def logTextFunc(arg):
             self.logText.setText(arg)
             QApplication.processEvents()
-        self.logText = QTextEdit('hellow there !')
+        self.logText = QTextEdit('hello there !')
         self.logText.setReadOnly(True)
         
         def invertBtnFunc():
@@ -899,15 +984,14 @@ class App(QMainWindow):
             self.logText.clear()
 
             # collect parameters
-            depths0, conds0 = self.modelTable.getTable()
-            self.problem.depths0 = depths0
-            self.problem.conds0 = conds0
+            depths0, conds0, fixedDepths, fixedConds = self.modelTable.getTable()
+            self.problem.setInit(depths0, conds0, fixedDepths, fixedConds)
             regularization = self.lCombo.itemText(self.lCombo.currentIndex())
             alpha = float(self.alphaEdit.text()) if self.alphaEdit.text() != '' else 0.07
             forwardModel = self.forwardCombo.itemText(self.forwardCombo.currentIndex())
             method = self.methodCombo.itemText(self.methodCombo.currentIndex())
             beta = float(self.betaEdit.text()) if self.betaEdit.text() != '' else 0.0
-            fixedDepths = self.fixedCheck.isChecked()
+            # fixedDepths = self.fixedCheck.isChecked()
             depths = np.r_[[0], depths0, [-np.inf]]
             nit = int(self.nitEdit.text()) if self.nitEdit.text() != '' else 15
             self.sliceCombo.clear()
@@ -918,15 +1002,12 @@ class App(QMainWindow):
             # invert
             if forwardModel == 'CS (fast)':
                 self.problem.invertGN(alpha=alpha, dump=logTextFunc)
-            elif forwardModel == 'Q': # NOTE we don't pass alpha or beta ! too sensitive
-                self.problem.invertQ(regularization=regularization, method=method,
-                                     dump=logTextFunc, fixedDepths=fixedDepths)
             else:
                 self.problem.invert(forwardModel=forwardModel, alpha=alpha,
                                     dump=logTextFunc, regularization=regularization,
                                     method=method, options={'maxiter':nit},
-                                    beta=beta, fixedDepths=fixedDepths)
-            
+                                    beta=beta)
+        
             # plot results
             if self.problem.ikill == False: # program wasn't killed
                 self.mwInv.setCallback(self.problem.showResults)
@@ -1065,8 +1146,8 @@ class App(QMainWindow):
         invOptions.addWidget(self.alphaEdit)
         invOptions.addWidget(self.betaLabel)
         invOptions.addWidget(self.betaEdit)
-        invOptions.addWidget(self.fixedLabel)
-        invOptions.addWidget(self.fixedCheck)
+        # invOptions.addWidget(self.fixedLabel)
+        # invOptions.addWidget(self.fixedCheck)
         invOptions.addWidget(self.lCombo)
         invOptions.addWidget(self.nitLabel)
         invOptions.addWidget(self.nitEdit)
@@ -1190,7 +1271,7 @@ class App(QMainWindow):
         if 'Latitude' in survey.df.columns:
             self.projBtn.setEnabled(True)
             self.projEdit.setEnabled(True)
-            projBtnFunc() # automatically convert NMEA string
+            self.projBtnFunc() # automatically convert NMEA string
         self.keepApplyBtn.setEnabled(True)
         self.rollingBtn.setEnabled(True)
         self.ptsKillerBtn.setEnabled(True)
@@ -1202,7 +1283,13 @@ class App(QMainWindow):
         self.cmapCombo.setEnabled(True)
         self.contourCheck.setEnabled(True)
         self.ptsCheck.setEnabled(True)
-        
+    
+    
+    def projBtnFunc(self):
+        val = float(self.projEdit.text()) if self.projEdit.text() != '' else None
+        self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
+        self.mwRaw.replot(**self.showParams)
+            
     def errorDump(self, text, flag=1):
         text = str(text)
         timeStamp = time.strftime('%H:%M:%S')

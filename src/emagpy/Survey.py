@@ -257,7 +257,7 @@ class Survey(object):
         self.df[cols] = self.df[cols].rolling(window).mean()
         i2discard = self.df[self.coils].isna().any(1)
         self.df = self.df[~i2discard]
-        print('dataset shrink of {:d} measurements'.format(np.sum(i2discard)))        
+        print('dataset shrunk of {:d} measurements'.format(np.sum(i2discard)))        
     
     
     def filterDiff(self, coil=None, thresh=5):
@@ -704,7 +704,7 @@ class Survey(object):
         # TODO add OK kriging ?
         
     
-    def crossOverPoints(self, coil=None, ax=None, dump=print):
+    def crossOverPoints(self, coil=None, ax=None, dump=print, minDist=1):
         """ Build an error model based on the cross-over points.
         
         Parameters
@@ -715,13 +715,15 @@ class Survey(object):
             Matplotlib axis on which the plot is plotted against if specified.
         dump : function, optional
             Output function for information.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
         """
         if coil is None:
             coil = self.coils[0]
         df = self.df
         dist = cdist(df[['x', 'y']].values,
                      df[['x', 'y']].values)
-        minDist = 1 # points at less than 1 m from each other are identical
         ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
         ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
         ix, iy = ix[ifar], iy[ifar]
@@ -744,9 +746,10 @@ class Survey(object):
         meansBinned = means[:end].reshape((-1, nbins)).mean(axis=1)
         
         # bin data (constant width)
-        errorBinned, binEdges, _ = binned_statistic(
-                means, error, 'mean', bins=20)
-        meansBinned = binEdges[:-1] + np.diff(binEdges)
+        # errorBinned, binEdges, _ = binned_statistic(
+        #         means, error, 'mean', bins=20)
+        # meansBinned = binEdges[:-1] + np.diff(binEdges)
+        
 
         # compute model
         inan = ~np.isnan(meansBinned) & ~np.isnan(errorBinned)
@@ -772,7 +775,7 @@ class Survey(object):
      
     
     
-    def plotCrossOverMap(self, coil=None, ax=None):
+    def plotCrossOverMap(self, coil=None, ax=None, minDist=1):
         """Plot the map of the cross-over points for error model.
         
         Parameters
@@ -781,13 +784,15 @@ class Survey(object):
             Name of the coil.
         ax : Matplotlib.Axes, optional
             Matplotlib axis on which the plot is plotted against if specified.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
         """
         if coil is None:
             coil = self.coils[0]
         df = self.df
         dist = cdist(df[['x', 'y']].values,
                      df[['x', 'y']].values)
-        minDist = 1 # points at less than 1 m from each other are identical
         ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
         ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
         ix, iy = ix[ifar], iy[ifar]
