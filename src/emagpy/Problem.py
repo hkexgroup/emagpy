@@ -196,7 +196,7 @@ class Problem(object):
             bot = np.r_[np.r_[0.2, mdepths], np.ones(nc)*2]
             top = np.r_[np.r_[mdepths, self.depths0[-1] + 0.2], np.ones(nc)*100]
             bounds = list(tuple(zip(bot[np.r_[vd, vc]], top[np.r_[vd, vc]])))
-        print('bounds = ', bounds)
+        dump('bounds = ' + str(bounds))
 #            beta = 0 # not lateral smoothing with changing depths
         
         # define the forward model
@@ -800,9 +800,9 @@ class Problem(object):
             raise ValueError('length of conds0 should be equals to length of depths0 + 1')
         else:
             self.depths0 = depths0
-            self.conds0 = np.array(conds0)
-            self.fixedDepths = np.array(fixedDepths)
-            self.fixedConds = np.array(fixedConds)
+            self.conds0 = np.array(conds0, dtype=float)
+            self.fixedDepths = np.array(fixedDepths, dtype=bool)
+            self.fixedConds = np.array(fixedConds, dtype=bool)
 
 
     
@@ -1115,7 +1115,7 @@ class Problem(object):
         cols = survey.coils
         obsECa = survey.df[cols].values
         simECa = dfsForward[index][cols].values
-        print('number of nan', np.sum(np.isnan(obsECa)), np.sum(np.isnan(simECa)))
+        #print('number of nan', np.sum(np.isnan(obsECa)), np.sum(np.isnan(simECa)))
         rmse = np.sqrt(np.sum((obsECa.flatten() - simECa.flatten())**2)/len(obsECa.flatten()))
         rmses = np.sqrt(np.sum((obsECa - simECa)**2, axis=0)/obsECa.shape[0])
         if vmin is None:
