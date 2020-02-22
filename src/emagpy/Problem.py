@@ -207,7 +207,8 @@ class Problem(object):
 
         # define bounds
         if bnds is not None:
-            if len(bnds) == 2: # we just have min/max of EC
+            if len(bnds) == 2 and (isinstance(bnds[0], int) or isinstance(bnds[0], float)):
+                # we just have min/max of EC
                 top = np.ones(nc)*bnds[1]
                 bot = np.ones(nc)*bnds[0]
                 bounds = list(tuple(zip(bot[vc], top[vc])))
@@ -220,7 +221,7 @@ class Problem(object):
             bot = np.r_[np.r_[0.2, mdepths], np.ones(nc)*2]
             top = np.r_[np.r_[mdepths, self.depths0[-1] + 0.2], np.ones(nc)*100]
             bounds = list(tuple(zip(bot[np.r_[vd, vc]], top[np.r_[vd, vc]])))
-        dump('bounds = ' + str(bounds))
+        dump('bounds = ' + str(bounds) + '\n')
 
         # time-lapse constrain
         if gamma != 0:
@@ -235,7 +236,7 @@ class Problem(object):
             depth = self.depths0
             if np.sum(vd) > 0:
                 depth[vd] = p[:np.sum(vd)]
-            cond = self.conds0
+            cond = self.conds0.copy()
             if np.sum(vc) > 0:
                 cond[vc] = p[np.sum(vd):]
             if forwardModel == 'CS':
@@ -275,7 +276,7 @@ class Problem(object):
         
         # model misfit only for conductivities not depths
         def modelMisfit(p):
-            cond = self.conds0
+            cond = self.conds0.copy()
             if np.sum(vc) > 0:
                 cond[vc] = p[:np.sum(vc)]
             return np.dot(L, cond)
@@ -455,8 +456,8 @@ class Problem(object):
                 for l in range(1): # FIXME this is diverging with time ..;
                     d = dataMisfit(cond, app)
                     LHS = np.dot(J.T, J) + alpha*L
-                    RHS = np.dot(J.T, d[:,None]) - alpha*np.dot(L, cond) # minux or plus doesn't matter here ?!
-                    if alpha_ref is not None: # constraint the change of the last element of the profile
+                    RHS = np.dot(J.T, d[:,None]) - alpha*np.dot(L, cond) # minus or plus doesn't matter here ?!
+                    if alpha_ref is not None: # constrain the change of the last element of the profile
                         LHS[-1:,-1:] = alpha_ref
                         RHS[-1:] = alpha_ref*cond[i,-1]
                     solution = np.linalg.solve(LHS, RHS)
