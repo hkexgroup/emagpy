@@ -58,7 +58,18 @@ class Problem(object):
         hx : float, optional
             Height of the instrument above the ground (can also be specified for each coil in the file).
         """
+        # create Survey object
         survey = Survey(fname, freq=freq, hx=hx)
+        
+        # remove NaN from survey
+        inan = np.zeros(survey.df.shape[0], dtype=bool)
+        for c in survey.coils:
+            inan = inan | (survey.df[c].isna())
+        if np.sum(inan) > 0:
+            print('Removing {:d} NaN from survey'.format(np.sum(inan)))
+            survey.df = survey.df[~inan]
+            
+        # set attribut according to the first survey
         if len(self.surveys) == 0:
             self.coils = survey.coils
             self.freqs = survey.freqs
@@ -66,7 +77,7 @@ class Problem(object):
             self.cpos = survey.cpos
             self.hx = survey.hx
             self.surveys.append(survey)
-        else: # check we have the same configuration
+        else: # check we have the same configuration than other survey
             check = [a == b for a,b, in zip(self.coils, survey.coils)]
             if all(check) is True:
                 self.surveys.append(survey)
@@ -94,6 +105,7 @@ class Problem(object):
         for f in files:
             self.createSurvey(f)
         
+        
     
     def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer', hx=0):
         """Import GF instrument data with Lo and Hi file mode. If spatial data
@@ -119,6 +131,7 @@ class Problem(object):
         self.cpos = survey.cpos
         self.hx = survey.hx
         self.surveys.append(survey)
+        
         
         
     def setDepths(self, depths):
@@ -172,7 +185,7 @@ class Problem(object):
         rep : int, optional
             Number of sample for the MCMC-based methods.
         """
-        # switch in case Gauss-Newton software is selected
+        # switch in case Gauss-Newton routine is selected
         if forwardModel in ['CSgn', 'CSgndiff']:
             self.invertGN(alpha=alpha, alpha_ref=None, dump=dump)
             return
@@ -208,7 +221,14 @@ class Problem(object):
             top = np.r_[np.r_[mdepths, self.depths0[-1] + 0.2], np.ones(nc)*100]
             bounds = list(tuple(zip(bot[np.r_[vd, vc]], top[np.r_[vd, vc]])))
         dump('bounds = ' + str(bounds))
-#            beta = 0 # not lateral smoothing with changing depths
+
+        # time-lapse constrain
+        if gamma != 0:
+            n = self.surveys[0].df.shape[0]
+            for s in self.surveys[1:]:
+                if s.df.shape[0] != n:
+                    raise ValueError('For time-lapse constrain (gamma > 0), all surveys need to have the same length.')
+                    gamma = 0
         
         # define the forward model
         def fmodel(p): # p contains first the depths then the conductivities
@@ -261,27 +281,32 @@ class Problem(object):
             return np.dot(L, cond)
         
         # set up regularisation
+        # p : parameter, app : ECa,
+        # pn : consecutive previous profile (for lateral smoothing)
+        # spn : profile from other survey (for time-lapse)
         if regularization  == 'l1':
-            def objfunc(p, app, pn):
+            def objfunc(p, app, pn, spn):
                 return np.sqrt(np.sum(np.abs(dataMisfit(p, app)))/len(app)
                                + alpha*np.sum(np.abs(modelMisfit(p)))/nc
-                               + beta*np.sum(np.abs(p - pn))/len(p))
+                               + beta*np.sum(np.abs(p - pn))/len(p)
+                               + gamma*np.sum(np.abs(p - spn))/len(p))
         elif regularization == 'l2':
-            def objfunc(p, app, pn):
+            def objfunc(p, app, pn, spn):
                 return np.sqrt(np.sum(dataMisfit(p, app)**2)/len(app)
                                + alpha*np.sum(modelMisfit(p)**2)/nc
-                               + beta*np.sum((p - pn)**2)/len(p))
+                               + beta*np.sum((p - pn)**2)/len(p)
+                               + gamma*np.sum((p - spn)**2)/len(p))
             
         # define spotpy class if MCMC-based methods
         if method in mMCMC:
             try:
                 import spotpy
             except ImportError:
-                print('Please install spotpy to use `invertSCUEA()` method.')
+                print('Please install spotpy to use MCMC-based methods.')
                 return
             
             class spotpy_setup(object):
-                def __init__(self, obsVals, fmodel, bounds):
+                def __init__(self, obsVals, fmodel, bounds, pn, spn):
                     self.params = []
                     for i, bnd in enumerate(bounds):
                         self.params.append(
@@ -295,16 +320,20 @@ class Problem(object):
             
                 def simulation(self, vector):
                     x = np.array(vector)
-                    simulations = self.fmodel(x).flatten()
-                    return simulations
+                    #simulations = self.fmodel(x).flatten()
+                    return x # trick return  parameters as the simulation is done in the
+                    # objective function
                 
                 def evaluation(self): # what the function return when called with the optimal values
                     observations = self.obsVals.flatten()
                     return observations
                 
-                def objectivefunction(self, simulation, evaluation):
-                    objfunc = -spotpy.objectivefunctions.rmse(evaluation, simulation)
-                    return objfunc
+                def objectivefunction(self, simulation, evaluation, params=None):
+                    #val = -spotpy.objectivefunctions.rmse(evaluation, simulation)
+                    # simulation is actually parameters, the simulation (forward model)
+                    # is done inside the objective function itself
+                    val = -objfunc(simulation, evaluation, pn, spn)
+                    return val
             
         # inversion row by row
         c = 0 # number of inversion that converged
@@ -318,7 +347,7 @@ class Problem(object):
             model = np.ones((apps.shape[0], len(self.conds0)))*self.conds0
             depth = np.ones((apps.shape[0], len(self.depths0)))*self.depths0
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
-            for j in range(survey.df.shape[0]): # this could be done in //
+            for j in range(survey.df.shape[0]): # TODO this could be done in //
                 if self.ikill:
                     break
                 
@@ -332,10 +361,16 @@ class Problem(object):
                     pn = np.zeros(np.sum(np.r_[vd, vc]))
                 else:
                     pn = np.r_[depth[j-1,:][vd], model[j-1,:][vc]]
+                    
+                # define profile from previous survey for time-lapse constrain
+                if i == 0 or gamma == 0:
+                    spn = np.zeros(np.sum(np.r_[vd, vc]))
+                else: # constrain to the first inverted survey
+                    spn = np.r_[self.depths[0][j,:][vd], self.models[0][j,:][vc]]
 
                 # solve optimization problem
                 if method in mMinimize: # minimize
-                    res = minimize(objfunc, x0, args=(obs, pn),
+                    res = minimize(objfunc, x0, args=(obs, pn, spn),
                                    method=method, bounds=bounds, options=options)
                     out = res.x
                     status = 'converged' if res.success else 'not converged'
@@ -343,7 +378,7 @@ class Problem(object):
                         c += 1
                 elif method in mMCMC: # MCMC based methods
                     cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
-                    spotpySetup = spotpy_setup(obs, fmodel, bounds)
+                    spotpySetup = spotpy_setup(obs, fmodel, bounds, pn, spn)
                     if method == 'ROPE':
                         sampler = spotpy.algorithms.rope(spotpySetup, dbname='db', dbformat='csv')
                     elif method == 'DREAM':
@@ -1190,6 +1225,7 @@ class Problem(object):
         ax : matplotlib.Axes, optional
             If specified, the graph will be plotted agains this axis.
         """
+        # TODO what about doing that for beta and gamma as well ?
         app = self.surveys[isurvey].df[self.coils].values[irow,:]
         if alphas is None:
             alphas = np.logspace(-3,2,20)
