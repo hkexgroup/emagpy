@@ -259,6 +259,29 @@ class Survey(object):
         self.df = self.df[~i2discard]
         print('dataset shrunk of {:d} measurements'.format(np.sum(i2discard)))        
     
+    def filterPercentile(self, coil=None, qmin=None, qmax=None):
+        """Filter out measurements based on percentile.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Coil on which apply the filtering.
+        qmin : float, optional
+            Minimum percentile value below-which measurements are discarded.
+        qmax : float, optional
+            Maximum percentila value above-which measurements are discarded.
+        """
+        if coil is None:
+            coil = self.coils[0]
+        val = self.df[coil].values
+        qmin = 0 if qmin is None else qmin
+        qmax = 100 if qmax is None else qmax
+        vmin = np.nanpercentile(val, qmin)
+        vmax = np.nanpercentile(val, qmax)
+        i2keep = (val > vmin) & (val < vmax)
+        print('filterPercentile: {:d}/{:d} measurements removed.'.format(np.sum(~i2keep), len(i2keep)))
+        self.df = self.df[i2keep]
+    
     
     def filterDiff(self, coil=None, thresh=5):
         """Filter out consecutive measurements when the difference between them

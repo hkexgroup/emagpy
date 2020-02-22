@@ -6,6 +6,7 @@ Created on Tue Apr 16 20:29:19 2019
 @author: jkl
 """
 import os
+import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -17,6 +18,16 @@ from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
                                  buildJacobian, getQs, eca2Q, Q2eca2, Q2eca)
 from emagpy.Survey import Survey, idw, clipConvexHull, griddata
 
+class HiddenPrints:
+    # https://stackoverflow.com/questions/8391411/suppress-calls-to-print-python
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout
+        
 
 class Problem(object):
     """Class defining an inversion problem.
@@ -342,7 +353,8 @@ class Problem(object):
                     else:
                         raise ValueError('Method {:s} unkown'.format(method))
                         return
-                    sampler.sample(rep)
+                    with HiddenPrints():
+                        sampler.sample(rep) # this output a lot of stuff
                     results = np.array(sampler.getdata())
                     ibest = np.argmin(np.abs(results['like1']))
                     out = np.array(list(results[ibest][cols]))
@@ -917,7 +929,7 @@ class Problem(object):
         x = np.arange(sig.shape[0])
 #        x = np.sqrt(np.diff(self.surveys[index].df[['x', 'y']].values, axis=1)**2)
 #        depths = np.repeat(self.depths0[:,None], sig.shape[0], axis=1).T
-        depths = self.depths[0]
+        depths = self.depths[index]
         
         if ax is None:
             fig, ax = plt.subplots()
@@ -1340,6 +1352,8 @@ class Problem(object):
             if contour is True:
                 print('All points on a line, can not contour this.')
             cax = ax.scatter(x, y, c=z, cmap=cmap, vmin=vmin, vmax=vmax)
+            ax.set_xlim([np.nanmin(x), np.nanmax(x)])
+            ax.set_ylim([np.nanmin(y), np.nanmax(y)])
         else:
             levels = np.linspace(vmin, vmax, 7)
             cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
