@@ -1146,7 +1146,7 @@ class Problem(object):
         ax.legend(['{:s} ({:.2f})'.format(c, r) for c, r in zip(cols, rmses)])
     
     
-    def keepBetween(self, vmin=None, vmax=None):
+    def filterRange(self, vmin=None, vmax=None):
         """Filter out measurements that are not between vmin and vmax.
         
         Parameters
@@ -1157,8 +1157,23 @@ class Problem(object):
             Maximum ECa value, default is maximum observed.
         """
         for s in self.surveys:
-            s.keepBetween(vmin=vmin, vmax=vmax)
+            s.filterRange(vmin=vmin, vmax=vmax)
     
+    
+    def filterPercentile(self, coil=None, qmin=None, qmax=None):
+        """Filter out measurements based on percentile.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Coil on which apply the filtering.
+        qmin : float, optional
+            Minimum percentile value below-which measurements are discarded.
+        qmax : float, optional
+            Maximum percentila value above-which measurements are discarded.
+        """
+        for s in self.surveys:
+            s.filterPercentile(coil=coil, qmin=qmin, qmax=qmax)
     
     
     def lcurve(self, isurvey=0, irow=0, alphas=None, ax=None):

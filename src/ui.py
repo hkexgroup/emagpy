@@ -329,7 +329,7 @@ class App(QMainWindow):
         def keepApplyBtnFunc():
             vmin = float(self.vminfEdit.text()) if self.vminfEdit.text() != '' else None
             vmax = float(self.vmaxfEdit.text()) if self.vmaxfEdit.text() != '' else None
-            self.problem.keepBetween(vmin, vmax)
+            self.problem.filterRange(vmin, vmax)
             self.mwRaw.replot(**self.showParams)
         self.keepApplyBtn = QPushButton('Apply')
         self.keepApplyBtn.clicked.connect(keepApplyBtnFunc)

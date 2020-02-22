@@ -222,7 +222,7 @@ class Survey(object):
                 'height': height}
         
     
-    def keepBetween(self, vmin=None, vmax=None):
+    def filterRange(self, vmin=None, vmax=None):
         """Filter out measurements that are not between vmin and vmax.
         
         Parameters
@@ -1319,7 +1319,7 @@ if __name__ == '__main__':
 #    s = Survey('test/trimpLo.csv')
 #    s.convertFromNMEA()
 #    s.show(s.coils[1])
-#    s.keepBetween(-5,11)
+#    s.filterRange(-5,11)
 #    s.rollingMean(10)
 #    s.show()
     
