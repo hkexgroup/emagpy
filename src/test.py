@@ -12,8 +12,20 @@ datadir = 'examples/'
 
 #%% importing from GF instrument
 k = Problem()
-k.importGF(datadir + 'cover-crop/coverCropLo.dat', datadir + 'cover-crop/coverCropHi.dat')
-k.show()
+# k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
+k.createSurvey(datadir + 'timelapse-wheat')
+# k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+# k.importGF(datadir + 'cover-crop/coverCropLo.dat', datadir + 'cover-crop/coverCropHi.dat')
+
+t0 = time.time()
+k.invert(parallel=False)
+print('elapsed {:.2f}s'.format(time.time() - t0))
+
+t0 = time.time()
+k.invert(parallel=True)
+print('elapsed {:.2f}s'.format(time.time() - t0))
+
+
 
 #%% runnning mean
 k = Problem()

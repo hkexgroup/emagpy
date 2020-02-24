@@ -9,10 +9,12 @@ import os
 import sys
 import numpy as np
 import pandas as pd
+import time
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
 from scipy.optimize import minimize
 from scipy.stats import linregress
+from joblib import Parallel, delayed
 
 from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
                                  buildJacobian, getQs, eca2Q, Q2eca2, Q2eca)
@@ -133,6 +135,58 @@ class Problem(object):
         self.surveys.append(survey)
         
         
+    def _matchSurveys(self):
+        """Return a list of indices for common measurements between surveys.
+        """
+        print('Matching positions between surveys for time-lapse inversion...', end='')
+        t0 = time.time()
+        dfs = [s.df for s in self.surveys]
+
+        # sort all dataframe (should already be the case)
+        dfs2 = []
+        for df in dfs:
+            dfs2.append(df)#.sort_values(by=['a','b','m','n']).reset_index(drop=True))
+
+        # concatenate columns of string
+        def cols2str(cols):
+            cols = cols.astype(str)
+            x = cols[:,0]
+            for i in range(1, cols.shape[1]):
+                x = np.core.defchararray.add(x, cols[:,i])
+            return x
+
+        # get measurements common to all surveys
+        df0 = dfs2[0]
+        x0 = cols2str(df0[['x','y']].values.astype(int))
+        icommon = np.ones(len(x0), dtype=bool)
+        for df in dfs2[1:]:
+            x = cols2str(df[['x','y']].values.astype(int))
+            ie = np.in1d(x0, x)
+            icommon = icommon & ie
+        print(np.sum(icommon), 'in common...', end='')
+
+        # create boolean index to match those measurements
+        indexes = []
+        xcommon = x0[icommon]
+        for df in dfs2:
+            x = cols2str(df[['x','y']].values)
+            indexes.append(np.in1d(x, xcommon))
+
+        print('done in {:.3}s'.format(time.time()-t0))
+
+        return indexes
+    
+    
+    
+    def trimSurveys(self):
+        """Will trim all surveys to get them ready for difference inversion
+        where all datasets must have the same number of measurements.
+        """
+        indexes = self._matchSurveys()
+        for s, index in zip(self.surveys, indexes):
+            s.df = s.df[index]
+        
+        
         
     def setDepths(self, depths):
         """ Set the depths of the bottom of each layer. Last layer goes to -inf.
@@ -148,7 +202,7 @@ class Problem(object):
         
     def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l2',
                alpha=0.07, beta=0.0, gamma=0.0, dump=None, bnds=None,
-               options={}, Lscaling=False, rep=100):
+               options={}, Lscaling=False, rep=100, parallel=False):
         """Invert the apparent conductivity measurements.
         
         Parameters
@@ -315,6 +369,8 @@ class Problem(object):
                                         'x{:d}'.format(i), bnd[0], bnd[1], 10, 10, bnd[0], bnd[1]))
                     self.obsVals = obsVals
                     self.fmodel = fmodel
+                    self.pn = pn
+                    self.spn = spn
                     
                 def parameters(self):
                     return spotpy.parameter.generate(self.params)
@@ -333,12 +389,48 @@ class Problem(object):
                     #val = -spotpy.objectivefunctions.rmse(evaluation, simulation)
                     # simulation is actually parameters, the simulation (forward model)
                     # is done inside the objective function itself
-                    val = -objfunc(simulation, evaluation, pn, spn)
+                    val = -objfunc(simulation, evaluation, self.pn, self.spn)
                     return val
-            
+        
+        # check parallel
+        if parallel is True and beta != 0:
+            dump('WARNING: No parallel is possible with lateral smoothing (beta > 0).\n')
+            parallel = False
+        
+        # define optimization function
+        x0 = np.r_[self.depths0[vd], self.conds0[vc]]
+        def solve(obs, pn, spn):
+            if method in mMinimize: # minimize
+                res = minimize(objfunc, x0, args=(obs, pn, spn),
+                               method=method, bounds=bounds, options=options)
+                out = res.x
+                # status = 'converged' if res.success else 'not converged'
+                # if res.success:
+                #     c += 1      
+            elif method in mMCMC: # MCMC based methods
+                cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
+                spotpySetup = spotpy_setup(obs, fmodel, bounds, pn, spn)
+                if method == 'ROPE':
+                    sampler = spotpy.algorithms.rope(spotpySetup, dbname='db', dbformat='csv')
+                elif method == 'DREAM':
+                    sampler = spotpy.algorithms.dream(spotpySetup, dbname='db', dbformat='csv')
+                elif method == 'SCEUA':
+                    sampler = spotpy.algorithms.sceua(spotpySetup, dbname='db', dbformat='csv')
+                else:
+                    raise ValueError('Method {:s} unkown'.format(method))
+                    return
+                with HiddenPrints():
+                    sampler.sample(rep) # this output a lot of stuff
+                results = np.array(sampler.getdata())
+                ibest = np.argmin(np.abs(results['like1']))
+                out = np.array(list(results[ibest][cols]))
+                # status = 'ok'
+                # c += 1
+            return out
+
+           
         # inversion row by row
         c = 0 # number of inversion that converged
-        x0 = np.r_[self.depths0[vd], self.conds0[vc]]
         for i, survey in enumerate(self.surveys):
             if self.ikill:
                 break
@@ -348,9 +440,11 @@ class Problem(object):
             model = np.ones((apps.shape[0], len(self.conds0)))*self.conds0
             depth = np.ones((apps.shape[0], len(self.depths0)))*self.depths0
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
+            outs = [] # populated if sequential
+            params = []
             for j in range(survey.df.shape[0]): # TODO this could be done in //
-                if self.ikill:
-                    break
+                # if self.ikill:
+                #     break
                 
                 # define observations and convert to Q if needed
                 obs = apps[j,:]
@@ -369,39 +463,20 @@ class Problem(object):
                 else: # constrain to the first inverted survey
                     spn = np.r_[self.depths[0][j,:][vd], self.models[0][j,:][vc]]
 
-                # solve optimization problem
-                if method in mMinimize: # minimize
-                    res = minimize(objfunc, x0, args=(obs, pn, spn),
-                                   method=method, bounds=bounds, options=options)
-                    out = res.x
-                    status = 'converged' if res.success else 'not converged'
-                    if res.success:
-                        c += 1
-                elif method in mMCMC: # MCMC based methods
-                    cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
-                    spotpySetup = spotpy_setup(obs, fmodel, bounds, pn, spn)
-                    if method == 'ROPE':
-                        sampler = spotpy.algorithms.rope(spotpySetup, dbname='db', dbformat='csv')
-                    elif method == 'DREAM':
-                        sampler = spotpy.algorithms.dream(spotpySetup, dbname='db', dbformat='csv')
-                    elif method == 'SCEUA':
-                        sampler = spotpy.algorithms.sceua(spotpySetup, dbname='db', dbformat='csv')
-                    else:
-                        raise ValueError('Method {:s} unkown'.format(method))
-                        return
-                    with HiddenPrints():
-                        sampler.sample(rep) # this output a lot of stuff
-                    results = np.array(sampler.getdata())
-                    ibest = np.argmin(np.abs(results['like1']))
-                    out = np.array(list(results[ibest][cols]))
-                    status = 'ok'
-                    c += 1
-
+                if parallel:
+                    params.append((obs, pn, spn))
+                else:
+                    outs.append(solve(obs, pn, spn))  
+            
+            if parallel:
+                outs = Parallel(n_jobs=-1, verbose=50)(delayed(solve)(*a) for a in params)
+                
+            for j, out in enumerate(outs):
                 # store results from optimization
                 depth[j,vd] = out[:np.sum(vd)]
                 model[j,vc] = out[np.sum(vd):]
                 rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs)**2)/len(obs))
-                dump('{:d}/{:d} inverted ({:s})'.format(j+1, apps.shape[0], status))
+                # dump('{:d}/{:d} inverted ({:s})'.format(j+1, apps.shape[0], status))
             self.models.append(model)
             self.depths.append(depth)
             self.rmses.append(rmse)
@@ -658,6 +733,7 @@ class Problem(object):
         self.surveys[index].show(coil=coil, vmin=vmin, vmax=vmax, ax=ax)
     
     
+    
     def showMap(self, index=0, **kwargs):
         """Show spatial map of the selected survey.
         
@@ -677,6 +753,7 @@ class Problem(object):
                     contour=contour, pts=pts, cmap=cmap, ax=ax)
         
     
+    
     def saveMap(self, index=0, **kwargs):
         """Save georefenced .tiff.
         
@@ -686,6 +763,7 @@ class Problem(object):
             Survey number, by default, the first survey is chosen.
         """
         self.surveys[index].saveMap(**kwargs)
+    
     
     
     def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='nearest',
@@ -939,7 +1017,7 @@ class Problem(object):
     
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, padding=1, cmap='viridis_r',
-                    contour=False):
+                    contour=False, rmse=False):
         """Show inverted model.
         
         Parameters
@@ -960,6 +1038,9 @@ class Problem(object):
             Name of the Matplotlib colormap to use.
         contour : bool, optional
             If `True` a contour plot will be plotted.
+        rmse : bool, optional
+            If `True`, the RMSE for each transect will be plotted on a second axis.
+            Note that misfit can also be shown with `showMisfit()`.
         """            
         sig = self.models[index]
         x = np.arange(sig.shape[0])
@@ -1021,8 +1102,14 @@ class Problem(object):
             coll.set_clim(vmin=vmin, vmax=vmax)
             ax.add_collection(coll)
             fig.colorbar(coll, label='Conductivity [mS/m]', ax=ax)
+        
+        if rmse:
+            ax2 = ax.twinx()
+            xx = np.arange(len(self.rmses[index])) + 0.5
+            ax2.plot(xx, self.rmses[index], 'kx-')
+            ax2.set_ylabel('RMSE')
 
-        ax.set_xlabel('X position')
+        ax.set_xlabel('Samples')
         ax.set_ylabel('Depth [m]')
         ax.set_title(self.surveys[index].name)
         ax.set_ylim([-maxDepth, 0])
@@ -1064,15 +1151,25 @@ class Problem(object):
         self.models = models
 
     
-    def invertChange(self, **kwargs):
-        """Compute depth-specific change in EC based on the difference in ECa
-        from the first survey (considered as reference survey). The inversion
-        is performed using `invertGN()`.
+    def computeApparentChange(self, ref=0):
+        """Subtract the apparent conductivities of the reference survey
+        to all other surveys. By default the reference survey is the 
+        first survey. The survey can then be inverted with `invertGN()`.
+        
+        Parameters
+        ----------
+        ref : int, optional
+            Index of the reference survey. By defaut the first survey
+            is used as reference.
         """
-        self.surveys = []
-        for s in self.surveys[1:]:
-            s.df[:,self.coils] = s.df[self.coils].values - self.surveys[0].df[self.coils].values
-        self.invertGN(**kwargs)
+        print('Trimming surveys and only keep common positions')
+        self.trimSurveys()
+        print('Computing relative ECa compared to background (1st survey).')
+        background = self.surveys[ref].df[self.coils].values
+        for i, s in enumerate(self.surveys):
+            if i != ref: # the background survey stays the same
+                s.df.loc[:,self.coils] = s.df[self.coils].values - background
+        
         
     
     def computeChange(self, ref=0):
@@ -1417,6 +1514,58 @@ class Problem(object):
         depths = np.r_[[0], self.depths0, [-np.inf]]
         ax.set_title('{:.2f}m - {:.2f}m'.format(depths[islice], depths[islice+1]))
         
+        
+        
+    def showDepths(self, index=0, idepth=0, contour=False, vmin=None, vmax=None,
+                  cmap='viridis_r', ax=None, pts=True):
+        """Show depth slice.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Survey index. Default is first.
+        idepth : int, optional
+            Depth index. Default is first depth.
+        contour : bool, optional
+            If `True` then there will be contouring.
+        vmin : float, optional
+            Minimum value for colorscale.
+        vmax : float, optional
+            Maximum value for colorscale.
+        cmap : str, optional
+            Name of colormap. Default is viridis_r.
+        ax : Matplotlib.Axes, optional
+            If specified, the graph will be plotted against it.
+        pts : boolean, optional
+            If `True` (default) the data points will be plotted over the contour.
+        """
+        z = self.depths[index][:,idepth]
+        x = self.surveys[index].df['x'].values
+        y = self.surveys[index].df['y'].values
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
+        if vmin is None:
+            vmin = np.nanmin(z)
+        if vmax is None:
+            vmax = np.nanmax(z)
+        if contour is False or (y == y[0]).all() or (x == x[0]).all(): # can not contour if they are on a line
+            if contour is True:
+                print('All points on a line, can not contour this.')
+            cax = ax.scatter(x, y, c=z, cmap=cmap, vmin=vmin, vmax=vmax)
+            ax.set_xlim([np.nanmin(x), np.nanmax(x)])
+            ax.set_ylim([np.nanmin(y), np.nanmax(y)])
+        else:
+            levels = np.linspace(vmin, vmax, 7)
+            cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
+            if pts:
+                ax.plot(x, y, 'k+')
+        ax.set_xlabel('x [m]')
+        ax.set_ylabel('y [m]')
+        fig.colorbar(cax, ax=ax, label='Depth [m]')
+        depths = np.r_[[0], self.depths0, [-np.inf]]
+        ax.set_title('Depths[{:d}]'.format(idepth))
         
 #%%
 if __name__ == '__main__':
