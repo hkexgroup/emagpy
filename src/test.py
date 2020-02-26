@@ -13,16 +13,17 @@ datadir = 'examples/'
 #%% importing from GF instrument
 k = Problem()
 # k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
-k.createSurvey(datadir + 'timelapse-wheat')
-# k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+# k.createTimeLapseSurvey(datadir + 'timelapse-wheat')
+# k.surveys = k.surveys[:2]
+k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 # k.importGF(datadir + 'cover-crop/coverCropLo.dat', datadir + 'cover-crop/coverCropHi.dat')
 
-t0 = time.time()
-k.invert(parallel=False)
-print('elapsed {:.2f}s'.format(time.time() - t0))
+# t0 = time.time()
+# k.invert(parallel=False, method='ROPE')
+# print('elapsed {:.2f}s'.format(time.time() - t0))
 
 t0 = time.time()
-k.invert(parallel=True)
+k.invert(njobs=-1)
 print('elapsed {:.2f}s'.format(time.time() - t0))
 
 

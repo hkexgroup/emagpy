@@ -202,7 +202,7 @@ class Problem(object):
         
     def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l2',
                alpha=0.07, beta=0.0, gamma=0.0, dump=None, bnds=None,
-               options={}, Lscaling=False, rep=100, parallel=False):
+               options={}, Lscaling=False, rep=100, njobs=1):
         """Invert the apparent conductivity measurements.
         
         Parameters
@@ -238,6 +238,11 @@ class Problem(object):
             centroids of layers differences.
         rep : int, optional
             Number of sample for the MCMC-based methods.
+        njobs : int, optional
+            If -1 all CPUs are used. If 1 is given, no parallel computing code
+            is used at all, which is useful for debugging. For n_jobs below -1,
+            (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all CPUs
+            but one are used.
         """
         # switch in case Gauss-Newton routine is selected
         if forwardModel in ['CSgn', 'CSgndiff']:
@@ -393,7 +398,7 @@ class Problem(object):
                     return val
         
         # check parallel
-        if parallel is True and beta != 0:
+        if njobs != 1 and beta != 0:
             dump('WARNING: No parallel is possible with lateral smoothing (beta > 0).\n')
             parallel = False
         
@@ -463,13 +468,15 @@ class Problem(object):
                 else: # constrain to the first inverted survey
                     spn = np.r_[self.depths[0][j,:][vd], self.models[0][j,:][vc]]
 
-                if parallel:
+                if njobs != 1:
                     params.append((obs, pn, spn))
                 else:
                     outs.append(solve(obs, pn, spn))  
             
-            if parallel:
-                outs = Parallel(n_jobs=-1, verbose=50)(delayed(solve)(*a) for a in params)
+            if njobs != 1:
+                outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
+                # backend multiprocessing inmpossible because local object
+                # can not be pickled (only global can)
                 
             for j, out in enumerate(outs):
                 # store results from optimization
