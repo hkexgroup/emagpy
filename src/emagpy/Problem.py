@@ -15,6 +15,7 @@ from matplotlib.collections import PolyCollection
 from scipy.optimize import minimize
 from scipy.stats import linregress
 from joblib import Parallel, delayed
+import tempfile
 
 from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
                                  buildJacobian, getQs, eca2Q, Q2eca2, Q2eca)
@@ -416,11 +417,11 @@ class Problem(object):
                 cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
                 spotpySetup = spotpy_setup(obs, fmodel, bounds, pn, spn)
                 if method == 'ROPE':
-                    sampler = spotpy.algorithms.rope(spotpySetup, dbname='db', dbformat='csv')
+                    sampler = spotpy.algorithms.rope(spotpySetup)
                 elif method == 'DREAM':
-                    sampler = spotpy.algorithms.dream(spotpySetup, dbname='db', dbformat='csv')
+                    sampler = spotpy.algorithms.dream(spotpySetup)
                 elif method == 'SCEUA':
-                    sampler = spotpy.algorithms.sceua(spotpySetup, dbname='db', dbformat='csv')
+                    sampler = spotpy.algorithms.sceua(spotpySetup)
                 else:
                     raise ValueError('Method {:s} unkown'.format(method))
                     return
@@ -445,7 +446,6 @@ class Problem(object):
             model = np.ones((apps.shape[0], len(self.conds0)))*self.conds0
             depth = np.ones((apps.shape[0], len(self.depths0)))*self.depths0
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
-            outs = [] # populated if sequential
             params = []
             for j in range(survey.df.shape[0]): # TODO this could be done in //
                 # if self.ikill:
@@ -468,15 +468,11 @@ class Problem(object):
                 else: # constrain to the first inverted survey
                     spn = np.r_[self.depths[0][j,:][vd], self.models[0][j,:][vc]]
 
-                if njobs != 1:
-                    params.append((obs, pn, spn))
-                else:
-                    outs.append(solve(obs, pn, spn))  
+                params.append((obs, pn, spn))
             
-            if njobs != 1:
-                outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
-                # backend multiprocessing inmpossible because local object
-                # can not be pickled (only global can)
+            outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
+            # backend multiprocessing inmpossible because local object
+            # can not be pickled (only global can)
                 
             for j, out in enumerate(outs):
                 # store results from optimization
