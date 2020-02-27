@@ -118,8 +118,8 @@ def convertFromCoord(df, targetProjection='EPSG:27700'):
     df['lat'] = gps2deg(df['Latitude'].values)
     df['lon'] = gps2deg(df['Longitude'].values)
     
-    wgs84 = pyproj.Proj("+init=EPSG:4326") # LatLon with WGS84 datum used by GPS units and Google Earth
-    osgb36 = pyproj.Proj("+init=" + targetProjection) # UK Ordnance Survey, 1936 datum
+    wgs84 = pyproj.Proj("EPSG:4326") # LatLon with WGS84 datum used by GPS units and Google Earth
+    osgb36 = pyproj.Proj(targetProjection) # UK Ordnance Survey, 1936 datum
     
     df['x'], df['y'] = pyproj.transform(wgs84, osgb36, 
                           df['lon'].values, df['lat'].values)
@@ -146,6 +146,7 @@ class Survey(object):
         self.hx = [] # height of the instrument above the ground [m]
         self.name = ''
         self.iselect = []
+        self.projection = None # store the project
         if fname is not None:
             self.readFile(fname)
             if freq is not None:

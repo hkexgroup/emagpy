@@ -806,8 +806,11 @@ class Problem(object):
         vmax : float, optional
             Maximum value for colormap.
         """
-        import rasterio
-        from rasterio.transform import from_origin
+        try:
+            import rasterio
+            from rasterio.transform import from_origin
+        except:
+            raise ImportError('Rasterio is needed to save georeferenced .tif file. Install it using \'pip install rasterio\'')
 
         values = self.models[index][:,islice]
         xknown = self.surveys[index].df['x'].values
@@ -862,7 +865,7 @@ class Problem(object):
                            driver='GTiff',
                            height=Z.shape[0],
                            width=Z.shape[1], count=4, dtype=Z.dtype,
-                           crs='+init=epsg:27700', transform=tt) as dst:
+                           crs='epsg:27700', transform=tt) as dst:
                 for i in range(4):
                     dst.write(Z[:,:,i], i+1)
         else:
@@ -870,7 +873,7 @@ class Problem(object):
                                driver='GTiff',
                                height=Z.shape[0],
                                width=Z.shape[1], count=1, dtype=Z.dtype,
-                               crs='+init=epsg:27700', transform=tt) as dst:
+                               crs='epsg:27700', transform=tt) as dst:
                 dst.write(Z, 1)
         
             
