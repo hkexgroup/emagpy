@@ -407,6 +407,8 @@ class Problem(object):
         # define optimization function
         x0 = np.r_[self.depths0[vd], self.conds0[vc]]
         def solve(obs, pn, spn):
+            if self.ikill is True:
+                raise ValueError('killed')
             if method in mMinimize: # minimize
                 res = minimize(objfunc, x0, args=(obs, pn, spn),
                                method=method, bounds=bounds, options=options)
@@ -491,9 +493,13 @@ class Problem(object):
                 params.append((obs, pn, spn))
             
             nrows = survey.df.shape[0]
-            outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
-            # backend multiprocessing inmpossible because local object
-            # can not be pickled (only global can) however default locky works
+            try: # if self.ikill is True, an error is raised inside solve that is catched here
+                self.parallel = Parallel(n_jobs=njobs, verbose=50)
+                outs = self.parallel(delayed(solve)(*a) for a in params)
+                # backend multiprocessing inmpossible because local object
+                # can not be pickled (only global can) however default locky works
+            except ValueError:
+                return
                 
             for j, out in enumerate(outs):
                 # store results from optimization
@@ -504,7 +510,7 @@ class Problem(object):
             self.models.append(model)
             self.depths.append(depth)
             self.rmses.append(rmse)
-            dump('{:d} measurements inverted ({:d} converged)\n'.format(apps.shape[0], c))
+            dump('{:d} measurements inverted\n'.format(apps.shape[0]))
                     
     # TODO add smoothing 3D: maybe invert all profiles once with GN and then
     # invert them again with a constrain on the 5 nearest profiles by distance
