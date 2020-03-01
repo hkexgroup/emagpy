@@ -15,6 +15,8 @@ from matplotlib.collections import PolyCollection
 from scipy.optimize import minimize
 from scipy.stats import linregress
 from joblib import Parallel, delayed
+from collections import defaultdict # for joblib monkey patching
+import joblib # for joblib monkey patching
 
 from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
                                  buildJacobian, getQs, eca2Q)
@@ -430,10 +432,29 @@ class Problem(object):
                 ibest = np.argmin(np.abs(results['like1']))
                 out = np.array(list(results[ibest][cols]))
                 # status = 'ok'
-                # c += 1
             return out
 
-           
+        # monkey patch joblib progress output (https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution)
+        # patch joblib progress callback
+        nrows = 0
+        class BatchCompletionCallBack(object):
+            completed = defaultdict(int)
+            global nrows
+            def __init__(self, time, index, parallel):
+                self.index = index
+                self.parallel = parallel
+            def __call__(self, index):
+                BatchCompletionCallBack.completed[self.parallel] += 1
+                if BatchCompletionCallBack.completed[self.parallel] == nrows:
+                    add = '\n'
+                else:
+                    add = ''
+                dump('{:d}/{:d} inverted'.format(BatchCompletionCallBack.completed[self.parallel], nrows) + add)
+                if self.parallel._original_iterator is not None:
+                    self.parallel.dispatch_next()    
+        joblib.parallel.BatchCompletionCallBack = BatchCompletionCallBack
+        
+        
         # inversion row by row
         c = 0 # number of inversion that converged
         for i, survey in enumerate(self.surveys):
@@ -469,9 +490,10 @@ class Problem(object):
 
                 params.append((obs, pn, spn))
             
+            nrows = survey.df.shape[0]
             outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
             # backend multiprocessing inmpossible because local object
-            # can not be pickled (only global can)
+            # can not be pickled (only global can) however default locky works
                 
             for j, out in enumerate(outs):
                 # store results from optimization
