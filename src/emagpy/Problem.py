@@ -15,10 +15,9 @@ from matplotlib.collections import PolyCollection
 from scipy.optimize import minimize
 from scipy.stats import linregress
 from joblib import Parallel, delayed
-import tempfile
 
 from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
-                                 buildJacobian, getQs, eca2Q, Q2eca2, Q2eca)
+                                 buildJacobian, getQs, eca2Q)
 from emagpy.Survey import Survey, idw, clipConvexHull, griddata
 
 class HiddenPrints:
@@ -401,7 +400,7 @@ class Problem(object):
         # check parallel
         if njobs != 1 and beta != 0:
             dump('WARNING: No parallel is possible with lateral smoothing (beta > 0).\n')
-            parallel = False
+            njobs = 1
         
         # define optimization function
         x0 = np.r_[self.depths0[vd], self.conds0[vc]]
@@ -447,7 +446,7 @@ class Problem(object):
             depth = np.ones((apps.shape[0], len(self.depths0)))*self.depths0
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
-            for j in range(survey.df.shape[0]): # TODO this could be done in //
+            for j in range(survey.df.shape[0]):
                 # if self.ikill:
                 #     break
                 
@@ -876,7 +875,27 @@ class Problem(object):
                                crs='epsg:27700', transform=tt) as dst:
                 dst.write(Z, 1)
         
-            
+    
+    def saveInvData(self, outputdir):
+        """Save inverted data as one .csv per file with columns for
+        layer conductivity (in mS/m) and columns for depth (in meters).
+        The filename will be the same as the survey name prefixed with 'inv_'.
+        
+        Parameters
+        ----------
+        outputdir : str
+            Path where the .csv files will be saved.
+        """
+        for i, survey in enumerate(self.surveys):
+            fname = os.path.join(outputdir, 'inv_' + survey.name + '.csv')
+            lcol = ['layer{:d}'.format(a+1) for a in range(len(self.conds0))]
+            dcol = ['depth{:d}'.format(a+1) for a in range(len(self.depths0))]
+            data = np.c_[survey.df[['x','y']].values, self.models[i], self.depths[i]]
+            df = pd.DataFrame(data, columns=[['x','y'] + lcol + dcol])
+            df.to_csv(fname, index=False)
+    
+    
+    
     def gridData(self, nx=100, ny=100, method='nearest'):
         """ Grid data (for 3D).
         
@@ -1570,8 +1589,8 @@ class Problem(object):
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
         fig.colorbar(cax, ax=ax, label='Depth [m]')
-        depths = np.r_[[0], self.depths0, [-np.inf]]
         ax.set_title('Depths[{:d}]'.format(idepth))
+
         
 #%%
 if __name__ == '__main__':
@@ -1601,7 +1620,6 @@ if __name__ == '__main__':
 #    k.showSlice(contour=False, cmap='jet', vmin=10, vmax=50)
     
     #%% test for inversion with FSandrade
-    import time
     cond = np.array([10, 20, 30, 30])
 #    app = fMaxwellQ(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])
 #    app = fMaxwellECa(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])

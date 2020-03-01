@@ -11,16 +11,12 @@ from datetime import time, datetime
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import linregress, binned_statistic
-from scipy.spatial.distance import cdist, pdist
+from scipy.stats import linregress
+from scipy.spatial.distance import cdist
 from scipy.interpolate import griddata, NearestNDInterpolator
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
-from emagpy.invertHelper import emSens, Q2eca
-#if __name__ == '__main__':
-#    import isinpolygon as iip
-#else:
-#    import emagpy.isinpolygon as iip
+from emagpy.invertHelper import Q2eca
 
 
 def clipConvexHull(xdata,ydata,x,y,z):
@@ -390,6 +386,7 @@ class Survey(object):
             Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
             for the British Grid.
         """
+        self.projection = targetProjection
         self.df = convertFromCoord(self.df, targetProjection)
 
 
@@ -502,8 +499,11 @@ class Survey(object):
         nlevel : int, optional
             Number of level in the colormap. Default 7.
         """
-        import rasterio
-        from rasterio.transform import from_origin
+        try:
+            import rasterio
+            from rasterio.transform import from_origin
+        except:
+            raise ImportError('rasterio is needed to save georeferenced .tif file. Install it with "pip install rasterio"')
         
         if coil is None:
             coil = self.coils[0]
@@ -566,7 +566,7 @@ class Survey(object):
                            driver='GTiff',
                            height=Z.shape[0],
                            width=Z.shape[1], count=4, dtype=Z.dtype,
-                           crs='+init=epsg:27700', transform=tt) as dst:
+                           crs=self.projection, transform=tt) as dst:
                 for i in range(4):
                     dst.write(Z[:,:,i], i+1)
         else:
@@ -574,105 +574,9 @@ class Survey(object):
                                driver='GTiff',
                                height=Z.shape[0],
                                width=Z.shape[1], count=1, dtype=Z.dtype,
-                               crs='+init=epsg:27700', transform=tt) as dst:
+                               crs=self.projection, transform=tt) as dst:
                 dst.write(Z, 1)
-                
-
-    def pointsKiller(self):
-        """Interactively kill points. Then save df after that.
-        """
-        pass
-        
-        geom = True
-        resist = self.df['resist'].values
-        clabel = 'Apparent Resistivity [$\Omega.m$]'
-        if label == '':
-            label = clabel
-        inan = np.isnan(resist)
-        resist = resist.copy()[~inan]
-        array = array.copy()[~inan]
-        self.iselect = np.zeros(len(inan), dtype=bool)
-        
-        def setSelect(ie, boolVal):
-            ipoints[ie] = boolVal
-            self.iselect[~inan] = ipoints
-        spacing = np.mean(np.diff(self.elec[:,0]))
-        nelec = np.max(array)
-        elecpos = np.arange(0, spacing*nelec, spacing)
-        
-        self.eselect = np.zeros(len(elecpos), dtype=bool)
-        
-        if geom: # compute and applied geometric factor
-            apos = elecpos[array[:,0]-1]
-            bpos = elecpos[array[:,1]-1]
-            mpos = elecpos[array[:,2]-1]
-            npos = elecpos[array[:,3]-1]
-            AM = np.abs(apos-mpos)
-            BM = np.abs(bpos-mpos)
-            AN = np.abs(apos-npos)
-            BN = np.abs(bpos-npos)
-            K = 2*np.pi/((1/AM)-(1/BM)-(1/AN)+(1/BN)) # geometric factor
-            resist = resist*K
-            
-        if log:
-            resist = np.sign(resist)*np.log10(np.abs(resist))
-        
-        array = np.sort(array, axis=1) # need to sort the array to make good wenner pseudo section
-        cmiddle = np.min([elecpos[array[:,0]-1], elecpos[array[:,1]-1]], axis=0) \
-            + np.abs(elecpos[array[:,0]-1]-elecpos[array[:,1]-1])/2
-        pmiddle = np.min([elecpos[array[:,2]-1], elecpos[array[:,3]-1]], axis=0) \
-            + np.abs(elecpos[array[:,2]-1]-elecpos[array[:,3]-1])/2
-        xpos = np.min([cmiddle, pmiddle], axis=0) + np.abs(cmiddle-pmiddle)/2
-        ypos = - np.sqrt(2)/2*np.abs(cmiddle-pmiddle)
-        
-        
-        def onpick(event):
-            if lines[event.artist] == 'data':
-                xid, yid = xpos[event.ind[0]], ypos[event.ind[0]]
-                isame = (xpos == xid) & (ypos == yid)
-                if (ipoints[isame] == True).all():
-                    setSelect(isame, False)
-                else:
-                    setSelect(isame, True)
-            
-            if lines[event.artist] == 'elec':
-                ie = (array == (event.ind[0]+1)).any(-1)
-                if all(ipoints[ie] == True):
-                    setSelect(ie, False)
-                else:
-                    setSelect(ie, True)
-                if self.eselect[event.ind[0]] == True:
-                    self.eselect[event.ind[0]] = False
-                else:
-                    self.eselect[event.ind[0]] = True
-                elecKilled.set_xdata(elecpos[self.eselect])
-                elecKilled.set_ydata(np.zeros(len(elecpos))[self.eselect])
-            killed.set_xdata(x[ipoints])
-            killed.set_ydata(y[ipoints])
-            killed.figure.canvas.draw()                
-                
-        if ax is None:
-            fig, ax = plt.subplots()
-        else:
-            fig = ax.figure
-        caxElec, = ax.plot(elecpos, np.zeros(len(elecpos)), 'ko', picker=5)
-        cax = ax.scatter(xpos, ypos, c=resist, marker='o', picker=5, vmin=vmin,
-                         vmax=vmax)
-        cbar = fig.colorbar(cax, ax=ax)
-        cbar.set_label(label)
-        cax.figure.canvas.mpl_connect('pick_event', onpick)
-        
-        killed, = cax.axes.plot([],[],'rx')
-        elecKilled, = cax.axes.plot([],[],'rx')
-        x = cax.get_offsets()[:,0]
-        y = cax.get_offsets()[:,1]
-        
-        ipoints = np.zeros(len(y),dtype=bool)
-
-        lines = {cax:'data',caxElec:'elec',killed:'killed'}
-          
-    
-    
+                        
     
     
     def gridData(self, nx=100, ny=100, method='nearest', xmin=None, xmax=None,
