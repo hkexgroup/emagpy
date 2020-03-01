@@ -73,7 +73,7 @@ class Problem(object):
             print('Removing {:d} NaN from survey'.format(np.sum(inan)))
             survey.df = survey.df[~inan]
             
-        # set attribut according to the first survey
+        # set attribute according to the first survey
         if len(self.surveys) == 0:
             self.coils = survey.coils
             self.freqs = survey.freqs
@@ -408,7 +408,7 @@ class Problem(object):
         x0 = np.r_[self.depths0[vd], self.conds0[vc]]
         def solve(obs, pn, spn):
             if self.ikill is True:
-                raise ValueError('killed')
+                raise ValueError('killed') # https://github.com/joblib/joblib/issues/356
             if method in mMinimize: # minimize
                 res = minimize(objfunc, x0, args=(obs, pn, spn),
                                method=method, bounds=bounds, options=options)
@@ -458,7 +458,6 @@ class Problem(object):
         
         
         # inversion row by row
-        c = 0 # number of inversion that converged
         for i, survey in enumerate(self.surveys):
             if self.ikill:
                 break
@@ -493,8 +492,7 @@ class Problem(object):
             
             nrows = survey.df.shape[0]
             try: # if self.ikill is True, an error is raised inside solve that is catched here
-                self.parallel = Parallel(n_jobs=njobs, verbose=50)
-                outs = self.parallel(delayed(solve)(*a) for a in params)
+                outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
                 # backend multiprocessing inmpossible because local object
                 # can not be pickled (only global can) however default locky works
             except ValueError:
@@ -509,7 +507,7 @@ class Problem(object):
             self.models.append(model)
             self.depths.append(depth)
             self.rmses.append(rmse)
-            dump('{:d} measurements inverted\n'.format(apps.shape[0]))
+            # dump('{:d} measurements inverted\n'.format(apps.shape[0]))
                     
     # TODO add smoothing 3D: maybe invert all profiles once with GN and then
     # invert them again with a constrain on the 5 nearest profiles by distance
@@ -1201,6 +1199,8 @@ class Problem(object):
                 raise ValueError('Number of position in layers and depths array should match.')
         self.depths = depths
         self.models = models
+        self.setInit(depths0=np.nanmean(self.depths[0], axis=0),
+                     conds0=np.mean(self.models[0], axis=0))
 
     
     def computeApparentChange(self, ref=0):
@@ -1618,93 +1618,3 @@ class Problem(object):
         fig.colorbar(cax, ax=ax, label='Depth [m]')
         ax.set_title('Depths[{:d}]'.format(idepth))
 
-        
-#%%
-if __name__ == '__main__':
-    # cover crop example
-    k = Problem()
-    k.depths0 = np.array([0.2, 1]) # not starting at 0 !
-    k.conds0 = np.ones(len(k.depths0)+1)*20
-    k.createSurvey('test/coverCrop.csv', freq=30000)
-#    k.convertFromNMEA()
-#    k.createSurvey('test/warren170316.csv', freq=30000)
-    k.surveys[0].df = k.surveys[0].df[:10]
-#    k.show()
-#    k.lcurve()
-#    k.invertGN(alpha=0.07)
-    k.invert(method='CG')
-#    k.invert(forwardModel='CS', alpha=0.07, method='L-BFGS-B', options={'maxiter':100}, beta=0, fixedDepths=False) # this doesn't work well
-#    k.invertGN() # similar as CG with nit=2
-#    k.invertQ()
-#    k.showMisfit()
-#    k.showResults(vmin=30, vmax=50)
-    k.showOne2one()
-#    k.showMisfit()
-#    k.models[0] = np.ones(k.models[0].shape)*20
-#    k.forward(forwardModel='FSeq')
-#    k.calibrate('test/dfeca.csv', 'test/dfec.csv', forwardModel='FSlin') # TODO
-    
-#    k.showSlice(contour=False, cmap='jet', vmin=10, vmax=50)
-    
-    #%% test for inversion with FSeq
-    cond = np.array([10, 20, 30, 30])
-#    app = fMaxwellQ(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])
-#    app = fMaxwellECa(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])
-    app = k.surveys[0].df[k.coils].values[0,:]
-    L = buildSecondDiff(len(cond))
-    def objfunc(p, app):
-        return np.sqrt((np.sum((app - fMaxwellECa(p, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0]))**2)
-                              + 0.07*np.sum(np.dot(L, p[:,None])**2))/len(app))
-    t0 = time.time()
-    res = minimize(objfunc, k.conds0, args=(app,), method='Nelder-Mead', options={'maxiter':10})
-    print(res)
-    print('{:.3f}s'.format(time.time() - t0))
-    
-    #%%
-    solvers = ['Nelder-Mead', 'Powell', 'CG', 'BFGS',
-               'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP']
-    tt = []
-    for solver in solvers:
-        print(solver)
-        t0 = time.time()
-        res = minimize(objfunc, k.conds0, args=(app,), method=solver)
-        tt.append([time.time() - t0, res.nfev, res.fun])
-    
-    tt = np.vstack(tt)
-    xx = np.arange(len(solvers))
-    fig, ax = plt.subplots()
-    ax.plot(xx, tt)
-    ax.set_xticks(xx)
-    ax.set_xticklabels(solvers, rotation=90)
-    fig.tight_layout()
-    fig.show()
-    
-#%%   see if we can speed-up minimize by decreasing iteration number
-    nits = [0, 1, 2, 3, 10, 20, 50, 100, 1000]
-    for nit in nits:
-        t0 = time.time()
-        res = minimize(objfunc, k.conds0, args=(app,), method='Nelder-Mead',
-                       options={'maxiter':nit})
-        elapsed = time.time() - t0
-        print(res.x)
-        rmseEC = np.sqrt(np.sum((res.x - cond)**2)/len(cond))
-        rmseECa = np.sqrt(np.sum((fMaxwellECa(res.x, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0]) - app)**2)/len(app))
-        print('nit={:d} in {:.3f}s with RMSE={:.2f}'.format(nit, elapsed, rmseECa))
-    
-    
-    # mapping example (potatoes)
-#    k = Problem()
-#    k.createSurvey('test/regolith.csv')
-#    k.convertFromNMEA()
-#    k.showMap(contour=True, pts=True)
-#    k.show()
-#    k.gridData(method='cubic')
-#    k.surveys[0].df = k.surveys[0].dfg
-#    k.showMap(coil = k.coils[1])
-#    
-
-#%% GF direct import
-#    k = Problem()
-#    k.importGF('emagpy/test/coverCropLo.dat', 'emagpy/test/coverCropHi.dat')
-#    k.invertGN()
-#    k.showSlice(contour=True)
