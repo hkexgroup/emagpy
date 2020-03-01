@@ -5,8 +5,9 @@ test:
   - pip install -r requirements.txt
   - pip install rasterio
   - cd src
-  - python test.py
-
+  - coverage run --source=emagpy test.py
+  - coverage report --omit emagpy/invertHelper.py
+  
 pages:
   script:
   - pip install -r requirements.txt
