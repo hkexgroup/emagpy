@@ -63,7 +63,7 @@ k.surveys[0].df = k.surveys[0].df[:5] # only keep 10 first measurements to make 
 
 titles = []
 for m in ['L-BFGS-B', 'ROPE']:
-    for fm in ['CS','FS','FSandrade']:
+    for fm in ['CS','FSlin','FSeq']:
         t0 = time.time()
         fig, axs = plt.subplots(1, 3, figsize=(10,3))
         k.invert(forwardModel=fm, method=m)

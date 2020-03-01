@@ -212,8 +212,8 @@ class Problem(object):
         forwardModel : str, optional
             Type of forward model:
                 - CS : Cumulative sensitivity (default)
-                - FS : Full Maxwell solution with low-induction number (LIN) approximation
-                - FSandrade : Full Maxwell solution without LIN approximation (see Andrade 2016)
+                - FSlin : Full Maxwell solution with low-induction number (LIN) approximation
+                - FSeq : Full Maxwell solution without LIN approximation (see Andrade et al., 2016)
                 - CSgn : Cumulative sensitivity with jacobian matrix (using Gauss-Newton)
                 - CSgndiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
         method : str, optional
@@ -236,7 +236,7 @@ class Problem(object):
         options : dict, optional
             Additional dictionary arguments will be passed to `scipy.optimize.minimize()`.
         Lscaling : bool, optional
-            If True the regularization matrix will be weighted based on 
+            **Experimental feature** If True the regularization matrix will be weighted based on 
             centroids of layers differences.
         rep : int, optional
             Number of sample for the MCMC-based methods.
@@ -302,9 +302,9 @@ class Problem(object):
                 cond[vc] = p[np.sum(vd):]
             if forwardModel == 'CS':
                 return fCS(cond, depth, self.cspacing, self.cpos, hx=self.hx[0])
-            elif forwardModel == 'FS':
+            elif forwardModel == 'FSlin':
                 return fMaxwellECa(cond, depth, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
-            elif forwardModel == 'FSandrade':
+            elif forwardModel == 'FSeq':
                 return fMaxwellQ(cond, depth, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0])
             elif forwardModel == 'Q':
                 return np.imag(getQs(cond, depth, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0]))
@@ -462,7 +462,6 @@ class Problem(object):
         for i, survey in enumerate(self.surveys):
             if self.ikill:
                 break
-            c = 0
             apps = survey.df[self.coils].values
             rmse = np.zeros(apps.shape[0])*np.nan
             model = np.ones((apps.shape[0], len(self.conds0)))*self.conds0
@@ -656,7 +655,7 @@ class Problem(object):
             Type of forward model:
                 - CS : Cumulative sensitivity (default)
                 - FS : Full Maxwell solution with low-induction number (LIN) approximation
-                - FSandrade : Full Maxwell solution without LIN approximation (see Andrade 2016)
+                - FSeq : Full Maxwell solution without LIN approximation (see Andrade 2016)
                 - CSfast : Cumulative sensitivity with jacobian matrix (not minimize) - NOT IMPLEMENTED YET
                 - CSdiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
         coils : list of str, optional
@@ -710,15 +709,15 @@ class Problem(object):
             self.freqs = freqs
             
         
-        if forwardModel in ['CS','FS','FSandrade']:
+        if forwardModel in ['CS','FSlin','FSeq']:
             # define the forward model
             if forwardModel == 'CS':
                 def fmodel(p, depth):
                     return fCS(p, depth, cspacing, cpos, hx=hxs[0])
-            elif forwardModel == 'FS':
+            elif forwardModel == 'FSlin':
                 def fmodel(p, depth):
                     return fMaxwellECa(p, depth, cspacing, cpos, f=freqs[0], hx=hxs[0])
-            elif forwardModel == 'FSandrade':
+            elif forwardModel == 'FSeq':
                 def fmodel(p, depth):
                     return fMaxwellQ(p, depth, cspacing, cpos, f=freqs[0], hx=hxs[0])
         
@@ -1420,7 +1419,7 @@ class Problem(object):
             corresponding to the rows of fnameECa. The header should be the
             corresponding depths in meters positive downards.
         forwardModel : str, optional
-            Forward model to use. Either CS (default), FS or FSandrade.
+            Forward model to use. Either CS (default), FS or FSeq.
         ax : matplotlib.Axes
             If specified the graph will be plotted against this axis.
         """
@@ -1442,10 +1441,10 @@ class Problem(object):
         if forwardModel == 'CS':
             def fmodel(p):
                 return fCS(p, depths, survey.cspacing, survey.cpos, hx=survey.hx[0])
-        elif forwardModel == 'FS':
+        elif forwardModel == 'FSlin':
             def fmodel(p):
                 return fMaxwellECa(p, depths, survey.cspacing, survey.cpos, f=survey.freqs[0], hx=survey.hx[0])
-        elif forwardModel == 'FSandrade':
+        elif forwardModel == 'FSeq':
             def fmodel(p):
                 return fMaxwellQ(p, depths, survey.cspacing, survey.cpos, f=survey.freqs[0], hx=survey.hx[0])
     
@@ -1642,12 +1641,12 @@ if __name__ == '__main__':
     k.showOne2one()
 #    k.showMisfit()
 #    k.models[0] = np.ones(k.models[0].shape)*20
-#    k.forward(forwardModel='FSandrade')
-#    k.calibrate('test/dfeca.csv', 'test/dfec.csv', forwardModel='FS') # TODO
+#    k.forward(forwardModel='FSeq')
+#    k.calibrate('test/dfeca.csv', 'test/dfec.csv', forwardModel='FSlin') # TODO
     
 #    k.showSlice(contour=False, cmap='jet', vmin=10, vmax=50)
     
-    #%% test for inversion with FSandrade
+    #%% test for inversion with FSeq
     cond = np.array([10, 20, 30, 30])
 #    app = fMaxwellQ(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])
 #    app = fMaxwellECa(cond, k.depths0, k.cspacing, k.cpos, hx=k.hx[0], f=k.freqs[0])
