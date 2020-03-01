@@ -1161,7 +1161,8 @@ class Problem(object):
 
         ax.set_xlabel('Samples')
         ax.set_ylabel('Depth [m]')
-        ax.set_title(self.surveys[index].name)
+        if len(self.surveys) > 0:
+            ax.set_title(self.surveys[index].name)
         ax.set_ylim([-maxDepth, 0])
         ax.set_xlim([x[0], x[-1]+1])
 #        ax.set_aspect('equal')

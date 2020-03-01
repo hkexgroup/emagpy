@@ -26,6 +26,7 @@ print('''
 from emagpy import Problem
 from emagpy import EMagPy_version
 import numpy as np
+import pandas as pd
 
 from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButton, QWidget,
     QTabWidget, QVBoxLayout, QLabel, QLineEdit, QMessageBox,
@@ -225,6 +226,215 @@ class App(QMainWindow):
         self.problem = Problem()
         
         
+        
+        #%% tab 0 forward modelling
+        forwardTab = QTabWidget()
+        self.tabs.addTab(forwardTab, 'Forward')
+        
+        def fimportBtnFunc():
+            self._dialog = QFileDialog()
+            fname, _ = self._dialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
+            if fname != '':
+                try:
+                    df = pd.read_csv(fname)
+                    ccols = [c for c in df.columns if c[:5] == 'layer']
+                    dcols = [c for c in df.columns if c[:5] == 'depth']
+                    if len(ccols) != len(dcols) + 1:
+                        self.errorDump('Number of depths should be number of layer - 1')
+                    conds = df[ccols].values
+                    depths = df[dcols].values
+                    self.problem.setModels([depths], [conds])
+                    self.mwf.replot()
+                except Exception as e:
+                    print(e)
+                    self.errorDump('Error in reading file. Please check format.')
+        self.fimportBtn = QPushButton('Import model')
+        self.fimportBtn.clicked.connect(fimportBtnFunc)
+        self.fimportBtn.setToolTip('File needs to be .csv with layer1, layer2, depth1, ... columns.\n'
+                                   'layerX contains EC in mS/m and depthX contains depth of the bottom\n'
+                                   'of the layer in meters (positively defined)')
+        
+        # toolset for generating model
+        finstructions = QLabel('Create a synthetic model or import one.')
+        fnlayerLabel = QLabel('Number of layers:')
+        def updateTable():
+            try:
+                n = int(self.fnlayer.text())
+                if n > 0:
+                    self.paramTable.setLayer(n)
+            except:
+                pass
+        self.fnlayer = QLineEdit('2')
+        self.fnlayer.setValidator(QIntValidator())
+        self.fnlayer.textChanged.connect(updateTable)
+
+        fnsampleLabel = QLabel('Number of samples:')
+        self.fnsample = QLineEdit('10')
+        self.fnsample.setValidator(QIntValidator())
+        
+        class ParamTable(QTableWidget):
+            def __init__(self, nlayer=2, headers=['Parameter', 'Start', 'End']):
+                ncol = len(headers)
+                nrow = nlayer + nlayer - 1
+                super(ParamTable, self).__init__(nrow, ncol)
+                self.nlayer = nlayer
+                self.nrow = nrow
+                self.ncol = ncol
+                self.headers = headers
+                self.setHorizontalHeaderLabels(self.headers)
+                self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                self.setLayer(nlayer)
+                
+            def setLayer(self, nlayer):
+                self.nlayer = nlayer
+                self.nrow = nlayer + nlayer - 1
+                self.clear()
+                self.setRowCount(self.nrow)
+                for i in range(nlayer):
+                    val = (i+1)*5
+                    self.setItem(i, 0, QTableWidgetItem('layer{:d}'.format(i+1)))
+                    self.item(i, 0).setFlags(Qt.ItemIsEnabled)
+                    self.setItem(i, 1, QTableWidgetItem('{:.1f}'.format(val)))
+                    self.setItem(i, 2, QTableWidgetItem('{:.1f}'.format(val*2)))
+                for i in range(nlayer-1):
+                    depth = (i+1)*0.5
+                    self.setItem(nlayer+i, 0, QTableWidgetItem('depth{:d}'.format(i+1)))
+                    self.item(nlayer+i, 0).setFlags(Qt.ItemIsEnabled)
+                    self.setItem(nlayer+i, 1, QTableWidgetItem('{:.1f}'.format(depth)))
+                    self.setItem(nlayer+i, 2, QTableWidgetItem('{:.1f}'.format(depth)))
+                
+            def getTable(self, nsample):
+                conds = []
+                depths = []
+                for i in range(self.nlayer):
+                    start = float(self.item(i,1).text())
+                    end = float(self.item(i,2).text())
+                    conds.append(np.linspace(start, end, nsample))
+                for i in range(self.nlayer-1):
+                    start = float(self.item(i+self.nlayer,1).text())
+                    end = float(self.item(i+self.nlayer,2).text())
+                    depth = np.linspace(start, end, nsample)
+                    if i > 0:
+                        if (depth > depths[i-1]).all():
+                            depths.append(depth)
+                        else:
+                            self.errorDump('Error in depths specification.')
+                    else:
+                        depths.append(depth)
+                        
+                return np.vstack(depths).T, np.vstack(conds).T
+                
+        self.paramTable = ParamTable()
+        
+        def generateModel():
+            depths, conds = self.paramTable.getTable(int(self.fnsample.text()))
+            self.problem.setModels([depths], [conds])
+            self.mwf.replot()
+            
+        self.fgenerateBtn = QPushButton('Generate Model')
+        self.fgenerateBtn.clicked.connect(generateModel)
+        
+        
+        coilLabel = QLabel('Specify coil orientation (HCP or VCP), coil separation [m],'
+                           ' frequency [Hz] (only used in FS solutions) and height above'
+                           ' the ground hx [m]:')
+        coilLabel.setWordWrap(True)
+        
+        # coil selection table
+        class CoilTable(QTableWidget):
+            def __init__(self, nrow=10, headers=['HCP/VCP','coil sep','freq','hx']):
+                ncol = len(headers)
+                super(CoilTable, self).__init__(nrow, ncol)
+                self.nrow = nrow
+                self.ncol = ncol
+                self.headers = headers
+                self.setHorizontalHeaderLabels(self.headers)
+                self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                self.setTable(nrow)
+                
+            def setTable(self, nrow):
+                self.clear()
+                self.nrow = nrow
+                self.setRowCount(self.nrow)
+                a = ['HCP','HCP','HCP','VCP','VCP','VCP']
+                b = ['0.32','0.71','1.18','0.32','0.71','1.18']
+                for i in range(6):
+                    self.setItem(i, 0, QTableWidgetItem(a[i]))
+                    self.setItem(i, 1, QTableWidgetItem(b[i]))
+                    self.setItem(i, 2, QTableWidgetItem('30000'))
+                    self.setItem(i, 3, QTableWidgetItem('0'))
+                
+            def getTable(self):
+                coils = []
+                for i in range(self.nrow):
+                    if self.item(i,0) is not None:
+                        a = self.item(i,0).text()
+                        b = self.item(i,1).text()
+                        c = self.item(i,2).text()
+                        d = self.item(i,3).text()
+                        if a != '':
+                            coils.append(a + b + 'f' + c + 'h' + d)
+                return coils
+        
+        self.coilTable = CoilTable()
+        
+        # forward modelling options
+        fforwardLabel = QLabel('Forward model:')
+        fforwardModels = ['CS', 'FSlin', 'FSeq']
+        self.fforwardCombo = QComboBox()
+        for c in fforwardModels:
+            self.fforwardCombo.addItem(c)
+        fnoiseLabel = QLabel('Noise [%]:')
+        self.fnoise = QLineEdit('0')
+        self.fnoise.setValidator(QDoubleValidator())
+        def fforwardBtnFunc():
+            coils = self.coilTable.getTable()
+            forwardModel = fforwardModels[self.fforwardCombo.currentIndex()]
+            noise = float(self.fnoise.text())/100
+            self.problem.forward(forwardModel, coils=coils, noise=noise)
+            self.setupUI()
+            self.tabs.setCurrentIndex(1)
+        self.fforwardBtn = QPushButton('Compute Forward response')
+        self.fforwardBtn.clicked.connect(fforwardBtnFunc)
+        self.fforwardBtn.setAutoDefault(True)
+        self.fforwardBtn.setStyleSheet('background-color:orange')
+        
+        
+        # matplotlib widget
+        self.mwf = MatplotlibWidget()
+        self.mwf.setCallback(self.problem.showResults)
+        
+        
+        # layout
+        forwardLayout = QHBoxLayout()
+        leftLayout = QVBoxLayout()
+        leftLayout.addWidget(finstructions)
+        leftLayout.addWidget(self.fimportBtn)
+        fformLayout = QFormLayout()
+        fformLayout.addRow(fnlayerLabel, self.fnlayer)
+        fformLayout.addRow(fnsampleLabel, self.fnsample)
+        leftLayout.addLayout(fformLayout)
+        leftLayout.addWidget(self.paramTable)
+        leftLayout.addWidget(self.fgenerateBtn)
+        leftLayout.addWidget(coilLabel)
+        leftLayout.addWidget(self.coilTable)
+        
+        rightLayout = QVBoxLayout()
+        foptsLayout = QHBoxLayout()
+        foptsLayout.addWidget(fforwardLabel)
+        foptsLayout.addWidget(self.fforwardCombo)
+        foptsLayout.addWidget(fnoiseLabel)
+        foptsLayout.addWidget(self.fnoise)
+        foptsLayout.addWidget(self.fforwardBtn)
+        rightLayout.addLayout(foptsLayout)
+        rightLayout.addWidget(self.mwf)
+        
+        forwardLayout.addLayout(leftLayout, 45)
+        forwardLayout.addLayout(rightLayout, 55)
+        
+        forwardTab.setLayout(forwardLayout)
+        
+        
         #%% tab 1 importing data
         ''' STRUCTURE OF A TAB
         - first create the tab widget and it's layout
@@ -234,7 +444,7 @@ class App(QMainWindow):
 
         importTab = QTabWidget()
         self.tabs.addTab(importTab, 'Importing')
-        
+        self.tabs.setCurrentIndex(1) # by default show import tab
 
         # select type of sensors
         def sensorComboFunc(index):
@@ -619,7 +829,7 @@ class App(QMainWindow):
         
         # choose which forward model to use
         self.forwardCalibCombo = QComboBox()
-        forwardCalibs = ['CS', 'FS', 'FSandrade']
+        forwardCalibs = ['CS', 'FSlin', 'FSeq']
         for forwardCalib in forwardCalibs:
             self.forwardCalibCombo.addItem(forwardCalib)
         
@@ -909,7 +1119,7 @@ class App(QMainWindow):
         
         
         self.forwardCombo = QComboBox()
-        forwardModels = ['CS', 'CS (fast)', 'FS', 'FSandrade', 'Q']
+        forwardModels = ['CS', 'CS (fast)', 'FSlin', 'FSeq', 'Q']
         for forwardModel in forwardModels:
             self.forwardCombo.addItem(forwardModel)
         self.forwardCombo.setToolTip('''Choice of forward model:
@@ -959,11 +1169,12 @@ class App(QMainWindow):
         self.nitEdit.setToolTip('Maximum Number of Iterations')
         self.nitEdit.setValidator(QIntValidator())
         
+        self.parallelCheck = QCheckBox('Parallel')
+        self.parallelCheck.setToolTip('If checked, inversion will be run in parallel.')
+        self.parallelCheck.setEnabled(False)
+        
         opts = [self.alphaLabel, self.alphaEdit, self.betaLabel, self.betaEdit,
-                self.lCombo, self.nitLabel, self.nitEdit]
-        # self.fixedLabel = QLabel('Fixed depth:')
-        # self.fixedCheck = QCheckBox()
-        # self.fixedCheck.setChecked(True)
+                self.lCombo, self.nitLabel, self.nitEdit, self.parallelCheck]
         
         def logTextFunc(arg):
             self.logText.setText(arg)
@@ -995,6 +1206,7 @@ class App(QMainWindow):
             # fixedDepths = self.fixedCheck.isChecked()
             depths = np.r_[[0], depths0, [-np.inf]]
             nit = int(self.nitEdit.text()) if self.nitEdit.text() != '' else 15
+            njobs = -1 if self.parallelCheck.isChecked() else 1
             self.sliceCombo.clear()
             for i in range(len(depths)-1):
                 self.sliceCombo.addItem('{:.2f}m - {:.2f}m'.format(depths[i], depths[i+1]))
@@ -1007,7 +1219,7 @@ class App(QMainWindow):
                 self.problem.invert(forwardModel=forwardModel, alpha=alpha,
                                     dump=logTextFunc, regularization=regularization,
                                     method=method, options={'maxiter':nit},
-                                    beta=beta)
+                                    beta=beta, njobs=njobs)
         
             # plot results
             if self.problem.ikill == False: # program wasn't killed
@@ -1147,11 +1359,10 @@ class App(QMainWindow):
         invOptions.addWidget(self.alphaEdit)
         invOptions.addWidget(self.betaLabel)
         invOptions.addWidget(self.betaEdit)
-        # invOptions.addWidget(self.fixedLabel)
-        # invOptions.addWidget(self.fixedCheck)
         invOptions.addWidget(self.lCombo)
         invOptions.addWidget(self.nitLabel)
         invOptions.addWidget(self.nitEdit)
+        invOptions.addWidget(self.parallelCheck)
         invOptions.addWidget(self.invertBtn, 25)
         invLayout.addLayout(invOptions)
         
