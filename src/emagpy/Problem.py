@@ -432,7 +432,7 @@ class Problem(object):
                     sampler.sample(rep) # this output a lot of stuff
                 results = np.array(sampler.getdata())
                 ibest = np.argmin(np.abs(results['like1']))
-                out = np.array(list(results[ibest][cols]))
+                out = np.array([results[col][ibest] for col in cols])
                 # status = 'ok'
             return out
 
