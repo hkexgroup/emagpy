@@ -467,9 +467,11 @@ class Problem(object):
             depth = np.ones((apps.shape[0], len(self.depths0)))*self.depths0
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
-            for j in range(survey.df.shape[0]):
-                # if self.ikill:
-                #     break
+            outs = []
+            nrows = survey.df.shape[0]
+            for j in range(nrows):
+                if self.ikill:
+                    break
                 
                 # define observations and convert to Q if needed
                 obs = apps[j,:]
@@ -489,14 +491,18 @@ class Problem(object):
                     spn = np.r_[self.depths[0][j,:][vd], self.models[0][j,:][vc]]
 
                 params.append((obs, pn, spn))
-            
-            nrows = survey.df.shape[0]
-            try: # if self.ikill is True, an error is raised inside solve that is catched here
-                outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
-                # backend multiprocessing inmpossible because local object
-                # can not be pickled (only global can) however default locky works
-            except ValueError:
-                return
+                
+                if njobs == 1: # sequential inversion
+                    outs.append(solve(obs, pn, spn))
+                    dump('{:d}/{:d} inverted'.format(j+1, nrows))
+
+            if njobs != 1:
+                try: # if self.ikill is True, an error is raised inside solve that is catched here
+                    outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
+                    # backend multiprocessing inmpossible because local object
+                    # can not be pickled (only global can) however default locky works
+                except ValueError:
+                    return
                 
             for j, out in enumerate(outs):
                 # store results from optimization
