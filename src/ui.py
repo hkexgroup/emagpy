@@ -1171,7 +1171,7 @@ class App(QMainWindow):
         
         self.parallelCheck = QCheckBox('Parallel')
         self.parallelCheck.setToolTip('If checked, inversion will be run in parallel.')
-        self.parallelCheck.setEnabled(False)
+        # self.parallelCheck.setEnabled(False) # TODO
         
         opts = [self.alphaLabel, self.alphaEdit, self.betaLabel, self.betaEdit,
                 self.lCombo, self.nitLabel, self.nitEdit, self.parallelCheck]
