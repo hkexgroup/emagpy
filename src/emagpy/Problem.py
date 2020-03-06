@@ -16,6 +16,9 @@ from scipy.optimize import minimize
 from scipy.stats import linregress
 from joblib import Parallel, delayed
 import dask
+from dask.callbacks import Callback
+from dask.threaded import get
+
 from collections import defaultdict # for joblib monkey patching
 import joblib # for joblib monkey patching
 
@@ -49,7 +52,7 @@ class Problem(object):
         self.freqs = []
         self.depths = [] # contains inverted depths or just depths0 if fixed
         self.ikill = False # if True, the inversion is killed
-        
+        self.c = 0 # counter
         
     def createSurvey(self, fname, freq=None, hx=None):
         """Create a survey object.
@@ -408,6 +411,8 @@ class Problem(object):
         # define optimization function
         x0 = np.r_[self.depths0[vd], self.conds0[vc]]
         def solve(obs, pn, spn):
+            global nrows
+            global c
             if self.ikill is True:
                 raise ValueError('killed') # https://github.com/joblib/joblib/issues/356
             if method in mMinimize: # minimize
@@ -437,31 +442,11 @@ class Problem(object):
                 # status = 'ok'
             return out
 
-        # monkey patch joblib progress output (https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution)
-        # patch joblib progress callback
-        nrows = 0
-        class BatchCompletionCallBack(object):
-            completed = defaultdict(int)
-            global nrows
-            def __init__(self, time, index, parallel):
-                self.index = index
-                self.parallel = parallel
-            def __call__(self, index):
-                BatchCompletionCallBack.completed[self.parallel] += 1
-                if BatchCompletionCallBack.completed[self.parallel] == nrows:
-                    add = '\n'
-                else:
-                    add = ''
-                dump('\r{:d}/{:d} inverted'.format(BatchCompletionCallBack.completed[self.parallel], nrows) + add)
-                if self.parallel._original_iterator is not None:
-                    self.parallel.dispatch_next()    
-        joblib.parallel.BatchCompletionCallBack = BatchCompletionCallBack
-        
-        
         # inversion row by row
         for i, survey in enumerate(self.surveys):
             if self.ikill:
                 break
+            self.c = 0
             apps = survey.df[self.coils].values
             rmse = np.zeros(apps.shape[0])*np.nan
             model = np.ones((apps.shape[0], len(self.conds0)))*self.conds0
@@ -469,7 +454,7 @@ class Problem(object):
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
             outs = []
-            delayed_results = []
+            dsk = {}
             nrows = survey.df.shape[0]
             for j in range(nrows):
                 if self.ikill:
@@ -498,14 +483,23 @@ class Problem(object):
                     outs.append(solve(obs, pn, spn))
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
                 else:
-                    delayed_results.append(dask.delayed(solve)(obs, pn, spn))
-
+                    key = j+1
+                    dsk[key] = (solve, obs, pn, spn)
+                        
             if njobs != 1:
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
-                    # outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
-                    outs = dask.compute(*delayed_results)
-                    # backend multiprocessing inmpossible because local object
-                    # can not be pickled (only global can) however default locky works
+                    okeys = []
+                    oouts = []
+                    def printkeys(key, res, dsk, state, worker_id):
+                        oouts.append(res)
+                        okeys.append(key)
+                        self.c += 1
+                        dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
+                    with Callback(posttask=printkeys):
+                        get(dsk, key)
+                    # reorder results from // computing
+                    isort = np.argsort(okeys)
+                    outs = [oouts[k] for k in isort]
                 except ValueError:
                     return
                 
