@@ -483,7 +483,7 @@ class Problem(object):
                     outs.append(solve(obs, pn, spn))
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
                 else:
-                    key = j+1
+                    key = '{:d}'.format(j+1)
                     dsk[key] = (solve, obs, pn, spn)
                         
             if njobs != 1:
