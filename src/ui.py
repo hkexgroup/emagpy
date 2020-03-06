@@ -1184,9 +1184,9 @@ class App(QMainWindow):
         self.parallelCheck.setToolTip('If checked, inversion will be run in parallel.')
         # self.parallelCheck.setEnabled(False) # TODO
         
-        opts = [self.alphaLabel, self.alphaEdit, self.betaLabel, self.betaEdit,
-                self.gammaLabel, self.gammaEdit, self.lLabel,
-                self.lCombo, self.nitLabel, self.nitEdit, self.parallelCheck]
+        # opts = [self.alphaLabel, self.alphaEdit, self.betaLabel, self.betaEdit,
+        #         self.gammaLabel, self.gammaEdit, self.lLabel,
+        #         self.lCombo, self.nitLabel, self.nitEdit, self.parallelCheck]
         
         def logTextFunc(arg):
             text = self.logText.toPlainText()
