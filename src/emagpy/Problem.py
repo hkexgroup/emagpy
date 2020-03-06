@@ -15,6 +15,7 @@ from matplotlib.collections import PolyCollection
 from scipy.optimize import minimize
 from scipy.stats import linregress
 from joblib import Parallel, delayed
+import dask
 from collections import defaultdict # for joblib monkey patching
 import joblib # for joblib monkey patching
 
@@ -468,6 +469,7 @@ class Problem(object):
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
             outs = []
+            delayed_results = []
             nrows = survey.df.shape[0]
             for j in range(nrows):
                 if self.ikill:
@@ -495,10 +497,13 @@ class Problem(object):
                 if njobs == 1: # sequential inversion
                     outs.append(solve(obs, pn, spn))
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
+                else:
+                    delayed_results.append(dask.delayed(solve)(obs, pn, spn))
 
             if njobs != 1:
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
-                    outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
+                    # outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
+                    outs = dask.compute(*delayed_results)
                     # backend multiprocessing inmpossible because local object
                     # can not be pickled (only global can) however default locky works
                 except ValueError:

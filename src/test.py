@@ -85,11 +85,13 @@ k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv')
 
+#%%
 t0 = time.time()
 # k.invert(method='ROPE', njobs=-1)
 k.invert(njobs=-1)
 print('elapsed {:.2f}s'.format(time.time() - t0))
 
+#%%
 t0 = time.time()
 # k.invert(method='ROPE', njobs=1)
 k.invert(njobs=1)
