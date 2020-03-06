@@ -467,11 +467,11 @@ class App(QMainWindow):
         # import data
         def importBtnFunc():
             self._dialog = QFileDialog()
-            fname, _ = self._dialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
-            if fname != '':
-                self.processFname(fname)
+            fnames, _ = self._dialog.getOpenFileNames(importTab, 'Select data file(s)', self.datadir, '*.csv')
+            if len(fnames) > 0:
+                self.processFname(fnames)
                     
-        self.importBtn = QPushButton('Import Data')
+        self.importBtn = QPushButton('Import Dataset(s)')
         self.importBtn.setAutoDefault(True)
         self.importBtn.setStyleSheet('background-color:orange')
         self.importBtn.clicked.connect(importBtnFunc)
@@ -692,7 +692,7 @@ class App(QMainWindow):
             self.showParams['cmap'] = cmaps[index]
             self.mwRaw.replot(**self.showParams)
         self.cmapCombo = QComboBox()
-        cmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow']
+        cmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow', 'jet']
         for cmap in cmaps:
             self.cmapCombo.addItem(cmap)
         self.cmapCombo.activated.connect(cmapComboFunc)
@@ -1117,23 +1117,25 @@ class App(QMainWindow):
         invTab = QTabWidget()
         self.tabs.addTab(invTab, 'Inversion')
         
-        
+        def forwardComboFunc(index):
+            objs = [self.methodCombo, self.betaEdit, self.gammaEdit, self.lCombo,
+                    self.nitEdit, self.parallelCheck]
+            if index == 1: #GN inversion
+                [o.setEnabled(False) for o in objs]
+            else:
+                [o.setEnabled(True) for o in objs]
         self.forwardCombo = QComboBox()
         forwardModels = ['CS', 'CS (fast)', 'FSlin', 'FSeq', 'Q']
         for forwardModel in forwardModels:
             self.forwardCombo.addItem(forwardModel)
+        self.forwardCombo.currentIndexChanged.connect(forwardComboFunc)
         self.forwardCombo.setToolTip('''Choice of forward model:
         CS fast : Cumulative Sensitivity with
         Gauss-Newton solver (faster).
         CS : Cumulative Sensitivity with minimize solver
         FS : Full solution with LIN conversion
         FSandrade : Full solution without LIN conversion''')
-        
-        def methodComboFunc(index):
-            if methods[index] in mMCMC:
-                [o.setEnabled(False) for o in opts]
-            else:
-                [o.setEnabled(True) for o in opts]
+
         self.methodCombo = QComboBox()
         self.methodCombo.setToolTip('''Choice of solver:
         L-BFGS-B : minimize, faster
@@ -1148,17 +1150,26 @@ class App(QMainWindow):
         methods = mMinimize + mMCMC
         for method in methods:
             self.methodCombo.addItem(method)
-        self.methodCombo.currentIndexChanged.connect(methodComboFunc)
         
-        self.alphaLabel = QLabel('Vertical smoothing:')
+        self.alphaLabel = QLabel('Vertical smooth:')
         self.alphaEdit = QLineEdit('0.07')
         self.alphaEdit.setValidator(QDoubleValidator())
+        self.alphaEdit.setToolTip('Vertical smoothing between layers from the same profiles.\n'
+                                  'Can be determined from the L-Curve in "inversion settings" tab.')
 
-        self.betaLabel = QLabel('Lateral smoothing:')
+        self.betaLabel = QLabel('Lateral smooth:')
         self.betaEdit = QLineEdit('0.0')
-        self.betaEdit.setToolTip('Lateral smoothing between contingus profiles.\n 0 means no lateral smoothing.')
+        self.betaEdit.setToolTip('Lateral smoothing between contiguous profiles.\n 0 means no lateral smoothing.')
         self.betaEdit.setValidator(QDoubleValidator())
         
+        self.gammaLabel = QLabel('Time smooth:')
+        self.gammaLabel.setVisible(False)
+        self.gammaEdit = QLineEdit('0.0')
+        self.gammaEdit.setToolTip('Smoothing between the first survey and other surveys.')
+        self.gammaEdit.setValidator(QDoubleValidator())
+        self.gammaEdit.setVisible(False)
+        
+        self.lLabel = QLabel('Regularization:')
         self.lCombo = QComboBox()
         self.lCombo.addItem('l1')
         self.lCombo.addItem('l2')
@@ -1174,10 +1185,18 @@ class App(QMainWindow):
         # self.parallelCheck.setEnabled(False) # TODO
         
         opts = [self.alphaLabel, self.alphaEdit, self.betaLabel, self.betaEdit,
+                self.gammaLabel, self.gammaEdit, self.lLabel,
                 self.lCombo, self.nitLabel, self.nitEdit, self.parallelCheck]
         
         def logTextFunc(arg):
-            self.logText.setText(arg)
+            text = self.logText.toPlainText()
+            if arg[0] == '\r':
+                text = text.split('\n')
+                text.pop() # remove last element
+                text = '\n'.join(text) + arg
+            else:
+                text = text + arg
+            self.logText.setText(text)
             QApplication.processEvents()
         self.logText = QTextEdit('hello there !')
         self.logText.setReadOnly(True)
@@ -1203,7 +1222,7 @@ class App(QMainWindow):
             forwardModel = self.forwardCombo.itemText(self.forwardCombo.currentIndex())
             method = self.methodCombo.itemText(self.methodCombo.currentIndex())
             beta = float(self.betaEdit.text()) if self.betaEdit.text() != '' else 0.0
-            # fixedDepths = self.fixedCheck.isChecked()
+            gamma = float(self.gammaEdit.text()) if self.gammaEdit.text() != '' else 0.0
             depths = np.r_[[0], depths0, [-np.inf]]
             nit = int(self.nitEdit.text()) if self.nitEdit.text() != '' else 15
             njobs = -1 if self.parallelCheck.isChecked() else 1
@@ -1219,7 +1238,7 @@ class App(QMainWindow):
                 self.problem.invert(forwardModel=forwardModel, alpha=alpha,
                                     dump=logTextFunc, regularization=regularization,
                                     method=method, options={'maxiter':nit},
-                                    beta=beta, njobs=njobs)
+                                    beta=beta, gamma=gamma, njobs=njobs)
         
             # plot results
             if self.problem.ikill == False: # program wasn't killed
@@ -1251,7 +1270,7 @@ class App(QMainWindow):
             showInvParams['cmap'] = self.cmapInvCombo.itemText(index)
             self.mwInv.replot(**showInvParams)
         self.cmapInvCombo = QComboBox()
-        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow']
+        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
         for cmap in cmaps:
             self.cmapInvCombo.addItem(cmap)
         self.cmapInvCombo.activated.connect(cmapInvComboFunc)
@@ -1295,7 +1314,7 @@ class App(QMainWindow):
             showInvMapParams['cmap'] = self.cmapInvMapCombo.itemText(index)
             self.mwInvMap.replot(**showInvMapParams)
         self.cmapInvMapCombo = QComboBox()
-        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow']
+        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
         for cmap in cmaps:
             self.cmapInvMapCombo.addItem(cmap)
         self.cmapInvMapCombo.activated.connect(cmapInvMapComboFunc)
@@ -1359,6 +1378,9 @@ class App(QMainWindow):
         invOptions.addWidget(self.alphaEdit)
         invOptions.addWidget(self.betaLabel)
         invOptions.addWidget(self.betaEdit)
+        invOptions.addWidget(self.gammaLabel)
+        invOptions.addWidget(self.gammaEdit)
+        invOptions.addWidget(self.lLabel)
         invOptions.addWidget(self.lCombo)
         invOptions.addWidget(self.nitLabel)
         invOptions.addWidget(self.nitEdit)
@@ -1449,7 +1471,7 @@ class App(QMainWindow):
 <p><i>EMagPy is a free and open source software for inversion of 1D electromagnetic data</i></p>
 <p>If you encouter any issues or would like to submit a feature request, please raise an issue on our gitlab repository at:</p>
 <p><a href="https://gitlab.com/hkex/emagpy/issues">https://gitlab.com/hkex/emagpy/issues</a></p>
-<p>EMagPy uses a few Python packages: numpy, pandas, matplotlib, scipy, spotpy, pyproj.
+<p>EMagPy uses a few Python packages: numpy, pandas, matplotlib, scipy, spotpy, pyproj, joblib, rasterio (optional).
 <ul>
 <li>Travis E, Oliphant. <strong>A guide to NumPy</strong>,
 USA: Trelgol Publishing, (2006).
@@ -1479,6 +1501,9 @@ PLoS ONE, <strong>10</strong>,12 (2015)
 </li>
 <li><a class="reference external" href="http://pyproj4.github.io/pyproj/stable/">pyproj</a>
 </li>
+<li>
+<a href="https://joblib.readthedocs.io/en/latest/">joblib</a>
+</li>
 </ul>
 </p>
 <p><strong>EMagPy's core developers: Guillaume Blanchy and Paul McLachlan.<strong></p>
@@ -1502,11 +1527,21 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         self.setCentralWidget(self.table_widget)
         self.show()
 
-    def processFname(self, fname):
-        self.importBtn.setText(os.path.basename(fname))
+    def processFname(self, fnames):
         self.problem.surveys = [] # empty the list of current survey
-        self.problem.createSurvey(fname)
-        self.infoDump(fname + ' well imported')
+        if len(fnames) == 1:
+            fname = fnames[0]
+            self.importBtn.setText(os.path.basename(fname))
+            self.problem.createSurvey(fname)
+            self.gammaEdit.setVisible(False)
+            self.gammaLabel.setVisible(False)
+        else:
+            self.importBtn.setText(os.path.basename(fnames[0]) + ' .. '
+                                   + os.path.basename(fnames[-1]))
+            self.gammaEdit.setVisible(True)
+            self.gammaLabel.setVisible(True)
+            self.problem.createTimeLapseSurvey(fnames)
+        self.infoDump('Files well imported')
         self.setupUI()
         
     def setupUI(self):
