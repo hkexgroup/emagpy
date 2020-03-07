@@ -454,6 +454,7 @@ class Problem(object):
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
             outs = []
+            keys = []
             dsk = {}
             nrows = survey.df.shape[0]
             for j in range(nrows):
@@ -484,22 +485,20 @@ class Problem(object):
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
                 else:
                     key = '{:d}'.format(j+1)
+                    keys.append(key)
                     dsk[key] = (solve, obs, pn, spn)
                         
             if njobs != 1:
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
-                    okeys = []
-                    oouts = []
+                    okeys = {}
                     def printkeys(key, res, dsk, state, worker_id):
-                        oouts.append(res)
-                        okeys.append(key)
+                        okeys[key] = res
                         self.c += 1
                         dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
                     with Callback(posttask=printkeys):
                         get(dsk, key)
                     # reorder results from // computing
-                    isort = np.argsort(okeys)
-                    outs = [oouts[k] for k in isort]
+                    outs = [okeys[a] for a in keys]
                 except ValueError:
                     return
                 
