@@ -471,15 +471,11 @@ class Problem(object):
             depth = np.ones((apps.shape[0], len(self.depths0)))*self.depths0
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
-            outs = []
             keys = []
             dsk = {}
             delayed_results = []
             nrows = survey.df.shape[0]
             for j in range(nrows):
-                if self.ikill:
-                    break
-                
                 # define observations and convert to Q if needed
                 obs = apps[j,:]
                 if forwardModel == 'Q':
@@ -505,10 +501,10 @@ class Problem(object):
             
             outs = []
             if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
-                outs.append(solve(obs, pn, spn))
-                dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
-
-                outs.append(solve)
+                for j in range(nrows):
+                    outs.append(solve(*params[j]))
+                    dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
+                    
             elif (method != 'ANN') & (njobs != 1):
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
                     okeys = {}
