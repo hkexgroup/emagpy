@@ -1278,7 +1278,7 @@ class App(QMainWindow):
                                     dump=logTextFunc, regularization=regularization,
                                     method=method, options={'maxiter':nit},
                                     beta=beta, gamma=gamma, nsample=nsample,
-                                    noise=noise, njobs=njobs)
+                                    noise=noise/100, njobs=njobs)
         
             # plot results
             if self.problem.ikill == False: # program wasn't killed
