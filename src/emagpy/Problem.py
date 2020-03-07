@@ -308,7 +308,7 @@ class Problem(object):
         
         # define the forward model
         def fmodel(p): # p contains first the depths then the conductivities
-            depth = self.depths0
+            depth = self.depths0.copy()
             if np.sum(vd) > 0:
                 depth[vd] = p[:np.sum(vd)]
             cond = self.conds0.copy()
@@ -531,7 +531,7 @@ class Problem(object):
                 ibad = ibad1 | ibad2
                 if np.sum(ibad) > 0:
                     dump('WARNING: ANN: {:d} values out of bounds replaced by L-BFGS-G values.'
-                         ' Try to increase the noise level and/or the number of sample.\n.'.format(
+                         ' Try to increase the noise level and/or the number of samples.\n.'.format(
                              np.sum(ibad)))
                     for l in np.where(ibad)[0]:
                         if self.ikill:
@@ -587,7 +587,6 @@ class Problem(object):
             import tensorflow as tf
             from tensorflow import keras
             from tensorflow.keras import layers
-            print(tf.__version__)
         except:
             raise ImportError('Tensorflow is needed for NN inversion.')
             return
