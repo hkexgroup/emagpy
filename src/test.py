@@ -73,7 +73,14 @@ for s in k.surveys[:2]:
 k.surveys = ss
 k.trimSurveys()
 k.invert(method='ROPE', alpha=0.1, gamma=0.5)
-fig, axs = plt.subplots(1, 3, sharex=True, sharey=True, figsize=(10,3))
+fig, axs = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(8,3))
+k.showResults(index=0, rmse=True, ax=axs[0])
+k.showResults(index=1, rmse=True, ax=axs[1])
+
+# we need fixed depth to compute change
+k.setInit(depths0=[0.5], fixedDepths=[True])
+k.invert(alpha=0.1, gamma=0.5)
+fig, axs = plt.subplots(1, 3, sharex=True, sharey=True, figsize=(12,3))
 k.showResults(index=0, rmse=True, ax=axs[0])
 k.showResults(index=1, rmse=True, ax=axs[1])
 k.computeChange() # compute change in inverted EC
@@ -151,7 +158,7 @@ k1.showResults(ax=axs[1], rmse=True)
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.setInit(depths0=[0.7], fixedDepths=[False])
-k.invert(method='ANN', noise=0.00, nsample=1000)
+k.invert(method='ANN', nsample=100, noise=0.02, annplot=True)
 k.showResults(rmse=True)
 
 

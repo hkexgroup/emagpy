@@ -209,7 +209,8 @@ class Problem(object):
         
     def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l2',
                alpha=0.07, beta=0.0, gamma=0.0, dump=None, bnds=None,
-               options={}, Lscaling=False, rep=100, noise=0.0, nsample=100, njobs=1):
+               options={}, Lscaling=False, rep=100, noise=0.0, nsample=100, 
+               annplot=False, njobs=1):
         """Invert the apparent conductivity measurements.
         
         Parameters
@@ -254,6 +255,8 @@ class Problem(object):
         nsample : int, optional
             If ANN method is used, describe the size of the synthetic data
             generated in trainig phase.
+        annplot : bool, optional
+            If True, the validation plot will be plotted.
         njobs : int, optional
             If -1 all CPUs are used. If 1 is given, no parallel computing code
             is used at all, which is useful for debugging. For n_jobs below -1,
@@ -331,7 +334,7 @@ class Problem(object):
                 vmin = np.nanpercentile(self.surveys[0].df[self.coils].values, 2)
                 vmax = np.nanpercentile(self.surveys[0].df[self.coils].values, 98)
                 bounds = list(tuple(zip(np.ones(nc)*vmin, np.ones(nc)*vmax)))
-            self.buildANN(fmodel, bounds, noise=noise, nsample=nsample, dump=dump)
+            self.buildANN(fmodel, bounds, noise=noise, nsample=nsample, dump=dump, iplot=annplot)
             dump('Finish training the network ({:.2f}s)\n'.format(time.time() - t0))
             
         # build roughness matrix
@@ -371,13 +374,13 @@ class Problem(object):
         # pn : consecutive previous profile (for lateral smoothing)
         # spn : profile from other survey (for time-lapse)
         if regularization  == 'l1':
-            def objfunc(p, app, pn, spn):
+            def objfunc(p, app, pn, spn, alpha, beta, gamma):
                 return np.sqrt(np.sum(np.abs(dataMisfit(p, app)))/len(app)
                                + alpha*np.sum(np.abs(modelMisfit(p)))/nc
                                + beta*np.sum(np.abs(p - pn))/len(p)
                                + gamma*np.sum(np.abs(p - spn))/len(p))
         elif regularization == 'l2':
-            def objfunc(p, app, pn, spn):
+            def objfunc(p, app, pn, spn, alpha, beta, gamma):
                 return np.sqrt(np.sum(dataMisfit(p, app)**2)/len(app)
                                + alpha*np.sum(modelMisfit(p)**2)/nc
                                + beta*np.sum((p - pn)**2)/len(p)
@@ -392,7 +395,7 @@ class Problem(object):
                 return
             
             class spotpy_setup(object):
-                def __init__(self, obsVals, bounds, pn, spn):
+                def __init__(self, obsVals, bounds, pn, spn, alpha, beta, gamma):
                     self.params = []
                     for i, bnd in enumerate(bounds):
                         self.params.append(
@@ -401,6 +404,9 @@ class Problem(object):
                     self.obsVals = obsVals
                     self.pn = pn
                     self.spn = spn
+                    self.alpha = alpha
+                    self.beta = beta
+                    self.gamma = gamma
                     
                 def parameters(self):
                     return spotpy.parameter.generate(self.params)
@@ -419,7 +425,8 @@ class Problem(object):
                     #val = -spotpy.objectivefunctions.rmse(evaluation, simulation)
                     # simulation is actually parameters, the simulation (forward model)
                     # is done inside the objective function itself
-                    val = -objfunc(simulation, evaluation, self.pn, self.spn)
+                    val = -objfunc(simulation, evaluation, self.pn, self.spn,
+                                   self.alpha, self.beta, self.gamma)
                     return val
         
         # check parallel
@@ -429,11 +436,11 @@ class Problem(object):
         
         # define optimization function
         x0 = np.r_[self.depths0[vd], self.conds0[vc]]
-        def solve(obs, pn, spn):
+        def solve(obs, pn, spn, alpha, beta, gamma):
             if self.ikill is True:
                 raise ValueError('killed') # https://github.com/joblib/joblib/issues/356
             if method in mMinimize: # minimize
-                res = minimize(objfunc, x0, args=(obs, pn, spn),
+                res = minimize(objfunc, x0, args=(obs, pn, spn, alpha, beta, gamma),
                                method=method, bounds=bounds, options=options)
                 out = res.x
                 # status = 'converged' if res.success else 'not converged'
@@ -441,7 +448,7 @@ class Problem(object):
                 #     c += 1      
             elif method in mMCMC: # MCMC based methods
                 cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
-                spotpySetup = spotpy_setup(obs, bounds, pn, spn)
+                spotpySetup = spotpy_setup(obs, bounds, pn, spn, alpha, beta, gamma)
                 if method == 'ROPE':
                     sampler = spotpy.algorithms.rope(spotpySetup)
                 elif method == 'DREAM':
@@ -490,14 +497,16 @@ class Problem(object):
                 # define profile from previous survey for time-lapse constrain
                 if i == 0 or gamma == 0:
                     spn = np.zeros(np.sum(np.r_[vd, vc]))
+                    g = 0
                 else: # constrain to the first inverted survey
                     spn = np.r_[self.depths[0][j,:][vd], self.models[0][j,:][vc]]
-
-                params.append((obs, pn, spn))                
+                    g = gamma
+                    
+                params.append((obs, pn, spn, alpha, beta, g))                
                 key = '{:d}'.format(j+1)
                 keys.append(key)
-                dsk[key] = (solve, obs, pn, spn)
-                delayed_results.append(dask.delayed(solve)(obs, pn, spn))
+                dsk[key] = (solve, *params[-1])
+                delayed_results.append(dask.delayed(solve)(*params[-1]))
             
             outs = []
             if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
@@ -622,6 +631,8 @@ class Problem(object):
         
         # normalize dataset
         # TODO not sure if normalization is done right here ...
+        # TODO normalize with the bounds and vmin/vmax of ECa
+        # TODO add graph with distribution of synthetic and obs data
         def norm(x):
             return (x-x.mean())/x.std()
         # normed_train_data = norm(train_dataset)
@@ -670,23 +681,36 @@ class Problem(object):
             def plot_history(history):
                 hist = pd.DataFrame(history.history)
                 hist['epoch'] = history.epoch
-                plt.figure()
-                plt.xlabel('Epoch')
-                plt.ylabel('Mean Abs Error')
-                plt.plot(hist['epoch'], hist['mean_absolute_error'],
-                       label='Train Error')
-                plt.plot(hist['epoch'], hist['val_mean_absolute_error'],
-                       label = 'Val Error')
-                plt.legend()
+                fig, axs = plt.subplots(1, 2)
+                ax = axs[0]
+                ax.set_xlabel('Epoch')
+                ax.set_ylabel('Mean Abs Error')
+                ax.plot(hist['epoch'], hist['mean_absolute_error'],
+                       label='Training Error')
+                ax.plot(hist['epoch'], hist['val_mean_absolute_error'],
+                       label = 'Validation Error')
+                ax.legend()
+                
+                ax = axs[1]
+                bins = np.arange(0, 100 + 10, 10)
+                for i, c in enumerate(self.coils):
+                    cax = ax.plot([],[], label=c)
+                    cc = cax[0].get_color()
+                    ax.hist(self.surveys[0].df[c].values, facecolor='none', edgecolor=cc, bins=bins)
+                    ax.hist(df[c].values, facecolor='none', edgecolor=cc, ls='dotted', bins=bins)
+                ax.legend()
+                ax.set_xlabel('ECa')
+                ax.set_ylabel('Frequency')
+                    
             
-                plt.figure()
-                plt.xlabel('Epoch')
-                plt.ylabel('Mean Square Error')
-                plt.plot(hist['epoch'], hist['mean_squared_error'],
-                       label='Train Error')
-                plt.plot(hist['epoch'], hist['val_mean_squared_error'],
-                       label = 'Val Error')
-                plt.legend()
+                # plt.figure()
+                # plt.xlabel('Epoch')
+                # plt.ylabel('Mean Square Error')
+                # plt.plot(hist['epoch'], hist['mean_squared_error'],
+                #        label='Train Error')
+                # plt.plot(hist['epoch'], hist['val_mean_squared_error'],
+                #        label = 'Val Error')
+                # plt.legend()
             
             plot_history(history)
             
@@ -1414,9 +1438,9 @@ class Problem(object):
             Index of the reference model. By defaut the first model
             (corresponding to the first survey) is used as reference.
         """
-        m0 = self.models[0]
-        for m in self.models:
-            m = m - m0
+        for i in range(len(self.surveys)):
+            if i != ref:
+                self.models[i] = self.models[i] - self.models[ref]
         
     
     def getRMSE(self):
