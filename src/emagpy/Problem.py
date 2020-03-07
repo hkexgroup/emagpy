@@ -209,7 +209,7 @@ class Problem(object):
         
     def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l2',
                alpha=0.07, beta=0.0, gamma=0.0, dump=None, bnds=None,
-               options={}, Lscaling=False, rep=100, njobs=1):
+               options={}, Lscaling=False, rep=100, noise=0.0, nsample=100, njobs=1):
         """Invert the apparent conductivity measurements.
         
         Parameters
@@ -225,6 +225,9 @@ class Problem(object):
             Name of the optimization method either L-BFGS-B, TNC, CG or Nelder-Mead
             to be passed to `scipy.optimize.minmize()` or ROPE, SCEUA, DREAM for
             a MCMC-based solver based on the `spotpy` Python package.
+            Alternatively 'ANN' can be used (requires tensorflow), it will train
+            an artificial neural network on synthetic data and use it for inversion.
+            Note that smoothing (alpha, beta, gamma) is not supported by ANN.
         regularization : str, optional
             Type of regularization, either l1 (blocky model) or l2 (smooth model)
         alpha : float, optional
@@ -245,6 +248,12 @@ class Problem(object):
             centroids of layers differences.
         rep : int, optional
             Number of sample for the MCMC-based methods.
+        noise : float, optional
+            If ANN method is used, describe the noise applied to synthetic data
+            in training phase. Values between 0 and 1 (100% noise).
+        nsample : int, optional
+            If ANN method is used, describe the size of the synthetic data
+            generated in trainig phase.
         njobs : int, optional
             If -1 all CPUs are used. If 1 is given, no parallel computing code
             is used at all, which is useful for debugging. For n_jobs below -1,
@@ -316,13 +325,14 @@ class Problem(object):
 
         # build ANN network
         if method == 'ANN':
-            dump('Building and training ANN network...')
+            dump('Building and training ANN network\n')
+            t0 = time.time()
             if bounds is None: # happen where all depths are fixed
                 vmin = np.nanpercentile(self.surveys[0].df[self.coils].values, 2)
                 vmax = np.nanpercentile(self.surveys[0].df[self.coils].values, 98)
                 bounds = list(tuple(zip(np.ones(nc)*vmin, np.ones(nc)*vmax)))
-            self.buildANN(fmodel, bounds)
-            dump('done\n')
+            self.buildANN(fmodel, bounds, noise=noise, nsample=nsample, dump=dump)
+            dump('Finish training the network ({:.2f}s)\n'.format(time.time() - t0))
             
         # build roughness matrix
         L = buildSecondDiff(len(self.conds0)) # L is used inside the smooth objective fct
@@ -487,19 +497,19 @@ class Problem(object):
                 else: # constrain to the first inverted survey
                     spn = np.r_[self.depths[0][j,:][vd], self.models[0][j,:][vc]]
 
-                params.append((obs, pn, spn))
-                
-                if method != 'ANN':
-                    if njobs == 1: # sequential inversion
-                        outs.append(solve(obs, pn, spn))
-                        dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
-                    else:
-                        key = '{:d}'.format(j+1)
-                        keys.append(key)
-                        dsk[key] = (solve, obs, pn, spn)
-                        delayed_results.append(dask.delayed(solve)(obs, pn, spn))
-                        
-            if njobs != 1:
+                params.append((obs, pn, spn))                
+                key = '{:d}'.format(j+1)
+                keys.append(key)
+                dsk[key] = (solve, obs, pn, spn)
+                delayed_results.append(dask.delayed(solve)(obs, pn, spn))
+            
+            outs = []
+            if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
+                outs.append(solve(obs, pn, spn))
+                dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
+
+                outs.append(solve)
+            elif (method != 'ANN') & (njobs != 1):
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
                     okeys = {}
                     def printkeys(key, res, dsk, state, worker_id):
@@ -516,13 +526,30 @@ class Problem(object):
                 except ValueError:
                     return
             
-            if method == 'ANN':
+            elif method == 'ANN':
                 obss = np.vstack([a[0] for a in params])
-                print('+++++++', obss)
                 outs = self.model.predict(obss)
+                # detecting negative depths
+                ibad1 = np.array([outs[:,l] < bounds[l][0] for l in range(len(bounds))]).any(0)
+                ibad2 = np.array([outs[:,l] > bounds[l][1] for l in range(len(bounds))]).any(0)
+                ibad = ibad1 | ibad2
+                if np.sum(ibad) > 0:
+                    dump('WARNING: ANN: {:d} values out of bounds replaced by L-BFGS-G values.'
+                         ' Try to increase the noise level and/or the number of sample.\n.'.format(
+                             np.sum(ibad)))
+                    for l in np.where(ibad)[0]:
+                        if self.ikill:
+                            return
+                        res = minimize(objfunc, x0, args=params[l],
+                                       method='L-BFGS-B', bounds=bounds, 
+                                       options=options)
+                        # print('===', outs[l,:], '->', res.x)
+                        outs[l,:] = res.x
+                outs = list(outs)
                 
             for j, out in enumerate(outs):
                 # store results from optimization
+                obs = params[j][0]
                 depth[j,vd] = out[:np.sum(vd)]
                 model[j,vc] = out[np.sum(vd):]
                 rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs)**2)/len(obs))
@@ -537,15 +564,28 @@ class Problem(object):
 
 
 
-    def buildANN(self, fmodel, bounds, noise=0.0, iplot=True, nsample=100,
+    def buildANN(self, fmodel, bounds, noise=0.0, iplot=False, nsample=100,
                  dump=None, epochs=500):
         """Build and train the artificial neural network on synthetic values
         derived from observed ECa values.
         
         Parameters
         ----------
+        fmodel : function
+            Function use to generated the synthetic data.
+        bounds : list of tuple
+            List of tuple with the bounds of each parameters to pass to the
+            `fmodel` function.
+        noise : float, optional
+            Noise level to apply on the synthetic data generated.
         iplot : bool, optional
-            If `True`, the training data graph will be shown.
+            If True, the validation graph will be plotted.
+        nsample : int, optional
+            Number of samples to be synthetically generated.
+        dump : function, optional
+            Function to dump information.
+        epochs : int, optional
+            Number of epochs.
         """
         try:
             import tensorflow as tf
@@ -559,6 +599,9 @@ class Problem(object):
         if dump is None:
             def dump(x):
                 print(x, end='')
+            
+        def addnoise(x):
+            return x + np.random.randn(len(x))*x*noise
         
         # build a set of synthetic data based on bounds
         nc = len(bounds)
@@ -568,7 +611,7 @@ class Problem(object):
             
         eca = np.zeros((nsample, len(self.coils)))
         for i in range(nsample):
-            eca[i,:] = fmodel(param[i,:])
+            eca[i,:] = addnoise(fmodel(param[i,:]))
         
         vcols = list(self.coils.copy())
         pcols = ['p{:d}'.format(i+1) for i in range(nc)]
@@ -604,14 +647,14 @@ class Problem(object):
                           metrics=['mae', 'mse'])
             return model
         self.model = build_model()
-        self.model.summary()
+        # self.model.summary()
 
         # display training progress by printing a single dot for each completed epoch
         class PrintDot(keras.callbacks.Callback):
           def on_epoch_end(self, epoch, logs):
             if epoch % 100 == 0:
-                print('')
-            print('.', end='')
+                dump('\n')
+            dump('.')
         
         # the patience = 50 is the number of epochs to check for improvement
         early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=50)
@@ -621,6 +664,9 @@ class Problem(object):
                                  validation_split = 0.2, verbose=0, 
                                  callbacks=[PrintDot(), early_stop])  
         
+        loss, mae, mse = self.model.evaluate(normed_test_data, test_labels, verbose=0)
+        dump('\nANN: Testing set Mean Abs Error: {:5.2f}\n'.format(mae))
+           
         # produce evaluationg graph
         if iplot:
             hist = pd.DataFrame(history.history)
@@ -649,12 +695,6 @@ class Problem(object):
             
             plot_history(history)
             
-            
-            loss, mae, mse = self.model.evaluate(normed_test_data, test_labels, verbose=0)
-            print('Testing set Mean Abs Error: {:5.2f}'.format(mae))
-            
-            print(self.model.predict(normed_test_data))
-
     
     
     def invertGN(self, alpha=0.07, alpha_ref=None, dump=None):
@@ -1253,7 +1293,7 @@ class Problem(object):
             vmax = np.nanpercentile(sig, 95)
         cmap = plt.get_cmap(cmap)
         if maxDepth is None:
-            maxDepth = np.max(depths) + padding
+            maxDepth = np.nanpercentile(depths, 98) + padding
         depths = np.c_[depths, np.ones(depths.shape[0])*maxDepth]
         
         # vertices
@@ -1294,7 +1334,8 @@ class Problem(object):
             coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
             coll.set_clim(vmin=vmin, vmax=vmax)
             ax.add_collection(coll)
-            fig.colorbar(coll, label='Conductivity [mS/m]', ax=ax)
+            pad = 0.1 if rmse else 0.05
+            fig.colorbar(coll, label='Conductivity [mS/m]', ax=ax, pad=pad)
         
         if rmse:
             ax2 = ax.twinx()

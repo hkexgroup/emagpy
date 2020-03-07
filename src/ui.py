@@ -1136,6 +1136,27 @@ class App(QMainWindow):
         FS : Full solution with LIN conversion
         FSandrade : Full solution without LIN conversion''')
 
+        def methodComboFunc(index):
+            objs1 = [self.alphaLabel, self.alphaEdit,
+                    self.betaLabel, self.betaEdit,
+                    self.gammaLabel, self.gammaEdit,
+                    self.nitLabel, self.nitEdit,
+                    self.parallelCheck]
+            objs2 = [self.annSampleLabel, self.annSampleEdit,
+                     self.annNoiseLabel, self.annNoiseEdit]
+            if index == 7: #ANN
+                [o.setVisible(False) for o in objs1]
+                [o.setVisible(True) for o in objs2]
+            else:
+                [o.setVisible(True) for o in objs1]
+                [o.setVisible(False) for o in objs2]
+                if len(self.problem.surveys) > 1:
+                    self.gammaLabel.setVisible(True)
+                    self.gammaEdit.setVisible(True)
+                else:
+                    self.gammaLabel.setVisible(False)
+                    self.gammaEdit.setVisible(False)
+                
         self.methodCombo = QComboBox()
         self.methodCombo.setToolTip('''Choice of solver:
         L-BFGS-B : minimize, faster
@@ -1144,12 +1165,14 @@ class App(QMainWindow):
         Nelder-Mead : more robust
         ROPE : MCMC-based
         SCEUA : MCMC-based
-        DREAM : MCMC-based''')
+        DREAM : MCMC-based
+        ANN : Artificial Neural Network''')
         mMinimize = ['L-BFGS-B', 'CG', 'TNC', 'Nelder-Mead']
         mMCMC = ['ROPE', 'SCEUA', 'DREAM']
-        methods = mMinimize + mMCMC
+        methods = mMinimize + mMCMC + ['ANN']
         for method in methods:
             self.methodCombo.addItem(method)
+        self.methodCombo.currentIndexChanged.connect(methodComboFunc)
         
         self.alphaLabel = QLabel('Vertical smooth:')
         self.alphaEdit = QLineEdit('0.07')
@@ -1183,6 +1206,20 @@ class App(QMainWindow):
         self.parallelCheck = QCheckBox('Parallel')
         self.parallelCheck.setToolTip('If checked, inversion will be run in parallel.')
         # self.parallelCheck.setEnabled(False) # TODO
+        
+        self.annSampleLabel = QLabel('Number of samples:')
+        self.annSampleEdit = QLineEdit('100')
+        self.annSampleEdit.setValidator(QIntValidator())
+        self.annSampleEdit.setToolTip('Number of synthetic samples for training the model.')
+        self.annSampleLabel.setVisible(False)
+        self.annSampleEdit.setVisible(False)
+        
+        self.annNoiseLabel = QLabel('Noise [%]:')
+        self.annNoiseEdit = QLineEdit('0')
+        self.annNoiseEdit.setValidator(QDoubleValidator())
+        self.annNoiseEdit.setToolTip('Noise in percent to apply on synthetic data for training the network.')
+        self.annNoiseLabel.setVisible(False)
+        self.annNoiseEdit.setVisible(False)
         
         # opts = [self.alphaLabel, self.alphaEdit, self.betaLabel, self.betaEdit,
         #         self.gammaLabel, self.gammaEdit, self.lLabel,
@@ -1225,6 +1262,8 @@ class App(QMainWindow):
             gamma = float(self.gammaEdit.text()) if self.gammaEdit.text() != '' else 0.0
             depths = np.r_[[0], depths0, [-np.inf]]
             nit = int(self.nitEdit.text()) if self.nitEdit.text() != '' else 15
+            nsample = int(self.annSampleEdit.text()) if self.annSampleEdit.text() != '' else 100
+            noise = float(self.annNoiseEdit.text()) if self.annNoiseEdit.text() != '' else 0
             njobs = -1 if self.parallelCheck.isChecked() else 1
             self.sliceCombo.clear()
             for i in range(len(depths)-1):
@@ -1238,7 +1277,8 @@ class App(QMainWindow):
                 self.problem.invert(forwardModel=forwardModel, alpha=alpha,
                                     dump=logTextFunc, regularization=regularization,
                                     method=method, options={'maxiter':nit},
-                                    beta=beta, gamma=gamma, njobs=njobs)
+                                    beta=beta, gamma=gamma, nsample=nsample,
+                                    noise=noise, njobs=njobs)
         
             # plot results
             if self.problem.ikill == False: # program wasn't killed
@@ -1385,6 +1425,10 @@ class App(QMainWindow):
         invOptions.addWidget(self.nitLabel)
         invOptions.addWidget(self.nitEdit)
         invOptions.addWidget(self.parallelCheck)
+        invOptions.addWidget(self.annSampleLabel)
+        invOptions.addWidget(self.annSampleEdit)
+        invOptions.addWidget(self.annNoiseLabel)
+        invOptions.addWidget(self.annNoiseEdit)
         invOptions.addWidget(self.invertBtn, 25)
         invLayout.addLayout(invOptions)
         

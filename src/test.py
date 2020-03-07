@@ -149,8 +149,9 @@ k1.showResults(ax=axs[1], rmse=True)
 #%% ANN inversion
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
-k.invert(method='ANN')
-k.showResults()
+k.setInit(depths0=[0.7], fixedDepths=[False])
+k.invert(method='ANN', noise=0.00, nsample=1000)
+k.showResults(rmse=True)
 
 
 
