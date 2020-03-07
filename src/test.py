@@ -144,3 +144,13 @@ k1.setInit(depths0=[0.5], fixedDepths=[False])
 k1.invert(method='ROPE')
 k1.showResults(ax=axs[1], rmse=True)
 
+
+
+#%% ANN inversion
+k = Problem()
+k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+k.invert(method='ANN')
+k.showResults()
+
+
+

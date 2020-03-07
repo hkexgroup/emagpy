@@ -314,7 +314,16 @@ class Problem(object):
             elif forwardModel == 'Q':
                 return np.imag(getQs(cond, depth, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0]))
 
-
+        # build ANN network
+        if method == 'ANN':
+            dump('Building and training ANN network...')
+            if bounds is None: # happen where all depths are fixed
+                vmin = np.nanpercentile(self.surveys[0].df[self.coils].values, 2)
+                vmax = np.nanpercentile(self.surveys[0].df[self.coils].values, 98)
+                bounds = list(tuple(zip(np.ones(nc)*vmin, np.ones(nc)*vmax)))
+            self.buildANN(fmodel, bounds)
+            dump('done\n')
+            
         # build roughness matrix
         L = buildSecondDiff(len(self.conds0)) # L is used inside the smooth objective fct
         # each constrain is proportional to the distance between the centroid of the two layers
@@ -438,6 +447,7 @@ class Problem(object):
                 ibest = np.argmin(np.abs(results['like1']))
                 out = np.array([results[col][ibest] for col in cols])
                 # status = 'ok'
+                
             return out
 
         # inversion row by row
@@ -479,14 +489,15 @@ class Problem(object):
 
                 params.append((obs, pn, spn))
                 
-                if njobs == 1: # sequential inversion
-                    outs.append(solve(obs, pn, spn))
-                    dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
-                else:
-                    key = '{:d}'.format(j+1)
-                    keys.append(key)
-                    dsk[key] = (solve, obs, pn, spn)
-                    delayed_results.append(dask.delayed(solve)(obs, pn, spn))
+                if method != 'ANN':
+                    if njobs == 1: # sequential inversion
+                        outs.append(solve(obs, pn, spn))
+                        dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
+                    else:
+                        key = '{:d}'.format(j+1)
+                        keys.append(key)
+                        dsk[key] = (solve, obs, pn, spn)
+                        delayed_results.append(dask.delayed(solve)(obs, pn, spn))
                         
             if njobs != 1:
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
@@ -504,6 +515,11 @@ class Problem(object):
                     
                 except ValueError:
                     return
+            
+            if method == 'ANN':
+                obss = np.vstack([a[0] for a in params])
+                print('+++++++', obss)
+                outs = self.model.predict(obss)
                 
             for j, out in enumerate(outs):
                 # store results from optimization
@@ -518,6 +534,126 @@ class Problem(object):
                     
     # TODO add smoothing 3D: maybe invert all profiles once with GN and then
     # invert them again with a constrain on the 5 nearest profiles by distance
+
+
+
+    def buildANN(self, fmodel, bounds, noise=0.0, iplot=True, nsample=100,
+                 dump=None, epochs=500):
+        """Build and train the artificial neural network on synthetic values
+        derived from observed ECa values.
+        
+        Parameters
+        ----------
+        iplot : bool, optional
+            If `True`, the training data graph will be shown.
+        """
+        try:
+            import tensorflow as tf
+            from tensorflow import keras
+            from tensorflow.keras import layers
+            print(tf.__version__)
+        except:
+            raise ImportError('Tensorflow is needed for NN inversion.')
+            return
+        
+        if dump is None:
+            def dump(x):
+                print(x, end='')
+        
+        # build a set of synthetic data based on bounds
+        nc = len(bounds)
+        param = np.zeros((nsample, nc))
+        for i, bnd in enumerate(bounds):
+            param[:,i] = np.random.uniform(bnd[0], bnd[1], nsample)
+            
+        eca = np.zeros((nsample, len(self.coils)))
+        for i in range(nsample):
+            eca[i,:] = fmodel(param[i,:])
+        
+        vcols = list(self.coils.copy())
+        pcols = ['p{:d}'.format(i+1) for i in range(nc)]
+        df = pd.DataFrame(np.c_[eca, param], columns=vcols+pcols)
+
+        # split dataset in training and testing
+        df_train = df.sample(frac=0.8, random_state=0)
+        df_test = df.drop(df_train.index)
+        train_labels = df_train[pcols]
+        test_labels = df_test[pcols]
+        train_dataset = df_train[vcols]
+        test_dataset = df_test[vcols]
+        
+        # normalize dataset
+        # TODO not sure if normalization is done right here ...
+        def norm(x):
+            return (x-x.mean())/x.std()
+        # normed_train_data = norm(train_dataset)
+        # normed_test_data = norm(test_dataset)
+        normed_train_data = train_dataset
+        normed_test_data = test_dataset
+        
+        # build the model
+        def build_model():
+            model = keras.Sequential([
+                layers.Dense(64, activation=tf.nn.relu, input_shape=[len(train_dataset.keys())]),
+                layers.Dense(64, activation=tf.nn.relu),
+                layers.Dense(len(train_labels.keys()))
+            ])
+            optimizer = tf.train.RMSPropOptimizer(0.001)
+            model.compile(loss='mse',
+                          optimizer=optimizer,
+                          metrics=['mae', 'mse'])
+            return model
+        self.model = build_model()
+        self.model.summary()
+
+        # display training progress by printing a single dot for each completed epoch
+        class PrintDot(keras.callbacks.Callback):
+          def on_epoch_end(self, epoch, logs):
+            if epoch % 100 == 0:
+                print('')
+            print('.', end='')
+        
+        # the patience = 50 is the number of epochs to check for improvement
+        early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=50)
+        
+        # train the model
+        history = self.model.fit(normed_train_data, train_labels, epochs=epochs,
+                                 validation_split = 0.2, verbose=0, 
+                                 callbacks=[PrintDot(), early_stop])  
+        
+        # produce evaluationg graph
+        if iplot:
+            hist = pd.DataFrame(history.history)
+            hist['epoch'] = history.epoch
+            
+            def plot_history(history):
+                hist = pd.DataFrame(history.history)
+                hist['epoch'] = history.epoch
+                plt.figure()
+                plt.xlabel('Epoch')
+                plt.ylabel('Mean Abs Error')
+                plt.plot(hist['epoch'], hist['mean_absolute_error'],
+                       label='Train Error')
+                plt.plot(hist['epoch'], hist['val_mean_absolute_error'],
+                       label = 'Val Error')
+                plt.legend()
+            
+                plt.figure()
+                plt.xlabel('Epoch')
+                plt.ylabel('Mean Square Error')
+                plt.plot(hist['epoch'], hist['mean_squared_error'],
+                       label='Train Error')
+                plt.plot(hist['epoch'], hist['val_mean_squared_error'],
+                       label = 'Val Error')
+                plt.legend()
+            
+            plot_history(history)
+            
+            
+            loss, mae, mse = self.model.evaluate(normed_test_data, test_labels, verbose=0)
+            print('Testing set Mean Abs Error: {:5.2f}'.format(mae))
+            
+            print(self.model.predict(normed_test_data))
 
     
     
@@ -649,7 +785,7 @@ class Problem(object):
         for s in self.surveys:
             s.filterDiff(coil=coil, thresh=thresh)
             
-            
+        
         
     def forward(self, forwardModel='CS', coils=None, noise=0.0):
         """Forward model.
