@@ -18,6 +18,7 @@ from joblib import Parallel, delayed
 import dask
 from dask.callbacks import Callback
 from dask.threaded import get
+from dask.diagnostics import ProgressBar
 
 from collections import defaultdict # for joblib monkey patching
 import joblib # for joblib monkey patching
@@ -372,14 +373,13 @@ class Problem(object):
                 return
             
             class spotpy_setup(object):
-                def __init__(self, obsVals, fmodel, bounds, pn, spn):
+                def __init__(self, obsVals, bounds, pn, spn):
                     self.params = []
                     for i, bnd in enumerate(bounds):
                         self.params.append(
                                 spotpy.parameter.Uniform(
                                         'x{:d}'.format(i), bnd[0], bnd[1], 10, 10, bnd[0], bnd[1]))
                     self.obsVals = obsVals
-                    self.fmodel = fmodel
                     self.pn = pn
                     self.spn = spn
                     
@@ -411,8 +411,6 @@ class Problem(object):
         # define optimization function
         x0 = np.r_[self.depths0[vd], self.conds0[vc]]
         def solve(obs, pn, spn):
-            global nrows
-            global c
             if self.ikill is True:
                 raise ValueError('killed') # https://github.com/joblib/joblib/issues/356
             if method in mMinimize: # minimize
@@ -424,7 +422,7 @@ class Problem(object):
                 #     c += 1      
             elif method in mMCMC: # MCMC based methods
                 cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
-                spotpySetup = spotpy_setup(obs, fmodel, bounds, pn, spn)
+                spotpySetup = spotpy_setup(obs, bounds, pn, spn)
                 if method == 'ROPE':
                     sampler = spotpy.algorithms.rope(spotpySetup)
                 elif method == 'DREAM':
@@ -434,8 +432,8 @@ class Problem(object):
                 else:
                     raise ValueError('Method {:s} unkown'.format(method))
                     return
-                with HiddenPrints():
-                    sampler.sample(rep) # this output a lot of stuff
+                # with HiddenPrints():
+                sampler.sample(rep) # this output a lot of stuff
                 results = np.array(sampler.getdata())
                 ibest = np.argmin(np.abs(results['like1']))
                 out = np.array([results[col][ibest] for col in cols])
@@ -456,6 +454,7 @@ class Problem(object):
             outs = []
             keys = []
             dsk = {}
+            delayed_results = []
             nrows = survey.df.shape[0]
             for j in range(nrows):
                 if self.ikill:
@@ -487,6 +486,7 @@ class Problem(object):
                     key = '{:d}'.format(j+1)
                     keys.append(key)
                     dsk[key] = (solve, obs, pn, spn)
+                    delayed_results.append(dask.delayed(solve)(obs, pn, spn))
                         
             if njobs != 1:
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
@@ -497,8 +497,11 @@ class Problem(object):
                         dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
                     with Callback(posttask=printkeys):
                         get(dsk, key)
-                    # reorder results from // computing
-                    outs = [okeys[a] for a in keys]
+                    outs = [okeys[a] for a in keys] # reorder results from // computing
+                    
+                    # with ProgressBar():
+                    #     outs = dask.compute(*delayed_results)
+                    
                 except ValueError:
                     return
                 
