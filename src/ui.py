@@ -844,8 +844,11 @@ class App(QMainWindow):
         
         # apply the calibration to the ECa measurements of the survey imported
         def applyCalibBtnFunc():
+            forwardModel = self.forwardCalibCombo.itemText(self.forwardCalibCombo.currentIndex())
+            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
+                                forwardModel=forwardModel, apply=True)
+            self.mwRaw.replot(**self.showParams)
             self.infoDump('Calibration applied')
-            #TODO we need a good dataset to test this !
         self.applyCalibBtn = QPushButton('Apply Calibration')
         self.applyCalibBtn.clicked.connect(applyCalibBtnFunc)
         
@@ -1345,6 +1348,13 @@ class App(QMainWindow):
         self.contourInvCheck = QCheckBox()
         self.contourInvCheck.clicked.connect(contourInvCheckFunc)
  
+        def saveInvDataBtnFunc():
+            fdir = QFileDialog.getExistingDirectory(invTab, 'Choose directory where to save the files')
+            if fdir != '':
+                self.problem.saveInvData(fdir)
+        self.saveInvDataBtn = QPushButton('Save Results')
+        self.saveInvDataBtn.clicked.connect(saveInvDataBtnFunc)
+
         
         
         # for the map
@@ -1395,6 +1405,14 @@ class App(QMainWindow):
             self.mwInvMap.replot(**showInvMapParams)
         self.contourInvMapCheck = QCheckBox()
         self.contourInvMapCheck.clicked.connect(contourInvMapCheckFunc)
+        
+        def saveInvMapDataBtnFunc():
+            fdir = QFileDialog.getExistingDirectory(invTab, 'Choose directory where to save the files')
+            if fdir != '':
+                self.problem.saveInvData(fdir)
+        self.saveInvMapDataBtn = QPushButton('Save Results')
+        self.saveInvMapDataBtn.clicked.connect(saveInvMapDataBtnFunc)
+        
         
         
         self.graphTabs = QTabWidget()
@@ -1455,6 +1473,7 @@ class App(QMainWindow):
         profOptionsLayout.addWidget(self.contourInvLabel)
         profOptionsLayout.addWidget(self.contourInvCheck)
         profOptionsLayout.addWidget(self.cmapInvCombo)
+        profOptionsLayout.addWidget(self.saveInvDataBtn)
         profLayout.addLayout(profOptionsLayout)
         profLayout.addWidget(self.mwInv)
         self.profTab.setLayout(profLayout)
@@ -1473,6 +1492,7 @@ class App(QMainWindow):
         mapOptionsLayout.addWidget(self.contourInvMapLabel)
         mapOptionsLayout.addWidget(self.contourInvMapCheck)
         mapOptionsLayout.addWidget(self.cmapInvMapCombo)
+        mapOptionsLayout.addWidget(self.saveInvMapDataBtn)
         mapLayout.addLayout(mapOptionsLayout)
         mapLayout.addWidget(self.mwInvMap)
         self.mapTab.setLayout(mapLayout)
@@ -1486,7 +1506,7 @@ class App(QMainWindow):
         
         #%% goodness of fit
         postTab = QTabWidget()
-        self.tabs.addTab(postTab, 'Post-processing')
+        self.tabs.addTab(postTab, 'Misfit')
         
         self.misfitLabel = QLabel('Misfit after inversion')
         

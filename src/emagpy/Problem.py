@@ -54,6 +54,8 @@ class Problem(object):
         self.depths = [] # contains inverted depths or just depths0 if fixed
         self.ikill = False # if True, the inversion is killed
         self.c = 0 # counter
+        self.calibrated = False # flag for ERT calibration
+        
         
     def createSurvey(self, fname, freq=None, hx=None):
         """Create a survey object.
@@ -1611,7 +1613,7 @@ class Problem(object):
 
 
 
-    def calibrate(self, fnameECa, fnameEC, forwardModel='CS', ax=None, apply=False):
+    def calibrate(self, fnameECa, fnameEC, forwardModel='CS', ax=None, apply=False, dump=None):
         """Calibrate ECa with given EC profile.
         
         Parameters
@@ -1629,7 +1631,12 @@ class Problem(object):
         apply : bool, optional
             If `True` the ECa values will be calibrated. If `False`, the relationship
             will just be plotted.
+        dump : function, optional
+            Display different parts of the calibration.
         """
+        if dump is None:
+            def dump(x):
+                print(x)
         survey = Survey(fnameECa)
         if survey.freqs[0] is None: # fallback in case the use doesn't specify the frequency in the headers
             try:
@@ -1685,7 +1692,7 @@ class Problem(object):
             slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
             slopes[i] = slope
             offsets[i] = intercept
-            print('{:s}: ECa(ERT) = {:.2f} * ECa(EMI) + {:.2f} (R^2={:.2f})'.format(coil, slope, intercept, r_value**2))
+            dump('{:s}: ECa(ERT) = {:.2f} * ECa(EMI) + {:.2f} (R^2={:.2f})'.format(coil, slope, intercept, r_value**2))
             predECa[:,i] = obsECa[:,i]*slope + intercept
             ax.plot(obsECa[:,i], predECa[:,i], '-', label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
         ax.legend()
@@ -1693,10 +1700,37 @@ class Problem(object):
         
         # apply it to all ECa values
         if apply:
-            print('Correction is applied.')
+            if self.calibrated: # already calibrated
+                dump('Data can only be calibrated once!'
+                     ' Please reimport the survey before recalibrating your data.')
+                return
+            self.calibrated = True
+            
+            # replot the same graph but with corrected EC
+            ax.clear()
+            ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
+            for i, s in enumerate(self.coils):
+                # obsECaCorr = (obsECa[:,i] - offsets[i])/slopes[i]
+                obsECaCorr = obsECa[:,i] + offsets[i] - (1-slopes[i]) * obsECa[:,i]
+                x, y = obsECaCorr, simECa[:,i]
+                cax = ax.plot(x, y, '.')
+                inan = ~np.isnan(x) & ~np.isnan(y)
+                slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
+                # dump('{:s} corrected: ECa(ERT) = {:.2f} * ECa(EMI) + {:.2f} (R^2={:.2f})'.format(
+                    # coil, slope, intercept, r_value**2))
+                predECaCorr = x * slope + intercept
+                ax.plot(x, predECaCorr, '-', color=cax[0].get_color(),
+                        label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
+            ax.legend()
+            ax.set_xlim([vmin, vmax])
+            ax.set_ylim([vmin, vmax])
+
+            # apply correction on all datasets
             for s in self.surveys:
                 for i, c in enumerate(self.coils):
-                    s.df.loc[:, c] = (s.df[c].values - offsets[i])/slopes[i]
+                    # s.df.loc[:, c] = (s.df[c].values - offsets[i])/slopes[i]
+                    s.df.loc[:, c] = s.df[c].values + offsets[i] - (1-slopes[i]) * s.df[c].values
+            dump('Correction is applied.')
         
         
         
