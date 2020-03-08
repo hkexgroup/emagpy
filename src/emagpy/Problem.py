@@ -1611,7 +1611,7 @@ class Problem(object):
 
 
 
-    def calibrate(self, fnameECa, fnameEC, forwardModel='CS', ax=None):
+    def calibrate(self, fnameECa, fnameEC, forwardModel='CS', ax=None, apply=False):
         """Calibrate ECa with given EC profile.
         
         Parameters
@@ -1626,6 +1626,9 @@ class Problem(object):
             Forward model to use. Either CS (default), FS or FSeq.
         ax : matplotlib.Axes
             If specified the graph will be plotted against this axis.
+        apply : bool, optional
+            If `True` the ECa values will be calibrated. If `False`, the relationship
+            will just be plotted.
         """
         survey = Survey(fnameECa)
         if survey.freqs[0] is None: # fallback in case the use doesn't specify the frequency in the headers
@@ -1670,18 +1673,31 @@ class Problem(object):
         ax.set_ylim([vmin, vmax])
         ax.set_xlabel('ECa(EM) [mS/m]')
         ax.set_ylabel('ECa(ER) [mS/m]')
-        ax.legend(survey.coils)
         
         # plot equation, apply it or not directly
         predECa = np.zeros(obsECa.shape)
+        slopes = np.zeros(len(self.coils))
+        offsets = np.zeros(len(self.coils))
+        ax.set_prop_cycle(None)
         for i, coil in enumerate(survey.coils):
             x, y = obsECa[:,i], simECa[:,i]
             inan = ~np.isnan(x)& ~np.isnan(y)
             slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
-            print(coil, '{:.2f} * x + {:.2f} (R={:.2f})'.format(slope, intercept, r_value))
+            slopes[i] = slope
+            offsets[i] = intercept
+            print('{:s}: ECa(ERT) = {:.2f} * ECa(EMI) + {:.2f} (R^2={:.2f})'.format(coil, slope, intercept, r_value**2))
             predECa[:,i] = obsECa[:,i]*slope + intercept
-        ax.set_prop_cycle(None)
-        ax.plot(obsECa, predECa, '-')
+            ax.plot(obsECa[:,i], predECa[:,i], '-', label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
+        ax.legend()
+
+        
+        # apply it to all ECa values
+        if apply:
+            print('Correction is applied.')
+            for s in self.surveys:
+                for i, c in enumerate(self.coils):
+                    s.df.loc[:, c] = (s.df[c].values - offsets[i])/slopes[i]
+        
         
         
     def crossOverPoints(self, index=0, coil=None, ax=None, dump=print):
