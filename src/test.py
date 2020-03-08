@@ -91,7 +91,7 @@ k.showResults(index=1, cmap='bwr', ax=axs[2])
 k = Problem()
 # k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
-k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv', apply=True)
+# k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv', apply=True)
 
 #%%
 t0 = time.time()
