@@ -260,7 +260,7 @@ class Problem(object):
         
         if dump is None:
             def dump(x):
-                print('\r' + x, end='')
+                print(x, end='')
 
         nc = len(self.conds0)
         vd = ~self.fixedDepths # variable depths
@@ -451,7 +451,7 @@ class Problem(object):
                     add = '\n'
                 else:
                     add = ''
-                dump('{:d}/{:d} inverted'.format(BatchCompletionCallBack.completed[self.parallel], nrows) + add)
+                dump('\r{:d}/{:d} inverted'.format(BatchCompletionCallBack.completed[self.parallel], nrows) + add)
                 if self.parallel._original_iterator is not None:
                     self.parallel.dispatch_next()    
         joblib.parallel.BatchCompletionCallBack = BatchCompletionCallBack
@@ -494,7 +494,7 @@ class Problem(object):
                 
                 if njobs == 1: # sequential inversion
                     outs.append(solve(obs, pn, spn))
-                    dump('{:d}/{:d} inverted'.format(j+1, nrows))
+                    dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
 
             if njobs != 1:
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
@@ -509,7 +509,7 @@ class Problem(object):
                 depth[j,vd] = out[:np.sum(vd)]
                 model[j,vc] = out[np.sum(vd):]
                 rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs)**2)/len(obs))
-                # dump('{:d}/{:d} inverted ({:s})'.format(j+1, apps.shape[0], status))
+            dump('\n')
             self.models.append(model)
             self.depths.append(depth)
             self.rmses.append(rmse)
@@ -539,7 +539,7 @@ class Problem(object):
         
         if dump is None:
             def dump(x):
-                print('\r' + x, end='')
+                print(x, end='')
                 
         J = buildJacobian(self.depths0, self.cspacing, self.cpos)
         L = buildSecondDiff(J.shape[1])
@@ -573,12 +573,12 @@ class Problem(object):
                 out = cond.flatten()
                 model[j,:] = out
                 rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/len(app))
-                dump('{:d}/{:d} inverted'.format(j+1, apps.shape[0]))
+                dump('\r{:d}/{:d} inverted'.format(j+1, apps.shape[0]))
             self.models.append(model)
             self.rmses.append(rmse)
             depth = np.repeat(self.depths0[None,:], apps.shape[0], axis=0)
             self.depths.append(depth)
-            dump('{:d} measurements inverted\n'.format(apps.shape[0]))
+            dump('\n')
            
 
 
