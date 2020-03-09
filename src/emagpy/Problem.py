@@ -292,24 +292,6 @@ class Problem(object):
         vd = ~self.fixedDepths # variable depths
         vc = ~self.fixedConds # variable conductivity
 
-        # define bounds
-        if bnds is not None:
-            if len(bnds) == 2 and (isinstance(bnds[0], int) or isinstance(bnds[0], float)):
-                # we just have min/max of EC
-                top = np.ones(nc)*bnds[1]
-                bot = np.ones(nc)*bnds[0]
-                bounds = list(tuple(zip(bot[vc], top[vc])))
-            else:
-                bounds = bnds
-        else:
-            bounds = None
-        if ((np.sum(vd) > 0) or (method in mMCMC)) and (bounds is None):
-            mdepths = self.depths0[:-1] + np.diff(self.depths0)/2
-            bot = np.r_[np.r_[0.2, mdepths], np.ones(nc)*2]
-            top = np.r_[np.r_[mdepths, self.depths0[-1] + 0.2], np.ones(nc)*100]
-            bounds = list(tuple(zip(bot[np.r_[vd, vc]], top[np.r_[vd, vc]])))
-        dump('bounds = ' + str(bounds) + '\n')
-
         # time-lapse constrain
         if gamma != 0:
             n = self.surveys[0].df.shape[0]
@@ -335,6 +317,36 @@ class Problem(object):
             elif forwardModel == 'Q':
                 return np.imag(getQs(cond, depth, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0]))
 
+        # define bounds
+        if bnds is not None:
+            if len(bnds) == 2 and (isinstance(bnds[0], int) or isinstance(bnds[0], float)):
+                # we just have min/max of EC
+                top = np.ones(nc)*bnds[1]
+                bot = np.ones(nc)*bnds[0]
+                bounds = list(tuple(zip(bot[vc], top[vc])))
+            else:
+                bounds = bnds
+            # check initial values lies within bounds
+            d0 = self.depths0[vd]
+            s0 = self.conds0[vc]
+            p0 = np.r_[d0, s0]
+            for p, bnd in zip(p0, bounds):
+                if (p < bnd[0]) or (p > bnd[1]):
+                    dump('ERROR: initial parameters values are out of the given bounds.'
+                         'Please use Problem.setInit() to define initial values or modify the boudns.')
+                    return
+        else:
+            bounds = None
+        if ((np.sum(vd) > 0) or (method in mMCMC)) and (bounds is None):
+            mdepths = self.depths0[:-1] + np.diff(self.depths0)/2
+            bot = np.r_[np.r_[0.2, mdepths], np.ones(nc)*2]
+            top = np.r_[np.r_[mdepths, self.depths0[-1] + 0.2], np.ones(nc)*100]
+            bounds = list(tuple(zip(bot[np.r_[vd, vc]], top[np.r_[vd, vc]])))
+        if len(bounds) > 0:
+            dump('bounds = ' + str(bounds) + '\n')
+
+            #
+
         # build ANN network
         if method == 'ANN':
             if gamma != 0 or beta != 0:
@@ -345,6 +357,7 @@ class Problem(object):
                 vmin = np.nanpercentile(self.surveys[0].df[self.coils].values, 2)
                 vmax = np.nanpercentile(self.surveys[0].df[self.coils].values, 98)
                 bounds = list(tuple(zip(np.ones(nc)*vmin, np.ones(nc)*vmax)))
+                dump('bounds = ' + str(bounds) + '\n')
             self.buildANN(fmodel, bounds, noise=noise, nsample=nsample, dump=dump, iplot=annplot)
             dump('Finish training the network ({:.2f}s)\n'.format(time.time() - t0))
             
