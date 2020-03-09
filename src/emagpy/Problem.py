@@ -55,6 +55,7 @@ class Problem(object):
         self.ikill = False # if True, the inversion is killed
         self.c = 0 # counter
         self.calibrated = False # flag for ERT calibration
+        self.annReplaced = 0 # number of measurement outliers by ANN
         
         
     def createSurvey(self, fname, freq=None, hx=None):
@@ -211,7 +212,7 @@ class Problem(object):
         
     def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l2',
                alpha=0.07, beta=0.0, gamma=0.0, dump=None, bnds=None,
-               options={}, Lscaling=False, rep=100, noise=0.0, nsample=100, 
+               options={}, Lscaling=False, rep=100, noise=0.05, nsample=100, 
                annplot=False, njobs=1):
         """Invert the apparent conductivity measurements.
         
@@ -273,6 +274,7 @@ class Problem(object):
         self.models = []
         self.depths = []
         self.rmses = []
+        self.annReplaced = 0
         self.ikill = False
         mMinimize = ['L-BFGS-B','TNC','CG','Nelder-Mead']
         mMCMC = ['ROPE','SCEUA','DREAM']
@@ -535,11 +537,13 @@ class Problem(object):
             
             elif method == 'ANN':
                 obss = np.vstack([a[0] for a in params])
-                outs = self.model.predict(obss)
+                normobss = self.norm(obss) # normalize data
+                outs = self.model.predict(normobss)
                 # detecting negative depths
                 ibad1 = np.array([outs[:,l] < bounds[l][0] for l in range(len(bounds))]).any(0)
                 ibad2 = np.array([outs[:,l] > bounds[l][1] for l in range(len(bounds))]).any(0)
                 ibad = ibad1 | ibad2
+                self.annReplaced = np.sum(ibad)
                 if np.sum(ibad) > 0:
                     dump('WARNING: ANN: {:d} values out of bounds replaced by L-BFGS-G values.'
                          ' Try to increase the noise level and/or the number of samples.\n.'.format(
@@ -571,7 +575,7 @@ class Problem(object):
 
 
 
-    def buildANN(self, fmodel, bounds, noise=0.0, iplot=False, nsample=100,
+    def buildANN(self, fmodel, bounds, noise=0.05, iplot=False, nsample=100,
                  dump=None, epochs=500):
         """Build and train the artificial neural network on synthetic values
         derived from observed ECa values.
@@ -631,29 +635,29 @@ class Problem(object):
         train_dataset = df_train[vcols]
         test_dataset = df_test[vcols]
         
-        # normalize dataset
-        # TODO not sure if normalization is done right here ...
-        # TODO normalize with the bounds and vmin/vmax of ECa
-        # TODO add graph with distribution of synthetic and obs data
+        # normalize dataset using statistics from train data
+        # NOTE: this need to be done when feeding other data to it
+        normMean = train_dataset.mean().values
+        normStd = train_dataset.std().values
         def norm(x):
-            return (x-x.mean())/x.std()
-        # normed_train_data = norm(train_dataset)
-        # normed_test_data = norm(test_dataset)
-        normed_train_data = train_dataset
-        normed_test_data = test_dataset
+            return (x - normMean) / normStd
+        self.norm = norm # store function to be used in invert()
+        normed_train_data = self.norm(train_dataset)
+        normed_test_data = self.norm(test_dataset)
         
         # build the model
         def build_model():
             model = keras.Sequential([
-                layers.Dense(64, activation=tf.nn.relu, input_shape=[len(train_dataset.keys())]),
-                layers.Dense(64, activation=tf.nn.relu),
+                layers.Dense(64, activation='relu', input_shape=[len(train_dataset.keys())]),
+                layers.Dense(64, activation='relu'),
                 layers.Dense(len(train_labels.keys()))
             ])
-            optimizer = tf.train.RMSPropOptimizer(0.001)
+            optimizer = tf.keras.optimizers.RMSprop(0.001)
             model.compile(loss='mse',
                           optimizer=optimizer,
                           metrics=['mae', 'mse'])
             return model
+        
         self.model = build_model()
         # self.model.summary()
 
@@ -683,14 +687,14 @@ class Problem(object):
             def plot_history(history):
                 hist = pd.DataFrame(history.history)
                 hist['epoch'] = history.epoch
-                fig, axs = plt.subplots(1, 2)
+                fig, axs = plt.subplots(1, 2, figsize=(8,3))
                 ax = axs[0]
                 ax.set_xlabel('Epoch')
                 ax.set_ylabel('Mean Abs Error')
                 ax.plot(hist['epoch'], hist['mean_absolute_error'],
-                       label='Training Error')
+                       label='Training')
                 ax.plot(hist['epoch'], hist['val_mean_absolute_error'],
-                       label = 'Validation Error')
+                       label = 'Validation')
                 ax.legend()
                 
                 ax = axs[1]
