@@ -342,7 +342,7 @@ class Problem(object):
             bot = np.r_[np.r_[0.2, mdepths], np.ones(nc)*2]
             top = np.r_[np.r_[mdepths, self.depths0[-1] + 0.2], np.ones(nc)*100]
             bounds = list(tuple(zip(bot[np.r_[vd, vc]], top[np.r_[vd, vc]])))
-        if len(bounds) > 0:
+        if bounds is not None:
             dump('bounds = ' + str(bounds) + '\n')
 
             #
