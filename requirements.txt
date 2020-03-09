@@ -6,4 +6,4 @@ pyproj
 hankel
 spotpy
 joblib
-dask
+dask[complete]

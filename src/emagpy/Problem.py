@@ -502,9 +502,6 @@ class Problem(object):
             depth = np.ones((apps.shape[0], len(self.depths0)))*self.depths0
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
-            keys = []
-            dsk = {}
-            delayed_results = []
             nrows = survey.df.shape[0]
             for j in range(nrows):
                 # define observations and convert to Q if needed
@@ -527,30 +524,37 @@ class Problem(object):
                     g = gamma
                     
                 params.append((obs, pn, spn, alpha, beta, g))                
-                key = '{:d}'.format(j+1)
-                keys.append(key)
-                dsk[key] = (solve, *params[-1])
-                delayed_results.append(dask.delayed(solve)(*params[-1]))
             
             outs = []
+            # sequential
             if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
                 for j in range(nrows):
                     outs.append(solve(*params[j]))
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
-                    
+            
+            # parallel (multithreding)
             elif (method != 'ANN') & (njobs != 1):
+                keys = []
+                dsk = {}
+                delayed_results = []
+                for j in range(nrows):
+                    key = '{:d}'.format(j+1)
+                    keys.append(key)
+                    dsk[key] = (solve, *params[j])
+                    delayed_results.append(dask.delayed(solve)(*params[j]))
+
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
-                    okeys = {}
-                    def printkeys(key, res, dsk, state, worker_id):
-                        okeys[key] = res
-                        self.c += 1
-                        dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
-                    with Callback(posttask=printkeys):
-                        get(dsk, key)
-                    outs = [okeys[a] for a in keys] # reorder results from // computing
+                    # okeys = {}
+                    # def printkeys(key, res, dsk, state, worker_id):
+                        # okeys[key] = res
+                        # self.c += 1
+                        # dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
+                    # with Callback(posttask=printkeys):
+                        # get(dsk, key)                    
+                    # outs = [okeys[a] for a in keys] # reorder results from // computing
                     
-                    # with ProgressBar():
-                    #     outs = dask.compute(*delayed_results)
+                    with ProgressBar():
+                        outs = dask.compute(*delayed_results)
                     
                 except ValueError:
                     return
