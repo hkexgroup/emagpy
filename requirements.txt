@@ -6,3 +6,4 @@ pyproj
 hankel
 spotpy
 joblib
+dask
