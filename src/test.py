@@ -95,15 +95,18 @@ k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
 
 #%%
 t0 = time.time()
-k.invert(method='ROPE', njobs=-1)
-# k.invert(njobs=-1)
+# k.invert(method='ROPE', njobs=-1) # not supported
+k.invert(njobs=-1)
 print('elapsed {:.2f}s'.format(time.time() - t0))
+k.showResults()
+
 
 #%%
 t0 = time.time()
-k.invert(method='ROPE', njobs=1)
-# k.invert(njobs=1)
+# k.invert(method='ROPE', njobs=1)
+k.invert(njobs=1)
 print('elapsed {:.2f}s'.format(time.time() - t0))
+k.showResults()
 
 
 #%% invert change in ECa
@@ -155,11 +158,11 @@ k1.showResults(ax=axs[1], rmse=True)
 
 
 #%% ANN inversion
-k = Problem()
-k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
-k.setInit(depths0=[0.7], fixedDepths=[False])
-k.invert(method='ANN', nsample=100, noise=0.02, annplot=True)
-k.showResults(rmse=True)
+# k = Problem()
+# k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+# k.setInit(depths0=[0.7], fixedDepths=[False])
+# k.invert(method='ANN', nsample=100, noise=0.02, annplot=True)
+# k.showResults(rmse=True)
 
 
 

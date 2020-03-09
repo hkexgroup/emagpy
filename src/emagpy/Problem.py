@@ -278,10 +278,15 @@ class Problem(object):
         self.ikill = False
         mMinimize = ['L-BFGS-B','TNC','CG','Nelder-Mead']
         mMCMC = ['ROPE','SCEUA','DREAM']
-        
+                
         if dump is None:
             def dump(x):
                 print(x, end='')
+
+        if (njobs != 1) and (method in mMCMC):
+            dump('WARNING: parallel execution is currently not supported for {:s}.'
+                 'Reverting to sequential execution.'.format(method))
+            njobs = 1
 
         nc = len(self.conds0)
         vd = ~self.fixedDepths # variable depths
@@ -464,8 +469,8 @@ class Problem(object):
                 else:
                     raise ValueError('Method {:s} unkown'.format(method))
                     return
-                # with HiddenPrints():
-                sampler.sample(rep) # this output a lot of stuff
+                with HiddenPrints():
+                    sampler.sample(rep) # this output a lot of stuff
                 results = np.array(sampler.getdata())
                 ibest = np.argmin(np.abs(results['like1']))
                 out = np.array([results[col][ibest] for col in cols])
