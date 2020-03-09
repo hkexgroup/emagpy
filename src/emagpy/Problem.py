@@ -698,12 +698,13 @@ class Problem(object):
                 ax.legend()
                 
                 ax = axs[1]
-                bins = np.arange(0, 100 + 10, 10)
+                bins = np.arange(0, 100 + 10, 5)
+                mbins = bins[:-1] + np.diff(bins)
                 for i, c in enumerate(self.coils):
-                    cax = ax.plot([],[], label=c)
-                    cc = cax[0].get_color()
-                    ax.hist(self.surveys[0].df[c].values, facecolor='none', edgecolor=cc, bins=bins)
-                    ax.hist(df[c].values, facecolor='none', edgecolor=cc, ls='dotted', bins=bins)
+                    freq1, _ = np.histogram(self.surveys[0].df[c].values, bins=bins)
+                    freq2, _ = np.histogram(df[c].values, bins=bins)
+                    cax = ax.step(mbins, freq1, linestyle='-', label=c)
+                    ax.step(mbins, freq2, linestyle=':', color=cax[0].get_color())
                 ax.legend()
                 ax.set_xlabel('ECa')
                 ax.set_ylabel('Frequency')
