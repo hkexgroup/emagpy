@@ -89,22 +89,22 @@ k.showResults(index=1, cmap='bwr', ax=axs[2])
 
 #%%  parallel and sequential inversion
 k = Problem()
-# k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
-k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
+k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+# k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
 # k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv', apply=True)
 
 #%%
 t0 = time.time()
-k.invert(method='ROPE', njobs=-1) # not supported
-# k.invert(njobs=-1)
+# k.invert(method='ROPE', njobs=-1)
+k.invert(njobs=-1)
 print('elapsed {:.2f}s'.format(time.time() - t0))
 k.showResults()
 
 
 #%%
 t0 = time.time()
-k.invert(method='ROPE', njobs=1)
-# k.invert(njobs=1)
+# k.invert(method='ROPE', njobs=1)
+k.invert(njobs=1)
 print('elapsed {:.2f}s'.format(time.time() - t0))
 k.showResults()
 

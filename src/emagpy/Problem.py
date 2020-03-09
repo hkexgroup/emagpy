@@ -55,6 +55,7 @@ class Problem(object):
         self.c = 0 # counter
         self.calibrated = False # flag for ERT calibration
         self.annReplaced = 0 # number of measurement outliers by ANN
+        self.runningUI = False # True if run in UI, just change output of parallel stuff
         
         
     def createSurvey(self, fname, freq=None, hx=None):
@@ -481,7 +482,7 @@ class Problem(object):
                 else:
                     raise ValueError('Method {:s} unkown'.format(method))
                     return
-                sampler.sample(rep)
+                sampler.sample(rep) # this is outputing too much so we use hiddenprints() context
                 results = np.array(sampler.getdata())
                 ibest = np.argmin(np.abs(results['like1']))
                 out = np.array([results[col][ibest] for col in cols])
@@ -543,18 +544,29 @@ class Problem(object):
                     delayed_results.append(dask.delayed(solve)(*params[j]))
 
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
-                    # okeys = {}
-                    # def printkeys(key, res, dsk, state, worker_id):
-                        # okeys[key] = res
-                        # self.c += 1
-                        # dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
-                    # with Callback(posttask=printkeys):
-                        # get(dsk, key)                    
-                    # outs = [okeys[a] for a in keys] # reorder results from // computing
+                    if self.runningUI:
+                        okeys = {}
+                        def printkeys(key, res, dsk, state, worker_id):
+                            okeys[key] = res
+                            self.c += 1
+                            dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
+                        with Callback(posttask=printkeys):
+                            with HiddenPrints():
+                                get(dsk, keys)                    
+                        outs = [okeys[a] for a in keys] # reorder results from // computing
                     
-                    with ProgressBar():
-                        with HiddenPrints():
-                            outs = dask.compute(*delayed_results)
+                    # NOTE: the above run fine in the UI but doesn't plot anything
+                    # when run from API because of the HiddenPrints()
+                    # teh below runs fine the API but failed to run in the UI
+                    # due to QThread issue when we tried to summy a custom out
+                    # argument
+                    
+                    else:
+                        with ProgressBar():
+                            with HiddenPrints():
+                                outs = dask.compute(*delayed_results)
+                            
+                    
                     
                 except ValueError:
                     return

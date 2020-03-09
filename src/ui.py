@@ -210,7 +210,6 @@ class App(QMainWindow):
         self.setWindowTitle('EMagPy v{:s}'.format(EMagPy_version))
         self.setGeometry(100,100,1100,600)
 
-        self.problem = None
         self.datadir = os.path.join(bundle_dir, 'examples')
         self.fnameHi = None
         self.fnameLo = None
@@ -224,6 +223,7 @@ class App(QMainWindow):
         self.tabs = QTabWidget()
         
         self.problem = Problem()
+        self.problem.runningUI = True
         
         
         
