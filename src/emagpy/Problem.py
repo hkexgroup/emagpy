@@ -332,6 +332,8 @@ class Problem(object):
 
         # build ANN network
         if method == 'ANN':
+            if gamma != 0 or beta != 0:
+                dump('ANN does not accept any smoothing parameters.')
             dump('Building and training ANN network\n')
             t0 = time.time()
             if bounds is None: # happen where all depths are fixed
@@ -700,6 +702,8 @@ class Problem(object):
                 ax = axs[1]
                 bins = np.arange(0, 100 + 10, 5)
                 mbins = bins[:-1] + np.diff(bins)
+                ax.plot([],[],'k-', label='Observed')
+                ax.plot([],[],'k:', label='Synthetic')
                 for i, c in enumerate(self.coils):
                     freq1, _ = np.histogram(self.surveys[0].df[c].values, bins=bins)
                     freq2, _ = np.histogram(df[c].values, bins=bins)
