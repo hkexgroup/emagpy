@@ -31,10 +31,9 @@ class HiddenPrints:
     # https://stackoverflow.com/questions/8391411/suppress-calls-to-print-python
     def __enter__(self):
         self._original_stdout = sys.stdout
-        sys.stdout = open(os.devnull, 'w')
+        sys.stdout = None
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        sys.stdout.close()
         sys.stdout = self._original_stdout
         
 
@@ -283,10 +282,10 @@ class Problem(object):
             def dump(x):
                 print(x, end='')
 
-        if (njobs != 1) and (method in mMCMC):
-            dump('WARNING: parallel execution is currently not supported for {:s}.'
-                 'Reverting to sequential execution.'.format(method))
-            njobs = 1
+        # if (njobs != 1) and (method in mMCMC):
+        #     dump('WARNING: parallel execution is currently not supported for {:s}.'
+        #          'Reverting to sequential execution.'.format(method))
+        #     njobs = 1
 
         nc = len(self.conds0)
         vd = ~self.fixedDepths # variable depths
@@ -482,8 +481,7 @@ class Problem(object):
                 else:
                     raise ValueError('Method {:s} unkown'.format(method))
                     return
-                with HiddenPrints():
-                    sampler.sample(rep) # this output a lot of stuff
+                sampler.sample(rep)
                 results = np.array(sampler.getdata())
                 ibest = np.argmin(np.abs(results['like1']))
                 out = np.array([results[col][ibest] for col in cols])
@@ -529,7 +527,8 @@ class Problem(object):
             # sequential
             if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
                 for j in range(nrows):
-                    outs.append(solve(*params[j]))
+                    with HiddenPrints():
+                        outs.append(solve(*params[j]))
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
             
             # parallel (multithreding)
@@ -554,7 +553,8 @@ class Problem(object):
                     # outs = [okeys[a] for a in keys] # reorder results from // computing
                     
                     with ProgressBar():
-                        outs = dask.compute(*delayed_results)
+                        with HiddenPrints():
+                            outs = dask.compute(*delayed_results)
                     
                 except ValueError:
                     return
