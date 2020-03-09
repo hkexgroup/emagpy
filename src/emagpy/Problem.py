@@ -15,6 +15,11 @@ from matplotlib.collections import PolyCollection
 from scipy.optimize import minimize
 from scipy.stats import linregress
 from joblib import Parallel, delayed
+import dask
+from dask.callbacks import Callback
+from dask.threaded import get
+from dask.diagnostics import ProgressBar
+
 from collections import defaultdict # for joblib monkey patching
 import joblib # for joblib monkey patching
 
@@ -48,6 +53,9 @@ class Problem(object):
         self.freqs = []
         self.depths = [] # contains inverted depths or just depths0 if fixed
         self.ikill = False # if True, the inversion is killed
+        self.c = 0 # counter
+        self.calibrated = False # flag for ERT calibration
+        self.annReplaced = 0 # number of measurement outliers by ANN
         
         
     def createSurvey(self, fname, freq=None, hx=None):
@@ -204,7 +212,8 @@ class Problem(object):
         
     def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l2',
                alpha=0.07, beta=0.0, gamma=0.0, dump=None, bnds=None,
-               options={}, Lscaling=False, rep=100, njobs=1):
+               options={}, Lscaling=False, rep=100, noise=0.05, nsample=100, 
+               annplot=False, njobs=1):
         """Invert the apparent conductivity measurements.
         
         Parameters
@@ -220,6 +229,9 @@ class Problem(object):
             Name of the optimization method either L-BFGS-B, TNC, CG or Nelder-Mead
             to be passed to `scipy.optimize.minmize()` or ROPE, SCEUA, DREAM for
             a MCMC-based solver based on the `spotpy` Python package.
+            Alternatively 'ANN' can be used (requires tensorflow), it will train
+            an artificial neural network on synthetic data and use it for inversion.
+            Note that smoothing (alpha, beta, gamma) is not supported by ANN.
         regularization : str, optional
             Type of regularization, either l1 (blocky model) or l2 (smooth model)
         alpha : float, optional
@@ -240,6 +252,14 @@ class Problem(object):
             centroids of layers differences.
         rep : int, optional
             Number of sample for the MCMC-based methods.
+        noise : float, optional
+            If ANN method is used, describe the noise applied to synthetic data
+            in training phase. Values between 0 and 1 (100% noise).
+        nsample : int, optional
+            If ANN method is used, describe the size of the synthetic data
+            generated in trainig phase.
+        annplot : bool, optional
+            If True, the validation plot will be plotted.
         njobs : int, optional
             If -1 all CPUs are used. If 1 is given, no parallel computing code
             is used at all, which is useful for debugging. For n_jobs below -1,
@@ -254,13 +274,19 @@ class Problem(object):
         self.models = []
         self.depths = []
         self.rmses = []
+        self.annReplaced = 0
         self.ikill = False
         mMinimize = ['L-BFGS-B','TNC','CG','Nelder-Mead']
         mMCMC = ['ROPE','SCEUA','DREAM']
-        
+                
         if dump is None:
             def dump(x):
                 print(x, end='')
+
+        if (njobs != 1) and (method in mMCMC):
+            dump('WARNING: parallel execution is currently not supported for {:s}.'
+                 'Reverting to sequential execution.'.format(method))
+            njobs = 1
 
         nc = len(self.conds0)
         vd = ~self.fixedDepths # variable depths
@@ -294,7 +320,7 @@ class Problem(object):
         
         # define the forward model
         def fmodel(p): # p contains first the depths then the conductivities
-            depth = self.depths0
+            depth = self.depths0.copy()
             if np.sum(vd) > 0:
                 depth[vd] = p[:np.sum(vd)]
             cond = self.conds0.copy()
@@ -309,7 +335,19 @@ class Problem(object):
             elif forwardModel == 'Q':
                 return np.imag(getQs(cond, depth, self.cspacing, self.cpos, f=self.freqs[0], hx=self.hx[0]))
 
-
+        # build ANN network
+        if method == 'ANN':
+            if gamma != 0 or beta != 0:
+                dump('ANN does not accept any smoothing parameters.')
+            dump('Building and training ANN network\n')
+            t0 = time.time()
+            if bounds is None: # happen where all depths are fixed
+                vmin = np.nanpercentile(self.surveys[0].df[self.coils].values, 2)
+                vmax = np.nanpercentile(self.surveys[0].df[self.coils].values, 98)
+                bounds = list(tuple(zip(np.ones(nc)*vmin, np.ones(nc)*vmax)))
+            self.buildANN(fmodel, bounds, noise=noise, nsample=nsample, dump=dump, iplot=annplot)
+            dump('Finish training the network ({:.2f}s)\n'.format(time.time() - t0))
+            
         # build roughness matrix
         L = buildSecondDiff(len(self.conds0)) # L is used inside the smooth objective fct
         # each constrain is proportional to the distance between the centroid of the two layers
@@ -347,13 +385,13 @@ class Problem(object):
         # pn : consecutive previous profile (for lateral smoothing)
         # spn : profile from other survey (for time-lapse)
         if regularization  == 'l1':
-            def objfunc(p, app, pn, spn):
+            def objfunc(p, app, pn, spn, alpha, beta, gamma):
                 return np.sqrt(np.sum(np.abs(dataMisfit(p, app)))/len(app)
                                + alpha*np.sum(np.abs(modelMisfit(p)))/nc
                                + beta*np.sum(np.abs(p - pn))/len(p)
                                + gamma*np.sum(np.abs(p - spn))/len(p))
         elif regularization == 'l2':
-            def objfunc(p, app, pn, spn):
+            def objfunc(p, app, pn, spn, alpha, beta, gamma):
                 return np.sqrt(np.sum(dataMisfit(p, app)**2)/len(app)
                                + alpha*np.sum(modelMisfit(p)**2)/nc
                                + beta*np.sum((p - pn)**2)/len(p)
@@ -368,16 +406,18 @@ class Problem(object):
                 return
             
             class spotpy_setup(object):
-                def __init__(self, obsVals, fmodel, bounds, pn, spn):
+                def __init__(self, obsVals, bounds, pn, spn, alpha, beta, gamma):
                     self.params = []
                     for i, bnd in enumerate(bounds):
                         self.params.append(
                                 spotpy.parameter.Uniform(
                                         'x{:d}'.format(i), bnd[0], bnd[1], 10, 10, bnd[0], bnd[1]))
                     self.obsVals = obsVals
-                    self.fmodel = fmodel
                     self.pn = pn
                     self.spn = spn
+                    self.alpha = alpha
+                    self.beta = beta
+                    self.gamma = gamma
                     
                 def parameters(self):
                     return spotpy.parameter.generate(self.params)
@@ -396,7 +436,8 @@ class Problem(object):
                     #val = -spotpy.objectivefunctions.rmse(evaluation, simulation)
                     # simulation is actually parameters, the simulation (forward model)
                     # is done inside the objective function itself
-                    val = -objfunc(simulation, evaluation, self.pn, self.spn)
+                    val = -objfunc(simulation, evaluation, self.pn, self.spn,
+                                   self.alpha, self.beta, self.gamma)
                     return val
         
         # check parallel
@@ -406,11 +447,11 @@ class Problem(object):
         
         # define optimization function
         x0 = np.r_[self.depths0[vd], self.conds0[vc]]
-        def solve(obs, pn, spn):
+        def solve(obs, pn, spn, alpha, beta, gamma):
             if self.ikill is True:
                 raise ValueError('killed') # https://github.com/joblib/joblib/issues/356
             if method in mMinimize: # minimize
-                res = minimize(objfunc, x0, args=(obs, pn, spn),
+                res = minimize(objfunc, x0, args=(obs, pn, spn, alpha, beta, gamma),
                                method=method, bounds=bounds, options=options)
                 out = res.x
                 # status = 'converged' if res.success else 'not converged'
@@ -418,7 +459,7 @@ class Problem(object):
                 #     c += 1      
             elif method in mMCMC: # MCMC based methods
                 cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
-                spotpySetup = spotpy_setup(obs, fmodel, bounds, pn, spn)
+                spotpySetup = spotpy_setup(obs, bounds, pn, spn, alpha, beta, gamma)
                 if method == 'ROPE':
                     sampler = spotpy.algorithms.rope(spotpySetup)
                 elif method == 'DREAM':
@@ -434,45 +475,25 @@ class Problem(object):
                 ibest = np.argmin(np.abs(results['like1']))
                 out = np.array([results[col][ibest] for col in cols])
                 # status = 'ok'
+                
             return out
 
-        # monkey patch joblib progress output (https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution)
-        # patch joblib progress callback
-        nrows = 0
-        class BatchCompletionCallBack(object):
-            completed = defaultdict(int)
-            global nrows
-            def __init__(self, time, index, parallel):
-                self.index = index
-                self.parallel = parallel
-            def __call__(self, index):
-                BatchCompletionCallBack.completed[self.parallel] += 1
-                if BatchCompletionCallBack.completed[self.parallel] == nrows:
-                    add = '\n'
-                else:
-                    add = ''
-                dump('\r{:d}/{:d} inverted'.format(BatchCompletionCallBack.completed[self.parallel], nrows) + add)
-                if self.parallel._original_iterator is not None:
-                    self.parallel.dispatch_next()    
-        joblib.parallel.BatchCompletionCallBack = BatchCompletionCallBack
-        
-        
         # inversion row by row
         for i, survey in enumerate(self.surveys):
             if self.ikill:
                 break
+            self.c = 0
             apps = survey.df[self.coils].values
             rmse = np.zeros(apps.shape[0])*np.nan
             model = np.ones((apps.shape[0], len(self.conds0)))*self.conds0
             depth = np.ones((apps.shape[0], len(self.depths0)))*self.depths0
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
-            outs = []
+            keys = []
+            dsk = {}
+            delayed_results = []
             nrows = survey.df.shape[0]
             for j in range(nrows):
-                if self.ikill:
-                    break
-                
                 # define observations and convert to Q if needed
                 obs = apps[j,:]
                 if forwardModel == 'Q':
@@ -487,25 +508,66 @@ class Problem(object):
                 # define profile from previous survey for time-lapse constrain
                 if i == 0 or gamma == 0:
                     spn = np.zeros(np.sum(np.r_[vd, vc]))
+                    g = 0
                 else: # constrain to the first inverted survey
                     spn = np.r_[self.depths[0][j,:][vd], self.models[0][j,:][vc]]
-
-                params.append((obs, pn, spn))
-                
-                if njobs == 1: # sequential inversion
-                    outs.append(solve(obs, pn, spn))
+                    g = gamma
+                    
+                params.append((obs, pn, spn, alpha, beta, g))                
+                key = '{:d}'.format(j+1)
+                keys.append(key)
+                dsk[key] = (solve, *params[-1])
+                delayed_results.append(dask.delayed(solve)(*params[-1]))
+            
+            outs = []
+            if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
+                for j in range(nrows):
+                    outs.append(solve(*params[j]))
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
-
-            if njobs != 1:
+                    
+            elif (method != 'ANN') & (njobs != 1):
                 try: # if self.ikill is True, an error is raised inside solve that is catched here
-                    outs = Parallel(n_jobs=njobs, verbose=50)(delayed(solve)(*a) for a in params)
-                    # backend multiprocessing inmpossible because local object
-                    # can not be pickled (only global can) however default locky works
+                    okeys = {}
+                    def printkeys(key, res, dsk, state, worker_id):
+                        okeys[key] = res
+                        self.c += 1
+                        dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
+                    with Callback(posttask=printkeys):
+                        get(dsk, key)
+                    outs = [okeys[a] for a in keys] # reorder results from // computing
+                    
+                    # with ProgressBar():
+                    #     outs = dask.compute(*delayed_results)
+                    
                 except ValueError:
                     return
+            
+            elif method == 'ANN':
+                obss = np.vstack([a[0] for a in params])
+                normobss = self.norm(obss) # normalize data
+                outs = self.model.predict(normobss)
+                # detecting negative depths
+                ibad1 = np.array([outs[:,l] < bounds[l][0] for l in range(len(bounds))]).any(0)
+                ibad2 = np.array([outs[:,l] > bounds[l][1] for l in range(len(bounds))]).any(0)
+                ibad = ibad1 | ibad2
+                self.annReplaced = np.sum(ibad)
+                if np.sum(ibad) > 0:
+                    dump('WARNING: ANN: {:d} values out of bounds replaced by L-BFGS-G values.'
+                         ' Try to increase the noise level and/or the number of samples.\n.'.format(
+                             np.sum(ibad)))
+                    for l in np.where(ibad)[0]:
+                        if self.ikill:
+                            return
+                        res = minimize(objfunc, x0, args=params[l],
+                                       method='L-BFGS-B', bounds=bounds, 
+                                       options=options)
+                        # print('===', outs[l,:], '->', res.x)
+                        outs[l,:] = res.x
+                outs = list(outs)
                 
             for j, out in enumerate(outs):
                 # store results from optimization
+                obs = params[j][0]
                 depth[j,vd] = out[:np.sum(vd)]
                 model[j,vc] = out[np.sum(vd):]
                 rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs)**2)/len(obs))
@@ -518,6 +580,156 @@ class Problem(object):
     # TODO add smoothing 3D: maybe invert all profiles once with GN and then
     # invert them again with a constrain on the 5 nearest profiles by distance
 
+
+
+    def buildANN(self, fmodel, bounds, noise=0.05, iplot=False, nsample=100,
+                 dump=None, epochs=500):
+        """Build and train the artificial neural network on synthetic values
+        derived from observed ECa values.
+        
+        Parameters
+        ----------
+        fmodel : function
+            Function use to generated the synthetic data.
+        bounds : list of tuple
+            List of tuple with the bounds of each parameters to pass to the
+            `fmodel` function.
+        noise : float, optional
+            Noise level to apply on the synthetic data generated.
+        iplot : bool, optional
+            If True, the validation graph will be plotted.
+        nsample : int, optional
+            Number of samples to be synthetically generated.
+        dump : function, optional
+            Function to dump information.
+        epochs : int, optional
+            Number of epochs.
+        """
+        try:
+            import tensorflow as tf
+            from tensorflow import keras
+            from tensorflow.keras import layers
+        except:
+            raise ImportError('Tensorflow is needed for NN inversion.')
+            return
+        
+        if dump is None:
+            def dump(x):
+                print(x, end='')
+            
+        def addnoise(x):
+            return x + np.random.randn(len(x))*x*noise
+        
+        # build a set of synthetic data based on bounds
+        nc = len(bounds)
+        param = np.zeros((nsample, nc))
+        for i, bnd in enumerate(bounds):
+            param[:,i] = np.random.uniform(bnd[0], bnd[1], nsample)
+            
+        eca = np.zeros((nsample, len(self.coils)))
+        for i in range(nsample):
+            eca[i,:] = addnoise(fmodel(param[i,:]))
+        
+        vcols = list(self.coils.copy())
+        pcols = ['p{:d}'.format(i+1) for i in range(nc)]
+        df = pd.DataFrame(np.c_[eca, param], columns=vcols+pcols)
+
+        # split dataset in training and testing
+        df_train = df.sample(frac=0.8, random_state=0)
+        df_test = df.drop(df_train.index)
+        train_labels = df_train[pcols]
+        test_labels = df_test[pcols]
+        train_dataset = df_train[vcols]
+        test_dataset = df_test[vcols]
+        
+        # normalize dataset using statistics from train data
+        # NOTE: this need to be done when feeding other data to it
+        normMean = train_dataset.mean().values
+        normStd = train_dataset.std().values
+        def norm(x):
+            return (x - normMean) / normStd
+        self.norm = norm # store function to be used in invert()
+        normed_train_data = self.norm(train_dataset)
+        normed_test_data = self.norm(test_dataset)
+        
+        # build the model
+        def build_model():
+            model = keras.Sequential([
+                layers.Dense(64, activation='relu', input_shape=[len(train_dataset.keys())]),
+                layers.Dense(64, activation='relu'),
+                layers.Dense(len(train_labels.keys()))
+            ])
+            optimizer = tf.keras.optimizers.RMSprop(0.001)
+            model.compile(loss='mse',
+                          optimizer=optimizer,
+                          metrics=['mae', 'mse'])
+            return model
+        
+        self.model = build_model()
+        # self.model.summary()
+
+        # display training progress by printing a single dot for each completed epoch
+        class PrintDot(keras.callbacks.Callback):
+          def on_epoch_end(self, epoch, logs):
+            if epoch % 100 == 0:
+                dump('\n')
+            dump('.')
+        
+        # the patience = 50 is the number of epochs to check for improvement
+        early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=50)
+        
+        # train the model
+        history = self.model.fit(normed_train_data, train_labels, epochs=epochs,
+                                 validation_split = 0.2, verbose=0, 
+                                 callbacks=[PrintDot(), early_stop])  
+        
+        loss, mae, mse = self.model.evaluate(normed_test_data, test_labels, verbose=0)
+        dump('\nANN: Testing set Mean Abs Error: {:5.2f}\n'.format(mae))
+           
+        # produce evaluationg graph
+        if iplot:
+            hist = pd.DataFrame(history.history)
+            hist['epoch'] = history.epoch
+            
+            def plot_history(history):
+                hist = pd.DataFrame(history.history)
+                hist['epoch'] = history.epoch
+                fig, axs = plt.subplots(1, 2, figsize=(8,3))
+                ax = axs[0]
+                ax.set_xlabel('Epoch')
+                ax.set_ylabel('Mean Abs Error')
+                ax.plot(hist['epoch'], hist['mean_absolute_error'],
+                       label='Training')
+                ax.plot(hist['epoch'], hist['val_mean_absolute_error'],
+                       label = 'Validation')
+                ax.legend()
+                
+                ax = axs[1]
+                bins = np.arange(0, 100 + 10, 5)
+                mbins = bins[:-1] + np.diff(bins)
+                ax.plot([],[],'k-', label='Observed')
+                ax.plot([],[],'k:', label='Synthetic')
+                for i, c in enumerate(self.coils):
+                    freq1, _ = np.histogram(self.surveys[0].df[c].values, bins=bins)
+                    freq2, _ = np.histogram(df[c].values, bins=bins)
+                    cax = ax.step(mbins, freq1, linestyle='-', label=c)
+                    ax.step(mbins, freq2, linestyle=':', color=cax[0].get_color())
+                ax.legend()
+                ax.set_xlabel('ECa')
+                ax.set_ylabel('Frequency')
+                    
+            
+                # plt.figure()
+                # plt.xlabel('Epoch')
+                # plt.ylabel('Mean Square Error')
+                # plt.plot(hist['epoch'], hist['mean_squared_error'],
+                #        label='Train Error')
+                # plt.plot(hist['epoch'], hist['val_mean_squared_error'],
+                #        label = 'Val Error')
+                # plt.legend()
+            
+            plot_history(history)
+            
     
     
     def invertGN(self, alpha=0.07, alpha_ref=None, dump=None):
@@ -648,7 +860,7 @@ class Problem(object):
         for s in self.surveys:
             s.filterDiff(coil=coil, thresh=thresh)
             
-            
+        
         
     def forward(self, forwardModel='CS', coils=None, noise=0.0):
         """Forward model.
@@ -1116,7 +1328,7 @@ class Problem(object):
             vmax = np.nanpercentile(sig, 95)
         cmap = plt.get_cmap(cmap)
         if maxDepth is None:
-            maxDepth = np.max(depths) + padding
+            maxDepth = np.nanpercentile(depths, 98) + padding
         depths = np.c_[depths, np.ones(depths.shape[0])*maxDepth]
         
         # vertices
@@ -1157,7 +1369,8 @@ class Problem(object):
             coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
             coll.set_clim(vmin=vmin, vmax=vmax)
             ax.add_collection(coll)
-            fig.colorbar(coll, label='Conductivity [mS/m]', ax=ax)
+            pad = 0.1 if rmse else 0.05
+            fig.colorbar(coll, label='Conductivity [mS/m]', ax=ax, pad=pad)
         
         if rmse:
             ax2 = ax.twinx()
@@ -1241,9 +1454,9 @@ class Problem(object):
             Index of the reference model. By defaut the first model
             (corresponding to the first survey) is used as reference.
         """
-        m0 = self.models[0]
-        for m in self.models:
-            m = m - m0
+        for i in range(len(self.surveys)):
+            if i != ref:
+                self.models[i] = self.models[i] - self.models[ref]
         
     
     def getRMSE(self):
@@ -1414,7 +1627,7 @@ class Problem(object):
 
 
 
-    def calibrate(self, fnameECa, fnameEC, forwardModel='CS', ax=None):
+    def calibrate(self, fnameECa, fnameEC, forwardModel='CS', ax=None, apply=False, dump=None):
         """Calibrate ECa with given EC profile.
         
         Parameters
@@ -1429,7 +1642,15 @@ class Problem(object):
             Forward model to use. Either CS (default), FS or FSeq.
         ax : matplotlib.Axes
             If specified the graph will be plotted against this axis.
+        apply : bool, optional
+            If `True` the ECa values will be calibrated. If `False`, the relationship
+            will just be plotted.
+        dump : function, optional
+            Display different parts of the calibration.
         """
+        if dump is None:
+            def dump(x):
+                print(x)
         survey = Survey(fnameECa)
         if survey.freqs[0] is None: # fallback in case the use doesn't specify the frequency in the headers
             try:
@@ -1473,18 +1694,58 @@ class Problem(object):
         ax.set_ylim([vmin, vmax])
         ax.set_xlabel('ECa(EM) [mS/m]')
         ax.set_ylabel('ECa(ER) [mS/m]')
-        ax.legend(survey.coils)
         
         # plot equation, apply it or not directly
         predECa = np.zeros(obsECa.shape)
+        slopes = np.zeros(len(self.coils))
+        offsets = np.zeros(len(self.coils))
+        ax.set_prop_cycle(None)
         for i, coil in enumerate(survey.coils):
             x, y = obsECa[:,i], simECa[:,i]
             inan = ~np.isnan(x)& ~np.isnan(y)
             slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
-            print(coil, '{:.2f} * x + {:.2f} (R={:.2f})'.format(slope, intercept, r_value))
+            slopes[i] = slope
+            offsets[i] = intercept
+            dump('{:s}: ECa(ERT) = {:.2f} * ECa(EMI) + {:.2f} (R^2={:.2f})'.format(coil, slope, intercept, r_value**2))
             predECa[:,i] = obsECa[:,i]*slope + intercept
-        ax.set_prop_cycle(None)
-        ax.plot(obsECa, predECa, '-')
+            ax.plot(obsECa[:,i], predECa[:,i], '-', label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
+        ax.legend()
+
+        
+        # apply it to all ECa values
+        if apply:
+            if self.calibrated: # already calibrated
+                dump('Data can only be calibrated once!'
+                     ' Please reimport the survey before recalibrating your data.')
+                return
+            self.calibrated = True
+            
+            # replot the same graph but with corrected EC
+            ax.clear()
+            ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
+            for i, s in enumerate(self.coils):
+                # obsECaCorr = (obsECa[:,i] - offsets[i])/slopes[i]
+                obsECaCorr = obsECa[:,i] + offsets[i] - (1-slopes[i]) * obsECa[:,i]
+                x, y = obsECaCorr, simECa[:,i]
+                cax = ax.plot(x, y, '.')
+                inan = ~np.isnan(x) & ~np.isnan(y)
+                slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
+                # dump('{:s} corrected: ECa(ERT) = {:.2f} * ECa(EMI) + {:.2f} (R^2={:.2f})'.format(
+                    # coil, slope, intercept, r_value**2))
+                predECaCorr = x * slope + intercept
+                ax.plot(x, predECaCorr, '-', color=cax[0].get_color(),
+                        label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
+            ax.legend()
+            ax.set_xlim([vmin, vmax])
+            ax.set_ylim([vmin, vmax])
+
+            # apply correction on all datasets
+            for s in self.surveys:
+                for i, c in enumerate(self.coils):
+                    # s.df.loc[:, c] = (s.df[c].values - offsets[i])/slopes[i]
+                    s.df.loc[:, c] = s.df[c].values + offsets[i] - (1-slopes[i]) * s.df[c].values
+            dump('Correction is applied.')
+        
         
         
     def crossOverPoints(self, index=0, coil=None, ax=None, dump=print):
