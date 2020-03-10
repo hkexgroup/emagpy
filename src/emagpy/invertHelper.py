@@ -13,14 +13,13 @@ import numpy as np
 from scipy.constants import mu_0
 #from hankel import HankelTransform
 from scipy import special, integrate
-from scipy.optimize import newton#, brent, minimize, curve_fit,
+from scipy.optimize import newton, brent, minimize_scalar, minimize, curve_fit
 
 
 # useful functions for Hankel transform
 
 # load this important variables once (to speed up) -> do not overwrite them !
 dirname = os.path.dirname(__file__)
-print(dirname)
 hankel_w0 = np.loadtxt(os.path.join(dirname, 'j1_140.txt'))
 hankel_w1 = np.loadtxt(os.path.join(dirname, 'j0_120.txt'))
 hankel5_w0 = np.loadtxt(os.path.join(dirname, 'hankelwts0.txt'))
@@ -49,13 +48,13 @@ def func_hankel(typ, K, r):
     return hankel
 
 
-def func_hankel2(nu, f, s, N=140, h=0.03):
-    """ This one is from hankel python package and allow to
-    adjust N and h.
-    """
-    ht = HankelTransform(nu, N, h) # for HCP h=0.2 works well
-    Fk = ht.transform(f, k=s)
-    return Fk[0]
+# def func_hankel2(nu, f, s, N=140, h=0.03):
+#     """ This one is from hankel python package and allow to
+#     adjust N and h.
+#     """
+#     ht = HankelTransform(nu, N, h) # for HCP h=0.2 works well
+#     Fk = ht.transform(f, k=s)
+#     return Fk[0]
 
 
 def func_hankel3(nu, f, s):
@@ -395,10 +394,11 @@ def fMaxwellQ(cond, depths, s, cpos, hx=None, f=30000, maxiter=50):
                 Qmod = np.imag(getQhomogeneous(cpos[i], s[i], sig, f)) # faster even if more rounding errors
                 return np.abs(Qmod - Qobs)
         sig0 = Q2eca(getQ2(cpos[i], s[i], cond, f, h), s[i], f) # still in S/m
-#        sig0 = eca0[i]
-#        res = minimize(objfunc, x0=sig0, method='BFGS')
-#        zero = res.x[0]*1e3
-#        zero = brent(objfunc, brack=(sig0*0.8, sig0, sig0*1.2))*1e3
+        # sig0 = eca0[i]
+        # res = minimize(objfunc, x0=sig0, method='L-BFGS-B')
+        # zero = res.x[0]*1e3
+        #res = minimize_scalar(objfunc)#, brack=(sig0*0.8, sig0, sig0*1.2))*1e3
+        # zero = res.x
         zero = newton(objfunc, sig0, maxiter=maxiter)*1e3 # back to mS/m # faster !
         response[i] = zero
     return response
@@ -502,7 +502,7 @@ def forward1d_full(cond, depths, s, cpos, hx=None, rescaled=False):
         return
     if np.sum(depths < 0) > 0:
         print('ERROR: depth contains negative depth. Please input only positive depth')
-        return
+        return np.ones(len(s))*np.nan
     out = np.zeros(len(s))*np.nan
     for i in range(0,len(out)):
         cs = emSens(depths,s[i], cpos[i], hx[i], rescaled=rescaled)
@@ -585,17 +585,17 @@ def buildSecondDiff(ndiag):
 
 
 #%% test bench
-#sigma = np.array([30, 30, 30, 30]) # layers conductivity [mS/m]
-#depths = np.array([0.3, 0.7, 2]) # thickness of each layer (last is infinite)
-#f = 30000 # Hz frequency of the coil
-#cpos = np.array(['hcp','hcp','hcp','vcp','vcp','vcp']) # coil orientation
-##cpos = np.array(['hcp','hcp','hcp','prp','prp','prp']) # coil orientation
-#cspacing = np.array([0.32, 0.71, 1.18, 0.32, 0.71, 1.18])
-#cspacing = np.array([1.48, 2.82, 4.49, 1.48, 2.82, 4.49]) # explorer
-#
-#print('fCS:', fCS(sigma, depths, cspacing, cpos)) # 333 us
-#print('fMaxwellECa:', fMaxwellECa(sigma, depths, cspacing, cpos)) # 5.7 ms
-#print('fMaxwellQ:', fMaxwellQ(sigma, depths, cspacing, cpos)) # 12 ms
+# sigma = np.array([30, 30, 30, 30]) # layers conductivity [mS/m]
+# depths = np.array([0.3, 0.7, 2]) # thickness of each layer (last is infinite)
+# f = 30000 # Hz frequency of the coil
+# cpos = np.array(['hcp','hcp','hcp','vcp','vcp','vcp']) # coil orientation
+# #cpos = np.array(['hcp','hcp','hcp','prp','prp','prp']) # coil orientation
+# cspacing = np.array([0.32, 0.71, 1.18, 0.32, 0.71, 1.18])
+# cspacing = np.array([1.48, 2.82, 4.49, 1.48, 2.82, 4.49]) # explorer
+
+# print('fCS:', fCS(sigma, depths, cspacing, cpos)) # 333 us
+# print('fMaxwellECa:', fMaxwellECa(sigma, depths, cspacing, cpos)) # 5.7 ms
+# print('fMaxwellQ:', fMaxwellQ(sigma, depths, cspacing, cpos)) # 12 ms
 #print('fCSandrade:', fCSandrade(sigma, depths, cspacing, cpos, hx=0))
 #%timeit getQs(sigma, depths, cspacing, cpos, f) # 5.75 ms (same as fMaxwellECa)
 

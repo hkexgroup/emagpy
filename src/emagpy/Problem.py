@@ -957,13 +957,13 @@ class Problem(object):
         if forwardModel in ['CS','FSlin','FSeq']:
             if forwardModel == 'CS':
                 def fmodel(p, depth):
-                    return fCS(p, depth, cspacing, cpos, hx=hxs)
+                    return fCS(p, depth, cspacing, cpos, hx=hxs[0])
             elif forwardModel == 'FSlin':
                 def fmodel(p, depth):
-                    return fMaxwellECa(p, depth, cspacing, cpos, f=freqs[0], hx=hxs)
+                    return fMaxwellECa(p, depth, cspacing, cpos, f=freqs[0], hx=hxs[0])
             elif forwardModel == 'FSeq':
                 def fmodel(p, depth):
-                    return fMaxwellQ(p, depth, cspacing, cpos, f=freqs[0], hx=hxs)
+                    return fMaxwellQ(p, depth, cspacing, cpos, f=freqs[0], hx=hxs[0])
         
         def addnoise(x, level=0.05):
             return x + np.random.randn(len(x))*x*level
