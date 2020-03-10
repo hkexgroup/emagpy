@@ -334,8 +334,8 @@ class Problem(object):
             p0 = np.r_[d0, s0]
             for p, bnd in zip(p0, bounds):
                 if (p < bnd[0]) or (p > bnd[1]):
-                    dump('ERROR: initial parameters values are out of the given bounds.'
-                         'Please use Problem.setInit() to define initial values or modify the boudns.')
+                    dump('ERROR: initial parameters values {:s} are out of the given bounds.'
+                          'Please use Problem.setInit() to define initial values or modify the boudns.'.format(str(p0)))
                     return
         else:
             bounds = None
@@ -344,10 +344,8 @@ class Problem(object):
             bot = np.r_[np.r_[0.2, mdepths], np.ones(nc)*2]
             top = np.r_[np.r_[mdepths, self.depths0[-1] + 0.2], np.ones(nc)*100]
             bounds = list(tuple(zip(bot[np.r_[vd, vc]], top[np.r_[vd, vc]])))
-        if bounds is not None:
-            dump('bounds = ' + str(bounds) + '\n')
-
-            #
+        # if bounds is not None:
+            # dump('bounds = ' + str(bounds) + '\n')
 
         # build ANN network
         if method == 'ANN':
@@ -650,7 +648,6 @@ class Problem(object):
         try:
             import tensorflow as tf
             from tensorflow import keras
-            from tensorflow.keras import layers
         except:
             raise ImportError('Tensorflow is needed for NN inversion.')
             return
@@ -679,15 +676,15 @@ class Problem(object):
         # split dataset in training and testing
         df_train = df.sample(frac=0.8, random_state=0)
         df_test = df.drop(df_train.index)
-        train_labels = df_train[pcols]
-        test_labels = df_test[pcols]
-        train_dataset = df_train[vcols]
-        test_dataset = df_test[vcols]
+        train_labels = df_train[pcols].values
+        test_labels = df_test[pcols].values
+        train_dataset = df_train[vcols].values
+        test_dataset = df_test[vcols].values
         
         # normalize dataset using statistics from train data
         # NOTE: this need to be done when feeding other data to it
-        normMean = train_dataset.mean().values
-        normStd = train_dataset.std().values
+        normMean = np.mean(train_dataset, axis=0)
+        normStd = np.std(train_dataset, axis=0)
         def norm(x):
             return (x - normMean) / normStd
         self.norm = norm # store function to be used in invert()
@@ -697,9 +694,9 @@ class Problem(object):
         # build the model
         def build_model():
             model = keras.Sequential([
-                layers.Dense(64, activation='relu', input_shape=[len(train_dataset.keys())]),
-                layers.Dense(64, activation='relu'),
-                layers.Dense(len(train_labels.keys()))
+                tf.keras.layers.Dense(64, activation='relu', input_shape=[train_dataset.shape[1]]),
+                tf.keras.layers.Dense(64, activation='relu'),
+                tf.keras.layers.Dense(train_labels.shape[1])
             ])
             optimizer = tf.keras.optimizers.RMSprop(0.001)
             model.compile(loss='mse',
