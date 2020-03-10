@@ -6,4 +6,5 @@ pyproj
 hankel
 spotpy
 joblib
-dask[complete]
+tqdm
+
