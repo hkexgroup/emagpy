@@ -15,10 +15,10 @@ from matplotlib.collections import PolyCollection
 from scipy.optimize import minimize
 from scipy.stats import linregress
 
-import dask
-from dask.callbacks import Callback
-from dask.threaded import get
-from dask.diagnostics import ProgressBar
+# import dask
+# from dask.callbacks import Callback
+# from dask.threaded import get
+# from dask.diagnostics import ProgressBar
 
 from joblib import Parallel, delayed
 from tqdm import tqdm
