@@ -285,8 +285,6 @@ def getRn2(lamb, sigg, f, d): # compute reflexion coefficients
     imagPart = 2*np.pi*f*mu_0*np.repeat(sigma[:,None], len(lamb), axis=1)
     gamma = np.sqrt(realPart.T + 1j*imagPart)
 #    gamma = np.sqrt(lamb**2 + 1j*2*np.pi*f*mu_0*sigma)
-    ''' optimization idea would be to create the big array gamma before hand
-    '''
     R = np.zeros((sigmaLen, len(lamb)), dtype=np.complex)#*np.nan
     R[-1,:] = 0+0j # no waves from the lower half space
     for i in range(sigmaLen-2, -1, -1): # it's recursive so needs for loop
@@ -358,8 +356,8 @@ def fMaxwellECa(cond, depths, s, cpos, hx=None, f=30000):
         raise ValueError('len(cond)-1 should be equal to len(depths).')
     if len(s) != len(cpos):
         raise ValueError('len(s) should be equal to len(cpos).')
-    h = np.r_[depths[0], np.diff(depths)]
-    if hx is not None:
+    h = np.r_[depths[0], np.diff(depths)] # layers thickness
+    if hx is not None: # adding air layer of 0 mS/m
         h = np.r_[hx, h]
         cond = np.r_[0, cond]
     response = np.zeros(len(s))*np.nan

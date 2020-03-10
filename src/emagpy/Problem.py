@@ -953,18 +953,17 @@ class Problem(object):
             self.hx = hxs
             self.freqs = freqs
             
-        
+        # define the forward model        
         if forwardModel in ['CS','FSlin','FSeq']:
-            # define the forward model
             if forwardModel == 'CS':
                 def fmodel(p, depth):
-                    return fCS(p, depth, cspacing, cpos, hx=hxs[0])
+                    return fCS(p, depth, cspacing, cpos, hx=hxs)
             elif forwardModel == 'FSlin':
                 def fmodel(p, depth):
-                    return fMaxwellECa(p, depth, cspacing, cpos, f=freqs[0], hx=hxs[0])
+                    return fMaxwellECa(p, depth, cspacing, cpos, f=freqs[0], hx=hxs)
             elif forwardModel == 'FSeq':
                 def fmodel(p, depth):
-                    return fMaxwellQ(p, depth, cspacing, cpos, f=freqs[0], hx=hxs[0])
+                    return fMaxwellQ(p, depth, cspacing, cpos, f=freqs[0], hx=hxs)
         
         def addnoise(x, level=0.05):
             return x + np.random.randn(len(x))*x*level
