@@ -93,19 +93,18 @@ k = Problem()
 k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
 # k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv', apply=True)
 
-#%%
 t0 = time.time()
 # k.invert(method='ROPE', njobs=-1)
 k.invert(njobs=-1)
-print('elapsed {:.2f}s'.format(time.time() - t0))
+t1 = time.time()
 k.showResults()
 
 
-#%%
-t0 = time.time()
+t2 = time.time()
 # k.invert(method='ROPE', njobs=1)
 k.invert(njobs=1)
-print('elapsed {:.2f}s'.format(time.time() - t0))
+print('SEQ elapsed {:.2f}s'.format(time.time() - t2))
+print('PAR elapsed {:.2f}s'.format(time.time() - t0))
 k.showResults()
 
 
