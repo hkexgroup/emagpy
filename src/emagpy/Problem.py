@@ -14,14 +14,15 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
 from scipy.optimize import minimize
 from scipy.stats import linregress
-from joblib import Parallel, delayed
+
 import dask
 from dask.callbacks import Callback
 from dask.threaded import get
 from dask.diagnostics import ProgressBar
 
-from collections import defaultdict # for joblib monkey patching
-import joblib # for joblib monkey patching
+from joblib import Parallel, delayed
+from tqdm import tqdm
+
 
 from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
                                  buildJacobian, getQs, eca2Q)
@@ -31,9 +32,10 @@ class HiddenPrints:
     # https://stackoverflow.com/questions/8391411/suppress-calls-to-print-python
     def __enter__(self):
         self._original_stdout = sys.stdout
-        sys.stdout = None
+        sys.stdout = open(os.devnull, 'w')
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
         sys.stdout = self._original_stdout
         
 
@@ -482,6 +484,8 @@ class Problem(object):
                 else:
                     raise ValueError('Method {:s} unkown'.format(method))
                     return
+                # using hiddenPrints() here cause issue for // computing
+                # because the save file (stdout) is one and close in //
                 sampler.sample(rep) # this is outputing too much so we use hiddenprints() context
                 results = np.array(sampler.getdata())
                 ibest = np.argmin(np.abs(results['like1']))
@@ -532,44 +536,53 @@ class Problem(object):
                         outs.append(solve(*params[j]))
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
             
-            # parallel (multithreding)
-            elif (method != 'ANN') & (njobs != 1):
-                keys = []
-                dsk = {}
-                delayed_results = []
-                for j in range(nrows):
-                    key = '{:d}'.format(j+1)
-                    keys.append(key)
-                    dsk[key] = (solve, *params[j])
-                    delayed_results.append(dask.delayed(solve)(*params[j]))
+            # parallel (multithreading)
+            # elif (method != 'ANN') & (njobs != 1):
+            #     keys = []
+            #     dsk = {}
+            #     delayed_results = []
+            #     for j in range(nrows):
+            #         key = '{:d}'.format(j+1)
+            #         keys.append(key)
+            #         dsk[key] = (solve, *params[j])
+            #         delayed_results.append(dask.delayed(solve)(*params[j]))
 
-                try: # if self.ikill is True, an error is raised inside solve that is catched here
-                    if self.runningUI:
-                        okeys = {}
-                        def printkeys(key, res, dsk, state, worker_id):
-                            okeys[key] = res
-                            self.c += 1
-                            dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
-                        with Callback(posttask=printkeys):
-                            with HiddenPrints():
-                                get(dsk, keys)                    
-                        outs = [okeys[a] for a in keys] # reorder results from // computing
+            #     try: # if self.ikill is True, an error is raised inside solve that is catched here
+            #         if self.runningUI:
+            #             okeys = {}
+            #             def printkeys(key, res, dsk, state, worker_id):
+            #                 okeys[key] = res
+            #                 self.c += 1
+            #                 dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
+            #             with Callback(posttask=printkeys):
+            #                 with HiddenPrints():
+            #                     get(dsk, keys)                    
+            #             outs = [okeys[a] for a in keys] # reorder results from // computing
                     
-                    # NOTE: the above run fine in the UI but doesn't plot anything
-                    # when run from API because of the HiddenPrints()
-                    # teh below runs fine the API but failed to run in the UI
-                    # due to QThread issue when we tried to summy a custom out
-                    # argument
+            #         # NOTE: the above run fine in the UI but doesn't plot anything
+            #         # when run from API because of the HiddenPrints()
+            #         # teh below runs fine the API but failed to run in the UI
+            #         # due to QThread issue when we tried to summy a custom out
+            #         # argument
                     
-                    else:
-                        with ProgressBar():
-                            with HiddenPrints():
-                                outs = dask.compute(*delayed_results)
+            #         else:
+            #             with ProgressBar():
+            #                 with HiddenPrints():
+            #                     outs = dask.compute(*delayed_results)
                             
                     
                     
-                except ValueError:
+            #     except ValueError:
+            #         return
+        
+            # parallel computing with locky backend
+            elif (method != 'ANN') & (njobs != 1):
+                try:
+                    with HiddenPrints():
+                        outs = Parallel(n_jobs=njobs, verbose=0)(delayed(solve)(*a) for a in tqdm(params))
+                except Exception: # might be when we kill it using UI
                     return
+                
             
             elif method == 'ANN':
                 obss = np.vstack([a[0] for a in params])
