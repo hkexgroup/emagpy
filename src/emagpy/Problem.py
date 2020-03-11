@@ -1347,8 +1347,12 @@ class Problem(object):
         rmse : bool, optional
             If `True`, the RMSE for each transect will be plotted on a second axis.
             Note that misfit can also be shown with `showMisfit()`.
-        """            
-        sig = self.models[index]
+        """
+        try:
+            sig = self.models[index]
+        except Exception as e:
+            raise ValueError('No inverted model to plot')
+            return
         x = np.arange(sig.shape[0])
 #        x = np.sqrt(np.diff(self.surveys[index].df[['x', 'y']].values, axis=1)**2)
 #        depths = np.repeat(self.depths0[:,None], sig.shape[0], axis=1).T
