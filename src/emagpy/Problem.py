@@ -1303,7 +1303,7 @@ class Problem(object):
                    color=cmap(norm(sig[:,i-1])), edgecolor='none', width=1)
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
-        fig.colorbar(sm, label='Conductivity [mS/m]')
+        fig.colorbar(sm, label='EC [mS/m]')
         ax.set_xlabel('X position')
         ax.set_ylabel('Depth [m]')
         ax.set_title(self.surveys[index].name)
@@ -1405,14 +1405,14 @@ class Problem(object):
             cax = ax.tricontourf(x, y, z.flatten('F'),
                                  cmap=cmap, levels=levels, extend='both')
 #            ax.plot(x, y, 'k+')
-            fig.colorbar(cax, ax=ax, label='Conductivity [mS/m]')
+            fig.colorbar(cax, ax=ax, label='EC [mS/m]')
         else:
     #        ax.plot(vertices[:,0], vertices[:,1], 'k.')
             coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
             coll.set_clim(vmin=vmin, vmax=vmax)
             ax.add_collection(coll)
             pad = 0.1 if rmse else 0.05
-            fig.colorbar(coll, label='Conductivity [mS/m]', ax=ax, pad=pad)
+            fig.colorbar(coll, label='EC [mS/m]', ax=ax, pad=pad)
         
         if rmse:
             ax2 = ax.twinx()
@@ -1548,7 +1548,7 @@ class Problem(object):
         ax.plot(xx, simECa, '^-')
         ax.legend(cols)
         ax.set_xlabel('Measurements')
-        ax.set_ylabel('Conductivity [mS/m]')
+        ax.set_ylabel('EC [mS/m]')
         ax.set_title('Dots (observed) vs triangles (modelled)')
         
         
@@ -1872,7 +1872,7 @@ class Problem(object):
                 ax.plot(x, y, 'k+')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
-        fig.colorbar(cax, ax=ax, label='Conductivity [mS/m]')
+        fig.colorbar(cax, ax=ax, label='EC [mS/m]')
         depths = np.r_[[0], self.depths0, [-np.inf]]
         ax.set_title('{:.2f}m - {:.2f}m'.format(depths[islice], depths[islice+1]))
         

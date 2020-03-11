@@ -348,7 +348,7 @@ class Survey(object):
         if coil[-5:] == '_inph':
             ax.set_ylabel('Inphase [ppt]')
         else:
-            ax.set_ylabel('Apparent Conductivity [mS/m]')
+            ax.set_ylabel('ECa [mS/m]')
         for cax in caxs:
             cax.figure.canvas.mpl_connect('pick_event', onpick)        
         killed, = ax.plot([],[],'rx')
@@ -459,7 +459,7 @@ class Survey(object):
         if coil[-5:] == '_inph':
             fig.colorbar(cax, ax=ax, label='Inphase [ppt]')
         else:
-            fig.colorbar(cax, ax=ax, label='Apparent Conductivity [mS/m]')
+            fig.colorbar(cax, ax=ax, label='ECa [mS/m]')
         
 
     def saveMap(self, fname, coil=None, nx=100, ny=100, method='linear',
@@ -1150,7 +1150,7 @@ class Survey(object):
         vals = df[coil].values
         ax.scatter(df['PythonTime'].values,vals)
         ax.set_xlabel('Time')
-        ax.set_ylabel('Conductivity (mS/m)')
+        ax.set_ylabel('EC [mS/m]')
         if fit:
             self.fitDrift(coil=coil)
             seconds = self.drift_df['elasped(sec)'].values
