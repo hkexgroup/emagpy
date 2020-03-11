@@ -1199,7 +1199,7 @@ class App(QMainWindow):
         self.lCombo = QComboBox()
         self.lCombo.addItem('l1')
         self.lCombo.addItem('l2')
-        self.lCombo.setCurrentIndex(1)
+        self.lCombo.setCurrentIndex(0)
         
         self.nitLabel = QLabel('Nit:')
         self.nitEdit = QLineEdit('15')

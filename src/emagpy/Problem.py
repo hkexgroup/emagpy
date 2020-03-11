@@ -212,7 +212,7 @@ class Problem(object):
         
     
         
-    def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l2',
+    def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l1',
                alpha=0.07, beta=0.0, gamma=0.0, dump=None, bnds=None,
                options={}, Lscaling=False, rep=100, noise=0.05, nsample=100, 
                annplot=False, njobs=1):
