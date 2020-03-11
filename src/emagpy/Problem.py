@@ -210,6 +210,25 @@ class Problem(object):
             raise ValueError('Depths should be ordered and increasing.')
         self.depths = np.array(depths)
         
+        
+    
+    def importModel(self, fname):
+        """Import a save model from previous inversion.
+        
+        Parameters
+        ----------
+        fname : str
+            Path of the .csv file.
+        """
+        df = pd.read_csv(fname)
+        ccols = [c for c in df.columns if c[:5] == 'layer']
+        dcols = [c for c in df.columns if c[:5] == 'depth']
+        if len(ccols) != len(dcols) + 1:
+            print('Number of depths should be number of layer - 1')
+        conds = df[ccols].values
+        depths = df[dcols].values
+        self.setModels([depths], [conds])
+    
     
         
     def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l1',
