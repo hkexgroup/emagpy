@@ -1256,6 +1256,121 @@ class Problem(object):
             self.fixedConds = np.array(fixedConds, dtype=bool)
 
 
+    def setInit2(self, depths0, conds0=None, fixedDepths=None, fixedConds=None, newStart=False):
+        """Set the initial depths and conductivity for the inversion.
+        
+        Parameters
+        ----------
+        depths0 : list or array
+            Depth as positive number of the bottom of each layer.
+            There is N-1 depths for N layers as the last layer is infinite.
+        conds0 : list or array, optional
+            Starting conductivity in mS/m of each layer.
+            By default a homogeneous conductivity of 20 mS/m is defined.
+        fixedDepths : array of bool, optional
+            Boolean array of same length as `depths0`. True if depth is fixed.
+            False if it's a parameter. By default all depths are fixed.
+        fixedConds : array of bool, optional
+            Boolean array of same length as `conds0`. True if conductivity if fixed.
+            False if it's a parameter. By default all conductivity are variable.'
+        """
+        
+        if newStart==False:
+            depths0 = np.array(depths0)
+            if np.sum(depths0 < 0) > 0:
+                raise ValueError('All depth should be specified as positive number.')
+            if np.sum(depths0 == 0) > 0:
+                raise ValueError('No depth should be equals to 0 (infinitely thin layer)')
+            if conds0 is None:
+                conds0 = np.ones(len(depths0)+1)*20
+            if fixedDepths is None:
+                fixedDepths = np.ones(len(depths0), dtype=bool)
+            if fixedConds is None:
+                fixedConds = np.zeros(len(conds0), dtype=bool)
+            if len(fixedConds) != len(conds0):
+                raise ValueError('len(fixedConds) should be equal to len(conds0).')
+            if len(fixedDepths) != len(depths0):
+                raise ValueError('len(fixedDepths) should be equal to len(depths0)')    
+            if len(depths0) + 1 != len(conds0):
+                raise ValueError('length of conds0 should be equals to length of depths0 + 1')
+        
+            if len(np.shape(depths0))==1:
+                depths0_=np.ones((self.nlayers-1, self.npos))
+                conds0_=np.ones((self.nlayers, self.npos))
+                fixedDepths_=np.ones((self.nlayers-1, self.npos))
+                fixedConds_=np.ones((self.nlayers, self.npos))
+                
+                for i in np.arange(self.nlayers-1):
+                    depths0_[i,:]=depths0[i]
+                    fixedDepths_[i,:]=fixedDepths[i]
+                    
+                for i in np.arange(self.nlayers):
+                    conds0_[i,:]=conds0[i]
+                    fixedConds_[i,:]=fixedConds[i]
+                    
+                self.depths0 = depths0_
+                self.conds0 = np.array(conds0_, dtype=float)
+                self.fixedDepths = np.array(fixedDepths_, dtype=bool)
+                self.fixedConds = np.array(fixedConds_, dtype=bool)    
+                    
+            else:
+                self.depths0 = depths0
+                self.conds0 = np.array(conds0, dtype=float)
+                self.fixedDepths = np.array(fixedDepths, dtype=bool)
+                self.fixedConds = np.array(fixedConds, dtype=bool)   
+           
+        if newStart==True:
+            depths0 = np.array(depths0)
+            '''
+            if np.sum(depths0 < 0) > 0:
+                raise ValueError('All depth should be specified as positive number.')
+            if np.sum(depths0 == 0) > 0:
+                raise ValueError('No depth should be equals to 0 (infinitely thin layer)')
+            '''
+            if conds0 is None:
+                conds0 = np.ones(len(depths0)+1)*20
+            if fixedDepths is None:
+                fixedDepths = np.ones(len(depths0), dtype=bool)
+            if fixedConds is None:
+                fixedConds = np.zeros(len(conds0), dtype=bool)
+            '''
+            if len(fixedConds) != len(conds0):
+                raise ValueError('len(fixedConds) should be equal to len(conds0).')
+            if len(fixedDepths) != len(depths0):
+                raise ValueError('len(fixedDepths) should be equal to len(depths0)')    
+            if len(depths0) + 1 != len(conds0):
+                raise ValueError('length of conds0 should be equals to length of depths0 + 1')
+             '''  
+            if len(np.shape(conds0))==1:
+                conds0_=np.ones((self.nlayers, self.npos))
+                fixedDepths_=np.ones((self.nlayers-1, self.npos))
+                fixedConds_=np.ones((self.nlayers, self.npos))
+                
+                for i in np.arange(self.nlayers-1):
+                    fixedDepths_[i,:]=fixedDepths[i]
+                    
+                for i in np.arange(self.nlayers):
+                    conds0_[i,:]=conds0[i]
+                    fixedConds_[i,:]=fixedConds[i]
+                conds0=conds0_
+        
+
+            else:
+                fixedDepths_=np.ones((self.nlayers-1, self.npos))
+                fixedConds_=np.ones((self.nlayers, self.npos))
+                
+                for i in np.arange(self.nlayers-1):
+                    fixedDepths_[i,:]=fixedDepths[i]
+                    
+                for i in np.arange(self.nlayers):
+                    fixedConds_[i,:]=fixedConds[i]
+                    
+            self.depths0 = depths0
+            self.conds0 = np.array(conds0, dtype=float)
+            self.fixedDepths = np.array(fixedDepths_, dtype=bool)
+            self.fixedConds = np.array(fixedConds_, dtype=bool)    
+        
+
     
     def convertFromNMEA(self,  targetProjection='EPSG:27700'): # British Grid 1936
         """ Convert NMEA string to selected CRS projection.

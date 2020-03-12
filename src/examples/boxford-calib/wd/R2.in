@@ -20,7 +20,7 @@ res0.dat
 
 1	10	2	1	<< tolerance, max_iterations, error_mod, alpha_aniso
 
-0	0	-10000000000.0	10000000000.0	<<  a_wgt, b_wgt, rho_min, rho_max
+0.02	0.01	-10000000000.0	10000000000.0	<<  a_wgt, b_wgt, rho_min, rho_max
 
 5	<< num_poly
 0.0	0.0
