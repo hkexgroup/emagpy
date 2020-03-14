@@ -1475,8 +1475,10 @@ class Problem(object):
             ax2.plot(xx, self.rmses[index], 'kx-')
             ax2.set_ylabel('RMSE')
             
-        vc = ~self.fixedConds
-        vd = ~self.fixedDepths
+        if errorbar or overlay:
+            vc = ~self.fixedConds
+            vd = ~self.fixedDepths
+            
         if errorbar:
             for i, ii in enumerate(np.where(vd)[0]):
                 xm = x[:-1] + np.diff(x)/2
