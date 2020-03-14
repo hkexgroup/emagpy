@@ -523,6 +523,7 @@ class Problem(object):
             rmse = np.zeros(apps.shape[0])*np.nan
             model = self.conds0[i].copy()
             depth = self.depths0[i].copy()
+            stds = np.zeros((apps.shape[0], np.sum(vd) + np.sum(vc)))
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
             nrows = survey.df.shape[0]

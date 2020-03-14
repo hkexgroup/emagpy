@@ -23,8 +23,8 @@ k.lcurve()
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/simple.csv')
 k.setInit(depths0=[0.3, 0.7], fixedDepths=[False, True], fixedConds=[False, False, True])
-k.invert(method='L-BFGS-B', njobs=-1)
-k.showResults()
+k.invert(method='ROPE', njobs=-1)
+k.showResults(errorbar=True, overlay=True)
 
 #%% mapping potatoes field
 k = Problem()
