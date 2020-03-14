@@ -12,21 +12,19 @@ import pandas as pd
 import time
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
+from matplotlib.colors import ListedColormap
 from scipy.optimize import minimize
 from scipy.stats import linregress
 
-# import dask
-# from dask.callbacks import Callback
-# from dask.threaded import get
-# from dask.diagnostics import ProgressBar
-
+# for parallel computing
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-
+# emagpy custom import
 from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
                                  buildJacobian, getQs, eca2Q)
 from emagpy.Survey import Survey, idw, clipConvexHull, griddata
+
 
 class HiddenPrints:
     # https://stackoverflow.com/questions/8391411/suppress-calls-to-print-python
@@ -49,7 +47,8 @@ class Problem(object):
         self.fixedConds = []
         self.fixedDepths = []
         self.surveys = []
-        self.models = [] # contains conds TODO rename to conds ?
+        self.models = [] # TODO rename to conds?
+        self.pstds = [] # parameter standard deviation for MCMC inversion
         self.rmses = []
         self.freqs = []
         self.depths = [] # contains inverted depths or just depths0 if fixed
@@ -236,7 +235,7 @@ class Problem(object):
                 - CSgndiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
         method : str, optional
             Name of the optimization method either L-BFGS-B, TNC, CG or Nelder-Mead
-            to be passed to `scipy.optimize.minmize()` or ROPE, SCEUA, DREAM for
+            to be passed to `scipy.optimize.minmize()` or ROPE, SCEUA, DREAM, MCMC for
             a MCMC-based solver based on the `spotpy` Python package.
             Alternatively 'ANN' can be used (requires tensorflow), it will train
             an artificial neural network on synthetic data and use it for inversion.
@@ -287,11 +286,15 @@ class Problem(object):
         self.models = []
         self.depths = []
         self.rmses = []
+        self.pstds = []
         self.annReplaced = 0
         self.ikill = False
         mMinimize = ['L-BFGS-B','TNC','CG','Nelder-Mead']
-        mMCMC = ['ROPE','SCEUA','DREAM']
-                
+        mMCMC = ['ROPE','SCEUA','DREAM', 'MCMC']
+        nc = len(self.conds0) # number of layers
+        vd = ~self.fixedDepths # variable depths
+        vc = ~self.fixedConds # variable conductivity
+        
         if dump is None:
             def dump(x):
                 print(x, end='')
@@ -494,6 +497,8 @@ class Problem(object):
                     sampler = spotpy.algorithms.dream(spotpySetup)
                 elif method == 'SCEUA':
                     sampler = spotpy.algorithms.sceua(spotpySetup)
+                elif method == 'MCMC':
+                    sampler = spotpy.algorithms.mcmc(spotpySetup)
                 else:
                     raise ValueError('Method {:s} unkown'.format(method))
                     return
@@ -502,7 +507,9 @@ class Problem(object):
                 sampler.sample(rep) # this is outputing too much so we use hiddenprints() context
                 results = np.array(sampler.getdata())
                 ibest = np.argmin(np.abs(results['like1']))
-                out = np.array([results[col][ibest] for col in cols])
+                outval = np.array([results[col][ibest] for col in cols])
+                outstd = np.array([np.nanstd(results[col]) for col in cols])
+                out = (outval, outstd)
                 # status = 'ok'
                 
             return out
@@ -552,45 +559,6 @@ class Problem(object):
                         outs.append(solve(*params[j]))
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
             
-            # parallel (multithreading)
-            # elif (method != 'ANN') & (njobs != 1):
-            #     keys = []
-            #     dsk = {}
-            #     delayed_results = []
-            #     for j in range(nrows):
-            #         key = '{:d}'.format(j+1)
-            #         keys.append(key)
-            #         dsk[key] = (solve, *params[j])
-            #         delayed_results.append(dask.delayed(solve)(*params[j]))
-
-            #     try: # if self.ikill is True, an error is raised inside solve that is catched here
-            #         if self.runningUI:
-            #             okeys = {}
-            #             def printkeys(key, res, dsk, state, worker_id):
-            #                 okeys[key] = res
-            #                 self.c += 1
-            #                 dump('\r{:d}/{:d} inverted'.format(self.c, nrows))
-            #             with Callback(posttask=printkeys):
-            #                 with HiddenPrints():
-            #                     get(dsk, keys)                    
-            #             outs = [okeys[a] for a in keys] # reorder results from // computing
-                    
-            #         # NOTE: the above run fine in the UI but doesn't plot anything
-            #         # when run from API because of the HiddenPrints()
-            #         # teh below runs fine the API but failed to run in the UI
-            #         # due to QThread issue when we tried to summy a custom out
-            #         # argument
-                    
-            #         else:
-            #             with ProgressBar():
-            #                 with HiddenPrints():
-            #                     outs = dask.compute(*delayed_results)
-                            
-                    
-                    
-            #     except ValueError:
-            #         return
-        
             # parallel computing with locky backend
             elif (method != 'ANN') & (njobs != 1):
                 try:
@@ -599,7 +567,7 @@ class Problem(object):
                 except Exception: # might be when we kill it using UI
                     return
                 
-            
+           # artifical neural network inversion 
             elif method == 'ANN':
                 obss = np.vstack([a[0] for a in params])
                 normobss = self.norm(obss) # normalize data
@@ -620,13 +588,18 @@ class Problem(object):
                         res = minimize(objfunc, x0, args=params[l],
                                        method='L-BFGS-B', bounds=bounds, 
                                        options=options)
-                        # print('===', outs[l,:], '->', res.x)
                         outs[l,:] = res.x
                 outs = list(outs)
-                
-            for j, out in enumerate(outs):
-                # store results from optimization
+
+            # store results from optimization                
+            for j, outt in enumerate(outs):
                 obs = params[j][0]
+                if method in mMCMC:
+                    std = outt[1]
+                    stds[j,:] = std
+                    out = outt[0]
+                else:
+                    out = outt
                 depth[j,vd] = out[:np.sum(vd)]
                 model[j,vc] = out[np.sum(vd):]
                 rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, params[j][-1])**2)/len(obs))
@@ -634,6 +607,7 @@ class Problem(object):
             self.models.append(model)
             self.depths.append(depth)
             self.rmses.append(rmse)
+            self.pstds.append(stds)
             # dump('{:d} measurements inverted\n'.format(apps.shape[0]))
                     
     # TODO add smoothing 3D: maybe invert all profiles once with GN and then
@@ -806,6 +780,7 @@ class Problem(object):
         self.models = []
         self.rmses = []
         self.depths = []
+        self.pstds = []
         
         if len(self.conds0) == 0:
             self.setInit(self.depths0)
@@ -854,6 +829,7 @@ class Problem(object):
             self.rmses.append(rmse)
             depth = np.repeat(depths0[None,:], apps.shape[0], axis=0)
             self.depths.append(depth)
+            self.pstds.append(np.zeros(model.shape))
             dump('\n')
            
 
@@ -1348,12 +1324,60 @@ class Problem(object):
         """
         for survey in self.surveys:
             survey.convertFromNMEA(targetProjection=targetProjection)
+    
+    
 
+    def showProfile(self, index=0, ipos=0, ax=None, vmin=None, vmax=None,
+                    maxDepth=None, errorbar=False):
+        """Show specific inverted profile.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Index of the survey to plot.
+        ipos : int, optional
+            Index of the sample in the survey.
+        ax : Matplotlib.Axes, optional
+            If specified, the graph will be plotted against this axis.
+        rmse : bool, optional
+            If `True`, the RMSE for each transect will be plotted on a second axis.
+            Note that misfit can also be shown with `showMisfit()`.
+        errorbar : bool, optional
+            If `True` and inversion is MCMC-based, standard deviation bar are
+            drawn for the predicted depths and conductivities.
+        """
+        conds = self.models[index][ipos,:]
+        depths = self.depths[index][ipos, :]
+        x = np.r_[conds[0], conds]
+        y = np.r_[[0], depths, np.max(depths) + 1]
+        vd = ~self.fixedDepths
+        vc = ~self.fixedConds
+        if ax is None:
+            fig, ax = plt.subplots()
+        ax.step(x, -y, where='post')
+        if errorbar:
+            mid = conds[:-1] + np.diff(conds)/2
+            mic = y[:-1] + np.diff(y)/2
+            for i, ii in enumerate(np.where(vd)[0]):
+                xd = mid[ii]
+                yd = depths[ii]
+                yerr = self.pstds[index][ipos,ii]
+                ax.errorbar(xd, -yd, yerr=yerr, color='k', linestyle='none', capsize=2)
+            for i, ii, in enumerate(np.where(vc)[0]):
+                xc = conds[ii]
+                yc = mic[ii]
+                xerr = self.pstds[index][ipos,np.sum(vd) + i]
+                ax.errorbar(xc, -yc, xerr=xerr, color='k', linestyle='none', capsize=2)
+        ax.set_xlabel('EC [mS/m]')
+        ax.set_ylabel('Depth [m]')
+        ax.set_title('{:s}, sample {:d} (RMSE={:.2f})'.format(
+            self.surveys[index].name, ipos, self.rmses[index][ipos]))
+        
 
     
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, padding=1, cmap='viridis_r',
-                    contour=False, rmse=False):
+                    contour=False, rmse=False, errorbar=False, overlay=False):
         """Show inverted model.
         
         Parameters
@@ -1377,22 +1401,26 @@ class Problem(object):
         rmse : bool, optional
             If `True`, the RMSE for each transect will be plotted on a second axis.
             Note that misfit can also be shown with `showMisfit()`.
+        errorbar : bool, optional
+            If `True` and inversion is MCMC-based, standard deviation bar are
+            drawn for the predicted depths.
+        overlay : bool, optional
+            If `True`, a white transparent overlay is applied depending on the
+            conductivity standard deviation from MCMC-based inversion
         """
         try:
             sig = self.models[index]
-        except Exception as e:
+            depths = self.depths[index]
+        except Exception:
             raise ValueError('No inverted model to plot')
             return
-        x = np.arange(sig.shape[0])
-#        x = np.sqrt(np.diff(self.surveys[index].df[['x', 'y']].values, axis=1)**2)
-#        depths = np.repeat(self.depths0[:,None], sig.shape[0], axis=1).T
-        depths = self.depths[index]
-        
+
+        # set up default arguments        
         if ax is None:
             fig, ax = plt.subplots()
         else:
-            fig = ax.figure
-        if depths[0,0] != 0:
+            fig = ax.figure        
+        if depths[0,0] != 0: # add depth 0
             depths = np.c_[np.zeros(depths.shape[0]), depths]
         if vmin is None:
             vmin = np.nanpercentile(sig, 5)
@@ -1406,9 +1434,9 @@ class Problem(object):
         # vertices
         nlayer = sig.shape[1]
         nsample = sig.shape[0]
-        x2 = np.arange(nsample+1)
-#        dist = np.sqrt((self.surveys[index].df['x'].values - self.surveys[index].df['y'].values)**2)
-        xs = np.tile(np.repeat(x2, 2)[1:-1][:,None], nlayer+1)
+        x = np.arange(nsample+1) # number of samples + 1
+        # x = np.sqrt(np.diff(self.surveys[index].df[['x', 'y']].values, axis=1)**2)
+        xs = np.tile(np.repeat(x, 2)[1:-1][:,None], nlayer+1)
         ys = -np.repeat(depths, 2, axis=0)
         vertices = np.c_[xs.flatten('F'), ys.flatten('F')]
         
@@ -1416,28 +1444,24 @@ class Problem(object):
         n = vertices.shape[0]
         connection = np.c_[np.arange(n).reshape(-1,2),
                            2*nsample + np.arange(n).reshape(-1,2)[:,::-1]]
-#        ie1 = connection[:,0] % (2*len(x)-2) == 0
-        ie2 = (connection >= len(vertices)).any(1)
-        ie = ie2
+        ie = (connection >= len(vertices)).any(1)
         connection = connection[~ie, :]
         coordinates = vertices[connection]
         
         # plotting
         if contour is True:
             centroid = np.mean(coordinates, axis=1)
-            x = np.r_[centroid[:nsample,0], centroid[:,0], centroid[:nsample,0]]
-            y = np.r_[np.zeros(nsample), centroid[:,1], -np.ones(nsample)*maxDepth]
-            z = np.c_[sig[:,0], sig, sig[:,-1]]
+            xc = np.r_[centroid[:nsample,0], centroid[:,0], centroid[:nsample,0]]
+            yc = np.r_[np.zeros(nsample), centroid[:,1], -np.ones(nsample)*maxDepth]
+            zc = np.c_[sig[:,0], sig, sig[:,-1]]
             if vmax > vmin:
                 levels = np.linspace(vmin, vmax, 7)
             else:
                 levels = None
-            cax = ax.tricontourf(x, y, z.flatten('F'),
+            cax = ax.tricontourf(xc, yc, zc.flatten('F'),
                                  cmap=cmap, levels=levels, extend='both')
-#            ax.plot(x, y, 'k+')
             fig.colorbar(cax, ax=ax, label='EC [mS/m]')
         else:
-    #        ax.plot(vertices[:,0], vertices[:,1], 'k.')
             coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
             coll.set_clim(vmin=vmin, vmax=vmax)
             ax.add_collection(coll)
@@ -1449,14 +1473,39 @@ class Problem(object):
             xx = np.arange(len(self.rmses[index])) + 0.5
             ax2.plot(xx, self.rmses[index], 'kx-')
             ax2.set_ylabel('RMSE')
-
+            
+        vc = ~self.fixedConds
+        vd = ~self.fixedDepths
+        if errorbar:
+            for i, ii in enumerate(np.where(vd)[0]):
+                xm = x[:-1] + np.diff(x)/2
+                ym = depths[:,ii+1] # +1 because of zero depths
+                yerr = self.pstds[index][:,i]
+                ax.errorbar(xm, -ym, yerr=yerr, color='k', linestyle='none', capsize=2)
+            
+        if overlay: # uncertainty overlay
+            zu = np.zeros(sig.shape)
+            zu[:,vc] = self.pstds[index][:,np.sum(vd):]
+            acmap = np.ones((10, 4), dtype=float)
+            acmap[:, -1] = np.linspace(0, 0.7, 10) # alpha
+            acmap = ListedColormap(acmap)
+            if contour is True:
+                centroid = np.mean(coordinates, axis=1)
+                xc = np.r_[centroid[:nsample,0], centroid[:,0], centroid[:nsample,0]]
+                yc = np.r_[np.zeros(nsample), centroid[:,1], -np.ones(nsample)*maxDepth]
+                zc = np.c_[zu[:,0], zu, zu[:,-1]]
+                cax = ax.tricontourf(xc, yc, zc.flatten('F'),
+                                     cmap=acmap, extend='both')
+            else:
+                coll = PolyCollection(coordinates, array=zu.flatten('F'), cmap=acmap)
+                ax.add_collection(coll)
+                
         ax.set_xlabel('Samples')
         ax.set_ylabel('Depth [m]')
         if len(self.surveys) > 0:
             ax.set_title(self.surveys[index].name)
         ax.set_ylim([-maxDepth, 0])
-        ax.set_xlim([x[0], x[-1]+1])
-#        ax.set_aspect('equal')
+        ax.set_xlim([x[0], x[-2]])
         def format_coord(i,j):
             col=int(np.floor(i))
             if col < sig.shape[0]:
@@ -1466,6 +1515,7 @@ class Problem(object):
                 return ''
         ax.format_coord = format_coord
         fig.tight_layout()
+
 
 
     def setModels(self, depths, models):

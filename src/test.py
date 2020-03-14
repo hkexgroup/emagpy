@@ -38,6 +38,15 @@ k.gridData(method='cubic')
 k.surveys[0].df = k.surveys[0].dfg
 
 
+#%% inversion with uncertainty
+k = Problem()
+k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+k.surveys[0].df = k.surveys[0].df[:20]
+k.setInit(depths0=[0.3, 0.7], fixedDepths=[True, False], fixedConds=[False, True, False])
+k.invert(method='ROPE', rep=500, njobs=-1)
+k.showResults(errorbar=True, overlay=True)
+k.showProfile(errorbar=True)
+
 #%% inversion
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
