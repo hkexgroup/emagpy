@@ -1172,11 +1172,17 @@ class Problem(object):
         """
         for i, survey in enumerate(self.surveys):
             fname = os.path.join(outputdir, 'inv_' + survey.name + '.csv')
-            lcol = ['layer{:d}'.format(a+1) for a in range(self.depths[0].shape[1])]
-            dcol = ['depth{:d}'.format(a+1) for a in range(self.models[0].shape[1])]
+            lcol = ['layer{:d}'.format(a+1) for a in range(self.models[0].shape[1])]
+            dcol = ['depth{:d}'.format(a+1) for a in range(self.depths[0].shape[1])]
             data = np.c_[survey.df[['x','y']].values, self.models[i], self.depths[i]]
             df = pd.DataFrame(data, columns=[['x','y'] + lcol + dcol])
             df.to_csv(fname, index=False)
+    
+    
+    def mergeSurvey(self, indexA, indexB):
+        """Merge two surveys based on their position
+        """
+        pass
     
     
     
@@ -1913,7 +1919,7 @@ class Problem(object):
         
     
     def showSlice(self, index=0, islice=0, contour=False, vmin=None, vmax=None,
-                  cmap='viridis_r', ax=None, pts=True):
+                  cmap='viridis_r', ax=None, pts=False):
         """Show depth slice.
         
         Parameters
@@ -1966,7 +1972,7 @@ class Problem(object):
         
         
     def showDepths(self, index=0, idepth=0, contour=False, vmin=None, vmax=None,
-                  cmap='viridis_r', ax=None, pts=True):
+                  cmap='viridis_r', ax=None, pts=False):
         """Show depth slice.
         
         Parameters

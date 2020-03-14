@@ -118,7 +118,7 @@ def convertFromCoord(df, targetProjection='EPSG:27700'):
     osgb36 = pyproj.Proj(targetProjection) # UK Ordnance Survey, 1936 datum
     
     df['x'], df['y'] = pyproj.transform(wgs84, osgb36, 
-                          df['lon'].values, df['lat'].values)
+                          df['lat'].values, df['lon'].values)
 
     return df
     
