@@ -19,12 +19,6 @@ k.filterRange(vmin=0, vmax=25)
 k.filterPercentile(qmin=2, qmax=95)
 k.lcurve()
 
-#%% setting initial model
-k = Problem()
-k.createSurvey(datadir + 'cover-crop/simple.csv')
-k.setInit(depths0=[0.3, 0.7], fixedDepths=[False, True], fixedConds=[False, False, True])
-k.invert(method='ROPE', njobs=-1)
-k.showResults(errorbar=True, overlay=True)
 
 #%% mapping potatoes field
 k = Problem()
@@ -46,6 +40,7 @@ k.setInit(depths0=[0.3, 0.7], fixedDepths=[True, False], fixedConds=[False, True
 k.invert(method='ROPE', rep=500, njobs=-1)
 k.showResults(errorbar=True, overlay=True)
 k.showProfile(errorbar=True)
+
 
 #%% inversion
 k = Problem()
