@@ -19,6 +19,12 @@ k.filterRange(vmin=0, vmax=25)
 k.filterPercentile(qmin=2, qmax=95)
 k.lcurve()
 
+#%% setting initial model
+k = Problem()
+k.createSurvey(datadir + 'cover-crop/simple.csv')
+k.setInit(depths0=[0.3, 0.7], fixedDepths=[False, True], fixedConds=[False, False, True])
+k.invert(method='L-BFGS-B', njobs=-1)
+k.showResults()
 
 #%% mapping potatoes field
 k = Problem()
@@ -89,8 +95,8 @@ k.showResults(index=1, cmap='bwr', ax=axs[2])
 
 #%%  parallel and sequential inversion
 k = Problem()
-# k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
-k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
+k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+# k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
 # k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv', apply=True)
 
 t0 = time.time()

@@ -1077,7 +1077,7 @@ class App(QMainWindow):
         
         
         self.modelTable = ModelTable()
-        self.modelTable.setTable(self.problem.depths0, self.problem.conds0)
+        self.modelTable.setTable([0.7, 1.5], [20, 10, 50])
         
         
         def lcurveBtnFunc():

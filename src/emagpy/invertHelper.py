@@ -347,7 +347,7 @@ def getQs(cond, depths, s, cpos, f, hx=0):
 
 
 # definition of forward model used
-def fMaxwellECa(cond, depths, s, cpos, hx=None, f=30000):
+def fMaxwellECa(cond, depths, s, cpos, hx=0, f=30000):
     """ Compute quadrature ratio Q using Maxwell equation but then use the LIN
     to convert it to apparent conductivity.
     """
@@ -355,19 +355,26 @@ def fMaxwellECa(cond, depths, s, cpos, hx=None, f=30000):
         raise ValueError('len(cond)-1 should be equal to len(depths).')
     if len(s) != len(cpos):
         raise ValueError('len(s) should be equal to len(cpos).')
+    if isinstance(hx, int) or isinstance(hx, float):
+        hx = [hx] * len(s)
+    if isinstance(f, int) or isinstance(f, float):
+        f = [f] * len(s)
     h = np.r_[depths[0], np.diff(depths)] # layers thickness
-    if hx is not None: # adding air layer of 0 mS/m
-        h = np.r_[hx, h]
-        cond = np.r_[0, cond]
     response = np.zeros(len(s))*np.nan
     cond = cond*1e-3 # convert to S/m
     for i in range(len(s)):
-        Q = getQ2(cpos[i], s[i], cond, f, h)
-        response[i] = Q2eca(Q, s[i], f)*1e3
+        if hx[i] != 0: # adding air layer of 0 mS/m
+            thick = np.r_[hx[i], h]
+            sig = np.r_[0, cond]
+        else:
+            thick = h
+            sig = cond
+        Q = getQ2(cpos[i], s[i], sig, f[i], thick)
+        response[i] = Q2eca(Q, s[i], f[i])*1e3
     return response
 
 
-def fMaxwellQ(cond, depths, s, cpos, hx=None, f=30000, maxiter=50):
+def fMaxwellQ(cond, depths, s, cpos, hx=0, f=30000, maxiter=50):
     """ Compute the quadrature ratio using Maxwell equation and then try to
     find a value of conductivity that match the observed Q
     """
@@ -375,25 +382,32 @@ def fMaxwellQ(cond, depths, s, cpos, hx=None, f=30000, maxiter=50):
         raise ValueError('len(cond)-1 should be equal to len(depths).')
     if len(s) != len(cpos):
         raise ValueError('len(s) should be equal to len(cpos).')
+    if isinstance(hx, int) or isinstance(hx, float):
+        hx = [hx] * len(s)
+    if isinstance(f, int) or isinstance(f, float):
+        f = [f] * len(s)
 #    eca0 = fCS(cond, depths, s, cpos, hx=hx) # to kick start the solver
     h = np.r_[depths[0], np.diff(depths)]
-    if hx is not None:
-        h = np.r_[hx, h]
-        cond = np.r_[0, cond]
     response = np.zeros(len(s))*np.nan
     cond = cond*1e-3 # convert to S/m
     for i in range(len(s)):
-        Qobs = np.imag(getQ2(cpos[i], s[i], cond, f, h))
+        if hx[i] != 0: # adding air layer of 0 mS/m
+            thick = np.r_[hx[i], h]
+            sig = np.r_[0, cond]
+        else:
+            thick = h
+            sig = cond
+        Qobs = np.imag(getQ2(cpos[i], s[i], sig, f[i], thick))
         if cpos[i] == 'prp': # we don't have analytical for PRP
-            def objfunc(sig):
-                sigg = np.ones(len(cond))*sig
-                Qmod = np.imag(getQ2(cpos[i], s[i], sigg, f, h))
+            def objfunc(asig):
+                sigg = np.ones(len(cond))*asig
+                Qmod = np.imag(getQ2(cpos[i], s[i], sigg, f[i], thick))
                 return np.abs(Qmod - Qobs)
         else:
-            def objfunc(sig): # analytical is much faster
-                Qmod = np.imag(getQhomogeneous(cpos[i], s[i], sig, f)) # faster even if more rounding errors
+            def objfunc(asig): # analytical is much faster
+                Qmod = np.imag(getQhomogeneous(cpos[i], s[i], asig, f[i])) # faster even if more rounding errors
                 return np.abs(Qmod - Qobs)
-        sig0 = Q2eca(getQ2(cpos[i], s[i], cond, f, h), s[i], f) # still in S/m
+        sig0 = Q2eca(getQ2(cpos[i], s[i], cond, f[i], thick), s[i], f[i]) # still in S/m
         # sig0 = eca0[i]
         # res = minimize(objfunc, x0=sig0, method='L-BFGS-B')
         # zero = res.x[0]*1e3
@@ -518,7 +532,7 @@ def forward1d_full(cond, depths, s, cpos, hx=None, rescaled=False):
 #print(app1, app2)
     
 
-def fCS(cond, depths, s, cpos, hx=None, rescaled=False):
+def fCS(cond, depths, s, cpos, hx=0, rescaled=False):
     """ Use the cumulative sensitivity function of McNeil 1980.
     """
     if len(cond)-1 != len(depths):
@@ -528,7 +542,7 @@ def fCS(cond, depths, s, cpos, hx=None, rescaled=False):
     if depths[0] != 0:
 #        print('add 0 for you')
         depths = np.r_[0, depths] # otherwise forward1d_full complains
-    if hx is not None:
+    if isinstance(hx, int) or isinstance(hx, float):
         hx = np.ones(len(cpos))*hx
     response = forward1d_full(cond, depths, s, cpos, hx=hx, rescaled=rescaled)
     return response
