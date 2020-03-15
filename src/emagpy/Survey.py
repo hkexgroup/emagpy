@@ -303,7 +303,7 @@ class Survey(object):
     
     
     def show(self, coil='all', ax=None, vmin=None, 
-             vmax=None, dist=True):
+             vmax=None, dist=False):
         """ Show the data.
         
         Parameters
