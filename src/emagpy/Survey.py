@@ -123,6 +123,8 @@ def convertFromCoord(df, targetProjection='EPSG:27700'):
     return df
     
     
+
+    
 class Survey(object):
     """ Create a Survey object containing the raw EMI data.
     
@@ -300,9 +302,23 @@ class Survey(object):
         self.df = self.df[i2keep]
     
     
-    def show(self, coil='all', attr='ECa', ax=None, vmin=None, 
-             vmax=None):
+    def show(self, coil='all', ax=None, vmin=None, 
+             vmax=None, dist=True):
         """ Show the data.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Specify which coil to plot. Default is all coils available.
+        ax : matplotlib.Axes, optional
+            If supplied, the graph will be plotted against `ax`.
+        vmin : float, optional
+            Minimal Y value.
+        vmax : float, optional
+            Maximial Y value.
+        dist : bool, optional
+            If `True` the true distance between points will be computed else
+            the sample index is used as X index.
         """
         if coil == 'all':
             cols = self.coils
@@ -314,7 +330,11 @@ class Survey(object):
      
         # interactive point selection
         self.iselect = np.zeros(self.df.shape[0], dtype=bool)
-        xpos = np.arange(self.df.shape[0])
+        xpos = np.arange(self.df.shape[0]) # number of sample, not true distance
+        if dist:
+            xy = self.df[['x','y']].values
+            distance = np.sqrt(np.sum(np.diff(xy, axis=0)**2, axis=1))
+            xpos = np.r_[[0], np.cumsum(distance)]
         
         def setSelect(ie, boolVal):
             ipoints[ie] = boolVal
@@ -341,10 +361,12 @@ class Survey(object):
             killed.figure.canvas.draw()
     
         ax.set_title(coil)
-        caxs = ax.plot(self.df[cols].values, '.-', picker=5)
+        caxs = ax.plot(xpos, self.df[cols].values, '.-', picker=5)
         ax.legend(cols)
         ax.set_ylim([vmin, vmax])
         ax.set_xlabel('Measurements')
+        if dist:
+            ax.set_xlabel('Distance [m]')
         if coil[-5:] == '_inph':
             ax.set_ylabel('Inphase [ppt]')
         else:
@@ -741,11 +763,45 @@ class Survey(object):
 
     
     def gfCorrection(self):
-        """ Apply the correction due to the 1m calibration.
+        """Converting GF calibrated ECa to LIN ECa.
         """
-        pass
-        # TODO
-        
+        df = self.df.copy()
+        hx = self.hx[0]
+        coils = ['{:s}{:.2f}'.format(a.upper(),b) for a,b in zip(self.cpos, self.cspacing)]
+        print('Transformation to LIN ECa at F-{:.0f}m calibration'.format(hx))
+        if hx == 0:
+            gfcoefs = {'HCP1.48': 24.87076856,
+                       'HCP2.82': 7.34836983,
+                       'HCP4.49': 3.18322873,
+                       'VCP1.48': 23.96851467,
+                       'VCP2.82': 6.82559412,
+                       'VCP4.49': 2.81033124,
+                       'HCP0.32': 169.35849385,
+                       'HCP0.71': 35.57031603,
+                       'HCP1.18': 13.42529324,
+                       'VCP0.32': 167.10523718,
+                       'VCP0.71': 34.50404729,
+                       'VCP1.18': 12.744378}
+            for i, coil in enumerate(coils):
+                qvalues = 0+df[self.coils[i]].values/gfcoefs[coil]*1e-3j
+                df.loc[:, self.coils[i]] = Q2eca(qvalues, self.cspacing[i], f=self.freqs[i])*1000 # mS/m
+        if hx == 1:
+            gfcoefs = {'HCP1.48': 43.714823,
+                       'HCP2.82': 9.22334343,
+                       'HCP4.49': 3.51201955,
+                       'VCP1.48': 77.90907085,
+                       'VCP2.82': 14.02757873,
+                       'VCP4.49': 4.57001088}
+            ''' from mS/m to Q in ppt using GF calibration
+            from Q (not in ppt) to ECa LIN using Q2eca
+            '''
+            for i, coil in enumerate(coils):
+                qvalues = 0+df[self.coils[i]].values/gfcoefs[coil]*1e-3j # in part per thousand
+                df.loc[:, self.coils[i]] = Q2eca(qvalues, self.cspacing[i], f=self.freqs[i])*1000
+        self.df = df
+    
+    
+    
     def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer',
                  hx=0, targetProjection='EPSG:27700'):
         """Import GF instrument data with Lo and Hi file mode. If spatial data
@@ -864,44 +920,11 @@ class Survey(object):
             self.cspacing = [a['coilSeparation'] for a in coilInfo]
             self.cpos = [a['orientation'] for a in coilInfo]
             self.hx = np.repeat([hx], len(self.coils))*0 # as we corrected it before
-            # applying correction for GF instruments
-            print('Transformation to LIN ECa for {:s} at F-{:.0f}m calibration'.format(device, hx))
-            if hx == 0:
-                gfcoefs = {'HCP1.48': 24.87076856,
-                           'HCP2.82': 7.34836983,
-                           'HCP4.49': 3.18322873,
-                           'VCP1.48': 23.96851467,
-                           'VCP2.82': 6.82559412,
-                           'VCP4.49': 2.81033124,
-                           'HCP0.32': 169.35849385,
-                           'HCP0.71': 35.57031603,
-                           'HCP1.18': 13.42529324,
-                           'VCP0.32': 167.10523718,
-                           'VCP0.71': 34.50404729,
-                           'VCP1.18': 12.744378}
-                for i, coil in enumerate(coils):
-                    qvalues = 0+df[coil].values/gfcoefs[coil]*1e-3j
-                    df.loc[:, coil] = Q2eca(qvalues, self.cspacing[i], f=self.freqs[i])*1000 # mS/m
-            if hx == 1:
-                gfcoefs = {'HCP1.48': 43.714823,
-                           'HCP2.82': 9.22334343,
-                           'HCP4.49': 3.51201955,
-                           'VCP1.48': 77.90907085,
-                           'VCP2.82': 14.02757873,
-                           'VCP4.49': 4.57001088}
-                ''' from mS/m to Q in ppt using GF calibration
-                from Q (not in ppt) to ECa LIN using Q2eca
-                '''
-                for i, coil in enumerate(coils):
-                    qvalues = 0+df[coil].values/gfcoefs[coil]*1e-3j # in part per thousand
-                    df.loc[:, coil] = Q2eca(qvalues, self.cspacing[i], f=self.freqs[i])*1000
-#                coefs = np.zeros(len(coils))
-#                for i in range(len(coils)):
-#                    coefs[i] = emSens(np.array([1]), self.cspacing[i], self.cpos[i], hx=0)[0]
-#                df.loc[:,coils] = df.loc[:, coils]*coefs
             self.df = df
             self.sensor = device
-        
+            self.gfCorrection() # convert calibrated ECa to LIN ECa
+            
+            
         
     ### jamyd91 contribution ### 
     def consPtStat(self):# work out distance between consective points 
@@ -1022,6 +1045,8 @@ class Survey(object):
         #return df 
         self.df = df
     
+    
+    
     def rmRepeatPt(self, tolerance=0.2):
         """Remove points taken too close together consecutively.
         
@@ -1049,6 +1074,7 @@ class Survey(object):
         #return out.reset_index() 
         self.fil_df = out.reset_index()
         
+    
     
     def rmBearing(self, phiMin, phiMax):
         """Remove measurments recorded in a certian bearing range. Where phiMax -
@@ -1090,6 +1116,7 @@ class Survey(object):
         self.fil_df = out.reset_index()# its necassary to reset the indexes for other filtering techniques 
         
         
+        
     def driftStn(self, xStn=None, yStn=None, tolerance=0.5):
         """Extract values taken at a given x y point. By default the drift 
         station is taken at the location where the survey starts.
@@ -1124,6 +1151,7 @@ class Survey(object):
         ioi = dist < tolerance # index of interest 
 
         self.drift_df = df[ioi].copy() #return df[ioi].copy()
+        
         
         
     def plotDrift(self, coil=None, ax=None, fit=True):
@@ -1173,6 +1201,7 @@ class Survey(object):
         cond = self.drift_df[coil].values
         mdl = np.polyfit(seconds,cond,order)
         self.drift_mdl = mdl
+        
         
         
     def applyDriftCorrection(self, coil=None):

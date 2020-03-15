@@ -1004,19 +1004,27 @@ class Problem(object):
     
     
     
-    def show(self, index=0, **kwargs):
+    def show(self, index=0, coil='all', ax=None, vmin=None, vmax=None, 
+             dist=True):
         """Show the raw data of the survey.
         
         Parameters
         ----------
         index : int, optional
             Survey number, by default, the first survey is chosen.
+        coil : str, optional
+            Specify which coil to plot. Default is all coils available.
+        ax : matplotlib.Axes, optional
+            If supplied, the graph will be plotted against `ax`.
+        vmin : float, optional
+            Minimal Y value.
+        vmax : float, optional
+            Maximial Y value.
+        dist : bool, optional
+            If `True` the true distance between points will be computed else
+            the sample index is used as X index.
         """
-        coil = kwargs['coil'] if 'coil' in kwargs else 'all'
-        vmin = kwargs['vmin'] if 'vmin' in kwargs else None
-        vmax = kwargs['vmax'] if 'vmax' in kwargs else None
-        ax = kwargs['ax'] if 'ax' in kwargs else None
-        self.surveys[index].show(coil=coil, vmin=vmin, vmax=vmax, ax=ax)
+        self.surveys[index].show(coil=coil, vmin=vmin, vmax=vmax, ax=ax, dist=dist)
     
     
     
@@ -1383,7 +1391,7 @@ class Problem(object):
 
     
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
-                    maxDepth=None, padding=1, cmap='viridis_r',
+                    maxDepth=None, padding=1, cmap='viridis_r', dist=True,
                     contour=False, rmse=False, errorbar=False, overlay=False):
         """Show inverted model.
         
@@ -1403,6 +1411,9 @@ class Problem(object):
             DONT'T KNOW
         cmap : str, optional
             Name of the Matplotlib colormap to use.
+        dist : bool, optional
+            If `True`, true distances are used for X. Otherwise measurement
+            index is used.
         contour : bool, optional
             If `True` a contour plot will be plotted.
         rmse : bool, optional
@@ -1442,7 +1453,11 @@ class Problem(object):
         nlayer = sig.shape[1]
         nsample = sig.shape[0]
         x = np.arange(nsample+1) # number of samples + 1
-        # x = np.sqrt(np.diff(self.surveys[index].df[['x', 'y']].values, axis=1)**2)
+        if dist:
+            xy = self.surveys[index].df[['x','y']].values
+            distance = np.sqrt(np.sum(np.diff(xy, axis=0)**2, axis=1))
+            distance = np.r_[[0], distance, distance[[-1]]]
+            x = np.cumsum(distance)
         xs = np.tile(np.repeat(x, 2)[1:-1][:,None], nlayer+1)
         ys = -np.repeat(depths, 2, axis=0)
         vertices = np.c_[xs.flatten('F'), ys.flatten('F')]
@@ -1509,7 +1524,10 @@ class Problem(object):
                 coll = PolyCollection(coordinates, array=zu.flatten('F'), cmap=acmap)
                 ax.add_collection(coll)
                 
-        ax.set_xlabel('Samples')
+        if dist:
+            ax.set_xlabel('Distance [m]')
+        else:
+            ax.set_xlabel('Samples')
         ax.set_ylabel('Depth [m]')
         if len(self.surveys) > 0:
             ax.set_title(self.surveys[index].name)
