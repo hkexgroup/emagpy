@@ -241,7 +241,8 @@ class Problem(object):
             a MCMC-based solver based on the `spotpy` Python package.
             Alternatively 'ANN' can be used (requires tensorflow), it will train
             an artificial neural network on synthetic data and use it for inversion.
-            Note that smoothing (alpha, beta, gamma) is not supported by ANN.
+            Note that smoothing (alpha, beta, gamma) and regularization are not
+            supported by ANN, MCMC, DREAM and SCUEA (but well by ROPE).
         regularization : str, optional
             Type of regularization, either l1 (blocky model) or l2 (smooth model)
         alpha : float, optional
@@ -276,6 +277,12 @@ class Problem(object):
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all CPUs
             but one are used.
         """
+        mMinimize = ['L-BFGS-B','TNC','CG','Nelder-Mead']
+        mMCMC = ['ROPE','SCEUA','DREAM', 'MCMC']
+        if (method not in mMinimize) and (method not in mMCMC):
+            raise ValueError('Unknow method {:s}'.format(method))
+            return
+        
         # check if we have initial model
         if len(self.conds0) == 0:
             self.setInit(self.depths0)
@@ -291,8 +298,6 @@ class Problem(object):
         self.pstds = []
         self.annReplaced = 0
         self.ikill = False
-        mMinimize = ['L-BFGS-B','TNC','CG','Nelder-Mead']
-        mMCMC = ['ROPE','SCEUA','DREAM', 'MCMC']
         nc = len(self.conds0) # number of layers
         vd = ~self.fixedDepths # variable depths
         vc = ~self.fixedConds # variable conductivity
@@ -312,7 +317,12 @@ class Problem(object):
         vc = ~self.fixedConds # variable conductivity
         depths0 = self.depths0[0][0,:] # approximation
 
-        # time-lapse constrain
+        # check beta constrain
+        if beta != 0 and method in ['MCMC','DREAM','SCEUA']:
+            raise ValueError('MCMC, DREAM and SCUEA do not accept constrains.')
+            beta = 0
+            
+        # check time-lapse constrain
         if gamma != 0:
             n = self.surveys[0].df.shape[0]
             for s in self.surveys[1:]:
@@ -320,6 +330,11 @@ class Problem(object):
                     raise ValueError('For time-lapse constrain (gamma > 0), all surveys need to have the same length.')
                     gamma = 0
         
+        # check parallel
+        if njobs != 1 and beta != 0:
+            dump('WARNING: No parallel is possible with lateral smoothing (beta > 0).\n')
+            njobs = 1
+            
         # define the forward model
         def fmodel(p, ini0): # p contains first the depths then the conductivities
             depth = ini0[0].copy()
@@ -438,7 +453,8 @@ class Problem(object):
                 return
             
             class spotpy_setup(object):
-                def __init__(self, obsVals, bounds, pn, spn, alpha, beta, gamma, ini0):
+                def __init__(self, obsVals, bounds, pn, spn, alpha, beta, 
+                             gamma, ini0, fmodel):
                     self.params = []
                     for i, bnd in enumerate(bounds):
                         self.params.append(
@@ -451,32 +467,33 @@ class Problem(object):
                     self.beta = beta
                     self.gamma = gamma
                     self.ini0 = ini0
+                    self.fmodel = fmodel
                     
                 def parameters(self):
                     return spotpy.parameter.generate(self.params)
             
                 def simulation(self, vector):
                     x = np.array(vector)
-                    #simulations = self.fmodel(x).flatten()
-                    return x # trick return  parameters as the simulation is done in the
-                    # objective function
+                    if method == 'ROPE':
+                        return x
+                    else:
+                        simulations = self.fmodel(x, self.ini0).flatten()
+                        return simulations
                 
                 def evaluation(self): # what the function return when called with the optimal values
                     observations = self.obsVals.flatten()
                     return observations
                 
                 def objectivefunction(self, simulation, evaluation, params=None):
-                    #val = -spotpy.objectivefunctions.rmse(evaluation, simulation)
+                    # val = -spotpy.objectivefunctions.rmse(evaluation, simulation)
                     # simulation is actually parameters, the simulation (forward model)
                     # is done inside the objective function itself
                     val = -objfunc(simulation, evaluation, self.pn, self.spn,
-                                   self.alpha, self.beta, self.gamma, self.ini0)
+                                    self.alpha, self.beta, self.gamma, self.ini0)
+                    
+                    # the objectivefunction is not used by MCMC, DREAM or SCEUA just by ROPE
                     return val
         
-        # check parallel
-        if njobs != 1 and beta != 0:
-            dump('WARNING: No parallel is possible with lateral smoothing (beta > 0).\n')
-            njobs = 1
         
         # define optimization function
         def solve(obs, pn, spn, alpha, beta, gamma, ini0):
@@ -491,8 +508,8 @@ class Problem(object):
                 # if res.success:
                 #     c += 1      
             elif method in mMCMC: # MCMC based methods
-                cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
-                spotpySetup = spotpy_setup(obs, bounds, pn, spn, alpha, beta, gamma, ini0)
+                spotpySetup = spotpy_setup(obs, bounds, pn, spn, alpha, beta, 
+                                           gamma, ini0, fmodel)
                 if method == 'ROPE':
                     sampler = spotpy.algorithms.rope(spotpySetup)
                 elif method == 'DREAM':
@@ -509,6 +526,7 @@ class Problem(object):
                 sampler.sample(rep) # this is outputing too much so we use hiddenprints() context
                 results = np.array(sampler.getdata())
                 ibest = np.argmin(np.abs(results['like1']))
+                cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
                 outval = np.array([results[col][ibest] for col in cols])
                 outstd = np.array([np.nanstd(results[col]) for col in cols])
                 out = (outval, outstd)
@@ -528,6 +546,7 @@ class Problem(object):
             stds = np.zeros((apps.shape[0], np.sum(vd) + np.sum(vc)))
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
+            outs = []
             nrows = survey.df.shape[0]
             for j in range(nrows):
                 # define observations and convert to Q if needed
@@ -538,6 +557,7 @@ class Problem(object):
                 # define previous profile in case we want to lateral constrain
                 if j == 0:
                     pn = np.zeros(np.sum(np.r_[vd, vc]))
+                    b = 0
                 else:
                     pn = np.r_[depth[j-1,:][vd], model[j-1,:][vc]]
                     
@@ -552,18 +572,28 @@ class Problem(object):
                 # initial values
                 ini0 = (self.depths0[i][j,:], self.conds0[i][j,:])
                 
-                params.append((obs, pn, spn, alpha, beta, g, ini0))                
+                params.append((obs, pn, spn, alpha, b, g, ini0))                
             
-            outs = []
-            # sequential
-            if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
-                for j in range(nrows):
+                # sequential
+                if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
                     with HiddenPrints():
-                        outs.append(solve(*params[j]))
+                        outt = solve(*params[j])
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
+                    
+                    obs = params[j][0]
+                    if method in mMCMC:
+                        std = outt[1]
+                        stds[j,:] = std
+                        out = outt[0]
+                    else:
+                        out = outt
+                    depth[j,vd] = out[:np.sum(vd)]
+                    model[j,vc] = out[np.sum(vd):]
+                    rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, params[j][-1])**2)/len(obs))
+            
             
             # parallel computing with locky backend
-            elif (method != 'ANN') & (njobs != 1):
+            if (method != 'ANN') & (njobs != 1):
                 try:
                     with HiddenPrints():
                         outs = Parallel(n_jobs=njobs, verbose=0)(delayed(solve)(*a) for a in tqdm(params))
@@ -594,18 +624,19 @@ class Problem(object):
                         outs[l,:] = res.x
                 outs = list(outs)
 
-            # store results from optimization                
-            for j, outt in enumerate(outs):
-                obs = params[j][0]
-                if method in mMCMC:
-                    std = outt[1]
-                    stds[j,:] = std
-                    out = outt[0]
-                else:
-                    out = outt
-                depth[j,vd] = out[:np.sum(vd)]
-                model[j,vc] = out[np.sum(vd):]
-                rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, params[j][-1])**2)/len(obs))
+            # store results from optimization
+            if (method == 'ANN') or (njobs != 1):
+                for j, outt in enumerate(outs):
+                    obs = params[j][0]
+                    if method in mMCMC:
+                        std = outt[1]
+                        stds[j,:] = std
+                        out = outt[0]
+                    else:
+                        out = outt
+                    depth[j,vd] = out[:np.sum(vd)]
+                    model[j,vc] = out[np.sum(vd):]
+                    rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, params[j][-1])**2)/len(obs))
             dump('\n')
             self.models.append(model)
             self.depths.append(depth)
@@ -1525,7 +1556,7 @@ class Problem(object):
                 xm = x[:-1] + np.diff(x)/2
                 ym = depths[:,ii+1] # +1 because of zero depths
                 yerr = self.pstds[index][:,i]
-                ax.errorbar(xm, -ym, yerr=yerr, color='k', linestyle='none', capsize=2)
+                ax.errorbar(xm, ym, yerr=yerr, color='k', linestyle='none', capsize=2)
             
         if overlay: # uncertainty overlay
             zu = np.zeros(sig.shape)

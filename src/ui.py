@@ -1147,7 +1147,7 @@ class App(QMainWindow):
                     self.parallelCheck]
             objs2 = [self.annSampleLabel, self.annSampleEdit,
                      self.annNoiseLabel, self.annNoiseEdit]
-            if index == 7: #ANN
+            if index == 8: #ANN
                 [o.setVisible(False) for o in objs1]
                 [o.setVisible(True) for o in objs2]
             else:
@@ -1159,6 +1159,13 @@ class App(QMainWindow):
                 else:
                     self.gammaLabel.setVisible(False)
                     self.gammaEdit.setVisible(False)
+            
+            # the following methods don't accept objective function
+            constrain = [self.alphaEdit, self.betaEdit, self.gammaEdit, self.lCombo]
+            if index in [5,6,7]:
+                [a.setEnabled(False) for a in constrain]
+            else:
+                [a.setEnabled(True) for a in constrain]
                 
         self.methodCombo = QComboBox()
         self.methodCombo.setToolTip('''Choice of solver:
@@ -1166,12 +1173,13 @@ class App(QMainWindow):
         CG : Congugate Gradient, fast
         TNC : Truncated Newton, robust
         Nelder-Mead : more robust
-        ROPE : MCMC-based
-        SCEUA : MCMC-based
-        DREAM : MCMC-based
+        ROPE : McMC-based
+        SCEUA : McMC-based
+        DREAM : McMC-based
+        McMC : Markov Chain Monte Carlo
         ANN : Artificial Neural Network''')
         mMinimize = ['L-BFGS-B', 'CG', 'TNC', 'Nelder-Mead']
-        mMCMC = ['ROPE', 'SCEUA', 'DREAM']
+        mMCMC = ['ROPE', 'SCEUA', 'DREAM', 'McMC']
         methods = mMinimize + mMCMC + ['ANN']
         for method in methods:
             self.methodCombo.addItem(method)

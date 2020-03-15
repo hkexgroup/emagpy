@@ -67,9 +67,10 @@ k.showOne2one()
 
 #%% test lateral smoothing
 k = Problem()
-k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
-k.invert(forwardModel='CS', alpha=0.1, beta=1)
-k.showResults()
+k.createSurvey(datadir + 'cover-crop/simple.csv')
+k.setInit(depths0=[0.5], fixedDepths=[False])
+k.invert(forwardModel='CS', method='MCMC', alpha=0.07, beta=0, rep=300)
+k.showResults(errorbar=True)
 
 
 #%% from background survey (time-lapse)
