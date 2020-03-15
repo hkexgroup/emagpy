@@ -13,6 +13,8 @@ import time
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
 from matplotlib.colors import ListedColormap
+import matplotlib.patches as mpatches
+import matplotlib.path as mpath
 from scipy.optimize import minimize
 from scipy.stats import linregress
 
@@ -1392,7 +1394,8 @@ class Problem(object):
     
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, padding=1, cmap='viridis_r', dist=False,
-                    contour=False, rmse=False, errorbar=False, overlay=False):
+                    contour=False, rmse=False, errorbar=False, overlay=False,
+                    elev=False):
         """Show inverted model.
         
         Parameters
@@ -1425,6 +1428,9 @@ class Problem(object):
         overlay : bool, optional
             If `True`, a white transparent overlay is applied depending on the
             conductivity standard deviation from MCMC-based inversion
+        elev : bool, optional
+            If `True`, each inverted profile will be adjusted according to
+            elevation.
         """
         try:
             sig = self.models[index]
@@ -1447,7 +1453,9 @@ class Problem(object):
         cmap = plt.get_cmap(cmap)
         if maxDepth is None:
             maxDepth = np.nanpercentile(depths, 98) + padding
-        depths = np.c_[depths, np.ones(depths.shape[0])*maxDepth]
+        depths = -np.c_[depths, np.ones(depths.shape[0])*maxDepth]
+        if elev:
+            depths = depths + self.surveys[index].df['elevation'].values[:,None]
         
         # vertices
         nlayer = sig.shape[1]
@@ -1459,7 +1467,7 @@ class Problem(object):
             distance = np.r_[[0], distance, distance[[-1]]]
             x = np.cumsum(distance)
         xs = np.tile(np.repeat(x, 2)[1:-1][:,None], nlayer+1)
-        ys = -np.repeat(depths, 2, axis=0)
+        ys = np.repeat(depths, 2, axis=0)
         vertices = np.c_[xs.flatten('F'), ys.flatten('F')]
         
         # connection matrix
@@ -1480,8 +1488,20 @@ class Problem(object):
                 levels = np.linspace(vmin, vmax, 7)
             else:
                 levels = None
-            cax = ax.tricontourf(xc, yc, zc.flatten('F'),
-                                 cmap=cmap, levels=levels, extend='both')
+            # cax = ax.tricontourf(xc, yc, zc.flatten('F'),
+                                 # cmap=cmap, levels=levels, extend='both')
+            xc = centroid[:,0].reshape((-1, nsample)).T
+            yc = centroid[:,1].reshape((-1, nsample)).T
+            zc = sig
+            cax = ax.contourf(xc, yc, zc, cmap=cmap, levels=levels)
+            # set clip path
+            # pathvert = np.c_[np.r_[xs[:,0], xs[::-1,0]], np.r_[ys[:,-1], ys[::-1,0]]]
+            # path = mpath.Path(pathvert)
+            # patch = mpatches.PathPatch(path, facecolor='none', edgecolor='k')
+            # ax.add_patch(patch)
+            # for col in cax.collections:
+            #     col.set_clip_path(patch)
+    
             fig.colorbar(cax, ax=ax, label='EC [mS/m]')
         else:
             coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
@@ -1528,11 +1548,14 @@ class Problem(object):
             ax.set_xlabel('Distance [m]')
         else:
             ax.set_xlabel('Samples')
-        ax.set_ylabel('Depth [m]')
+        if elev:
+            ax.set_ylabel('Elevation [m]')
+        else:
+            ax.set_ylabel('Depth [m]')
         if len(self.surveys) > 0:
             ax.set_title(self.surveys[index].name)
-        ax.set_ylim([-maxDepth, 0])
-        ax.set_xlim([x[0], x[-2]])
+        ax.set_ylim([np.min(depths), np.max(depths)])
+        ax.set_xlim([np.min(x), np.max(x)])
         def format_coord(i,j):
             col=int(np.floor(i))
             if col < sig.shape[0]:

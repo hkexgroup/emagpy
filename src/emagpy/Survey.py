@@ -191,7 +191,9 @@ class Survey(object):
         if 'x' not in df.columns:
             df['x'] = np.arange(df.shape[0])
         if 'y' not in df.columns:
-            df['y'] = 0 # maybe not needed
+            df['y'] = 0
+        if 'elevation' not in df.columns:
+            df['elevation'] = 0
         coilInfo = [self.getCoilInfo(c) for c in self.coils]
         self.freqs = [a['freq'] for a in coilInfo]
         self.hx = [a['height'] for a in coilInfo]
