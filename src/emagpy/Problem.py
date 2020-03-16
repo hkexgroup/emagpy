@@ -869,7 +869,10 @@ class Problem(object):
 
 
     def tcorrECa(self, tdepths, tprofile):
-        """Temperature correction using XXXX formula.
+        """Temperature correction based on temperature profile.
+        An 'apparent' temperature is computed for each coil configuration
+        using the CS function and the observed ECa is corrected according
+        to a 2% increase in EC per degC.
         
         Parameters
         ----------
@@ -883,8 +886,13 @@ class Problem(object):
 
 
             
-    def tcorrEC(self, tdepths, tprofile):
-        """Temperature correction for inverted models using XXXX formula.
+    def tcorrEC(self, tdepths, tprofile, a=0.02):
+        """Temperature correction for inverted models using a 2% increase
+        of EC per degC.
+        
+        EC_t = EC * (1 - a * (t - 25))
+        
+        where a == 0.02 (2% by default)
         
         Parameters
         ----------
@@ -892,10 +900,15 @@ class Problem(object):
             Depths in meters of the temperature sensors (negative downards).
         tprofile : array-like
             Temperature values corresponding in degree Celsius.
+        a : float, optional
+            Correction coefficient. By default a 2% (a=0.02) of EC per degC
+            is assumed.
         """
         for i, model in enumerate(self.models):
+            # interpolate depth
+            
+            # apply correction
             pass
-        #TODO correct ECa or inverted EC ? maybe let this to the user
 
 
     def write2vtk(self):
@@ -1081,17 +1094,17 @@ class Problem(object):
         
     
     
-    def saveMap(self, index=0, fname, coil=None, nx=100, ny=100, method='linear',
+    def saveMap(self, fname, index=0, coil=None, nx=100, ny=100, method='linear',
                 xmin=None, xmax=None, ymin=None, ymax=None, color=False,
                 cmap='viridis_r', vmin=None, vmax=None, nlevel=7):
         """Save a georeferenced raster TIFF file.
         
         Parameters
         ----------
-        index : int, optional
-            Survey number, by default, the first survey is chosen.
         fname : str
             Path of where to save the .tiff file.
+        index : int, optional
+            Survey number, by default, the first survey is chosen.
         coil : str, optional
             Name of the coil to plot. By default, the first coil is plotted.
         nx : int, optional
