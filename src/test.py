@@ -12,12 +12,15 @@ from emagpy import Problem
 datadir = 'examples/'
 
 
-#%% importing from GF instrument and timelapse
+#%% importing from GF instrument and filtering
 k = Problem()
 k.importGF(datadir + 'cover-crop/coverCropLo.dat', datadir + 'cover-crop/coverCropHi.dat')
+
+# filtering
 k.filterRange(vmin=0, vmax=25)
 k.filterPercentile(qmin=2, qmax=95)
-k.lcurve()
+k.rollingMean()
+k.filterDiff()
 
 
 #%% mapping potatoes field
@@ -27,6 +30,7 @@ k.convertFromNMEA()
 k.crossOverPoints()
 k.plotCrossOverMap()
 k.showMap(contour=True, pts=True)
+k.saveMap(datadir + 'potatoes/map.tiff')
 k.show()
 k.gridData(method='cubic')
 k.surveys[0].df = k.surveys[0].dfg

@@ -1081,15 +1081,48 @@ class Problem(object):
         
     
     
-    def saveMap(self, index=0, **kwargs):
-        """Save georefenced .tiff.
+    def saveMap(self, index=0, fname, coil=None, nx=100, ny=100, method='linear',
+                xmin=None, xmax=None, ymin=None, ymax=None, color=False,
+                cmap='viridis_r', vmin=None, vmax=None, nlevel=7):
+        """Save a georeferenced raster TIFF file.
         
         Parameters
         ----------
         index : int, optional
             Survey number, by default, the first survey is chosen.
+        fname : str
+            Path of where to save the .tiff file.
+        coil : str, optional
+            Name of the coil to plot. By default, the first coil is plotted.
+        nx : int, optional
+            Number of points in x direction.
+        ny : int, optional
+            Number of points in y direction.
+        method : str, optional
+            Interpolation method (nearest, cubic or linear see
+            `scipy.interpolate.griddata`) or IDW (default).
+        xmin : float, optional
+            Mininum X value.
+        xmax : float, optional
+            Maximum X value.
+        ymin : float, optional
+            Minimium Y value.
+        ymax : float, optional
+            Maximum Y value
+        color : bool, optional
+            If True a colormap will be applied.
+        cmap : str, optional
+            If `color == True`, name of the colormap. Default is viridis.
+        vmin : float, optional
+            Minimum value for colomap.
+        vmax : float, optional
+            Maximum value for colormap.
+        nlevel : int, optional
+            Number of level in the colormap. Default 7.
         """
-        self.surveys[index].saveMap(**kwargs)
+        self.surveys[index].saveMap(fname, coil=coil, nx=nx, ny=ny, method=method,
+                xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, color=color,
+                cmap=cmap, vmin=vmin, vmax=vmax, nlevel=nlevel)
     
     
     
