@@ -173,6 +173,13 @@ k1.invert(method='ROPE')
 k1.showResults(ax=axs[1], rmse=True)
 
 
+#%%
+k = Problem()
+k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+k.invert(threed=True, beta=0.1)
+k.showResults()
+#%%
+k.saveVTK('/home/jkl/Downloads/tip.vtk')
 
 #%% ANN inversion
 # k = Problem()

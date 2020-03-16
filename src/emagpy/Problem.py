@@ -13,8 +13,9 @@ import time
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
 from matplotlib.colors import ListedColormap
-import matplotlib.patches as mpatches
-import matplotlib.path as mpath
+import matplotlib.tri as mtri
+# import matplotlib.patches as mpatches
+# import matplotlib.path as mpath
 from scipy.optimize import minimize
 from scipy.stats import linregress
 
@@ -49,7 +50,7 @@ class Problem(object):
         self.fixedConds = []
         self.fixedDepths = []
         self.surveys = []
-        self.models = [] # TODO rename to conds?
+        self.models = []
         self.pstds = [] # parameter standard deviation for MCMC inversion
         self.rmses = []
         self.freqs = []
@@ -660,9 +661,7 @@ class Problem(object):
             self.pstds.append(stds)
             # dump('{:d} measurements inverted\n'.format(apps.shape[0]))
                     
-    # TODO add smoothing 3D: maybe invert all profiles once with GN and then
-    # invert them again with a constrain on the 5 nearest profiles by distance
-
+            
     
     def buildANN(self, fmodel, bounds, noise=0.05, iplot=False, nsample=100,
                  dump=None, epochs=500):
@@ -862,7 +861,7 @@ class Problem(object):
                 app = apps[j,:]
                 cond = np.ones((len(conds0),1))*np.nanmean(app) # initial EC is the mean of the apparent (doesn't matter)
                 # OR search for best starting model here
-                for l in range(1): # FIXME this is diverging with time ..;
+                for l in range(1): # FIXME this is diverging with time ...
                     d = dataMisfit(cond, app)
                     LHS = np.dot(J.T, J) + alpha*L
                     RHS = np.dot(J.T, d[:,None]) - alpha*np.dot(L, cond) # minus or plus doesn't matter here ?!
@@ -1661,48 +1660,145 @@ class Problem(object):
 
 
 
-    def show3D(self, index=0, ax=None, vmin=None, vmax=None,
-                maxDepth=None, padding=1, cmap='viridis_r', dist=False,
-                contour=False, rmse=False, errorbar=False, overlay=False,
-                elev=False
+    def show3D(self, index=0, pl=None, vmin=None, vmax=None,
+                maxDepth=None, cmap='viridis_r',
+                contour=False, elev=False):
         """Show inverted model in 3D with pyvista (pip install pyvista).
         
         Parameters
         ----------
         index : int, optional
             Index of the survey to plot.
-        ax : Matplotlib.Axes, optional
-            If specified, the graph will be plotted against this axis.
+        pl : pyvista.Plotter, optional
+            If specified, the graph will be plotted against it.
         vmin : float, optional
             Minimum value of the colorbar.
         vmax : float, optional
             Maximum value of the colorbar.
         maxDepth : float, optional
             Maximum negative depths of the graph.
-        padding : float, optional
-            DONT'T KNOW
         cmap : str, optional
             Name of the Matplotlib colormap to use.
-        dist : bool, optional
-            If `True`, true distances are used for X. Otherwise measurement
-            index is used.
         contour : bool, optional
             If `True` a contour plot will be plotted.
-        rmse : bool, optional
-            If `True`, the RMSE for each transect will be plotted on a second axis.
-            Note that misfit can also be shown with `showMisfit()`.
-        errorbar : bool, optional
-            If `True` and inversion is MCMC-based, standard deviation bar are
-            drawn for the predicted depths.
-        overlay : bool, optional
-            If `True`, a white transparent overlay is applied depending on the
-            conductivity standard deviation from MCMC-based inversion
         elev : bool, optional
             If `True`, each inverted profile will be adjusted according to
             elevation.
         """
+        try:
+            import pyvista as pv
+        except:
+            raise ImportError('Please install pyvista: pip install pyvista.')
+            return
         
-        pass
+        # TODO replace this with a dummy location
+        fname = '/home/jkl/Downloads/tip.vtk'
+        self.saveVTK(fname, index=index)
+
+        # load with pyvista
+        if pl is None:
+            pl = pv.Plotter()
+        mesh = pv.read(fname)
+        pl.add_mesh(mesh)
+        pl.show()
+        
+        
+    
+    def saveVTK(self, fname, index=0, maxDepth=None):
+        """ Writes a vtk file.
+        
+        Parameters
+        ------------
+        fname : str
+            Path where to save the file.
+        index : int, optional
+            Index of the survey to save.
+        maxDepth : float, optional
+            Maximum positively defined depth of the bottom infinite layer.
+        """
+        if fname[-4:] != '.vtk':
+            fname = fname + '.vtk'
+            
+        depths = self.depths[index]
+        sig = self.models[index]
+        xy = self.surveys[index].df[['x','y']].values
+        nlayer = sig.shape[1]
+        nsample = xy.shape[0]
+        padding = 1
+        if maxDepth is None:
+            maxDepth = np.nanpercentile(depths, 98) + padding
+        
+        triang = mtri.Triangulation(xy[:,0], xy[:,1])
+        triangles = triang.triangles # connection matrix for 2D
+        ntri = triangles.shape[0]
+        
+        # build node and connection matrix for prism
+        z = np.r_[np.zeros(nsample),
+                  depths.flatten('F'),
+                  np.ones(nsample)*maxDepth]
+        nodes = np.c_[np.tile(xy.T, nlayer+1).T, -z]
+        nnodes = nodes.shape[0]
+        ec = sig.flatten('F')
+        conMatrix = []
+        vals = []
+        for i in range(nlayer):
+            conUp = triangles + i*nsample
+            conDown = triangles + (i+1)*nsample
+            vals.append(np.mean(ec[conUp], axis=-1))
+            conMatrix.append(np.c_[conUp, conDown])
+        conMatrix = np.vstack(conMatrix)
+        vals = np.hstack(vals)
+        nelem = conMatrix.shape[0]
+        
+        # check the node to cell interpolation
+        # fig, axs = plt.subplots(2, 1, figsize=(14,3))
+        # ax = axs[0]
+        # cax = ax.scatter(xy[:,0], xy[:,1], s=35, c=ec[:nsample], cmap='viridis_r')
+        # fig.colorbar(cax, ax=ax)
+        # ax = axs[1]
+        # xyc = np.mean(xy[triangles], axis=1)
+        # ax.scatter(xyc[:,0], xyc[:,1], s=35, c=vals[:xyc.shape[0]], cmap='viridis_r')
+        # ax.triplot(triang, lw=0.5, color='k')
+        # fig.colorbar(cax, ax=ax)
+        # ax.set_aspect('equal')
+        # fig.show()
+        
+        # writing vtk file
+        with open(fname, 'w') as f:
+            f.write('# vtk DataFile Version 3.0\n')
+            f.write('{:s}\n'.format(self.surveys[index].name))
+            f.write('ASCII\nDATASET UNSTRUCTURED_GRID\n')
+            
+            # node coordinates
+            f.write('POINTS {:d} double\n'.format(nnodes))
+            for i in range(nnodes):
+                f.write('{:8.6f} {:8.6f} {:8.6f}\n'.format(
+                    nodes[i,0], nodes[i,1], nodes[i,2]))
+            
+            # connection matrix   
+            f.write('CELLS {:d} {:d}\n'.format(nelem, nelem*(6 + 1)))
+            # second argument is nelem*(number of nodes per elem + 1)
+            for i in range(nelem):
+                f.write('{:d}\t{:s}\n'.format(
+                    6, # number of vertices
+                    ' '.join(conMatrix[i,:].astype(str))))
+            
+            # cell types (prism = vtkWedge = code 13)
+            # https://vtk.org/doc/nightly/html/classvtkWedge.html#details
+            f.write('CELL_TYPES {:d}\n'.format(nelem))
+            f.write(' '.join((np.ones(nelem)*13).astype(int).astype(str)))
+            f.write('\n')
+            
+            # cell data
+            f.write('CELL_DATA {:d}\n'.format(nelem))
+            f.write('SCALARS {:s} double 1\n'.format('EC'))
+            f.write('LOOKUP_TABLE default\n')
+            [f.write('{:8.6f} '.format(a)) for a in vals[:nelem]]
+            f.write('\n')
+            # TODO add pstds
+            
+            # point data
+            f.write('POINT_DATA {:d}\n'.format(nnodes))        
         
 
 
