@@ -30,7 +30,6 @@ k.convertFromNMEA()
 k.crossOverPoints()
 k.plotCrossOverMap()
 k.showMap(contour=True, pts=True)
-k.saveMap(datadir + 'potatoes/map.tiff')
 k.show()
 k.gridData(method='cubic')
 k.surveys[0].df = k.surveys[0].dfg
@@ -43,6 +42,7 @@ k.surveys[0].df = k.surveys[0].df[:20]
 k.setInit(depths0=[0.3, 0.7], fixedDepths=[True, False], fixedConds=[False, True, False])
 k.invert(method='ROPE', rep=500, njobs=-1)
 k.showResults(errorbar=True, overlay=True)
+k.showResults(errorbar=True, overlay=True, contour=True)
 k.showProfile(errorbar=True)
 
 
@@ -50,6 +50,7 @@ k.showProfile(errorbar=True)
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.surveys[0].df = k.surveys[0].df[:5] # only keep 10 first measurements to make it faster
+k.lcurve()
 
 titles = []
 for m in ['L-BFGS-B', 'ROPE']:
@@ -106,7 +107,7 @@ k.showResults(index=1, cmap='bwr', ax=axs[2])
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 # k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
-# k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv', apply=True)
+k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv', apply=True)
 
 t0 = time.time()
 # k.invert(method='ROPE', njobs=-1)
@@ -130,6 +131,7 @@ k.surveys = k.surveys[:2]
 k.computeApparentChange()
 k.setInit(depths0=np.linspace(0.1, 2, 10))
 k.invertGN()
+k.getRMSE()
 k.showResults(index=1, cmap='bwr')
 
 
