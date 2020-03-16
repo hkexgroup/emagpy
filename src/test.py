@@ -73,6 +73,7 @@ k.showOne2one()
 #%% test lateral smoothing
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+k.surveys[0].df = k.surveys[0].df[:20]
 k.setInit(depths0=[0.5], fixedDepths=[False])
 k.invert(forwardModel='CS', method='ROPE', alpha=0.07, beta=0.1, rep=300)
 k.showResults(errorbar=True)

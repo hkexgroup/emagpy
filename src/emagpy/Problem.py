@@ -223,7 +223,7 @@ class Problem(object):
     def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l1',
                alpha=0.07, beta=0.0, gamma=0.0, dump=None, bnds=None,
                options={}, Lscaling=False, rep=100, noise=0.05, nsample=100, 
-               annplot=False, njobs=1):
+               annplot=False, threed=False, njobs=1):
         """Invert the apparent conductivity measurements.
         
         Parameters
@@ -271,6 +271,8 @@ class Problem(object):
             generated in trainig phase.
         annplot : bool, optional
             If True, the validation plot will be plotted.
+        threed : bool, optional
+            If `True`, the beta parameters will serve to do a quasi3D inversion.
         njobs : int, optional
             If -1 all CPUs are used. If 1 is given, no parallel computing code
             is used at all, which is useful for debugging. For n_jobs below -1,
@@ -279,7 +281,7 @@ class Problem(object):
         """
         mMinimize = ['L-BFGS-B','TNC','CG','Nelder-Mead']
         mMCMC = ['ROPE','SCEUA','DREAM', 'MCMC']
-        if (method not in mMinimize) and (method not in mMCMC):
+        if (method not in mMinimize) and (method not in mMCMC) and (method != 'ANN'):
             raise ValueError('Unknow method {:s}'.format(method))
             return
         
@@ -533,7 +535,7 @@ class Problem(object):
                 # status = 'ok'
                 
             return out
-
+        
         # inversion row by row
         for i, survey in enumerate(self.surveys):
             if self.ikill:
@@ -544,6 +546,10 @@ class Problem(object):
             model = self.conds0[i].copy()
             depth = self.depths0[i].copy()
             stds = np.zeros((apps.shape[0], np.sum(vd) + np.sum(vc)))
+            xy = self.surveys[i].df[['x','y']].values
+            iinverted = np.zeros(apps.shape[0], dtype=bool)
+            dist0 = np.sqrt(np.sum((xy - xy[0,:])**2, axis=1))
+            iorder = np.argsort(dist0)
             dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
             outs = []
@@ -558,8 +564,18 @@ class Problem(object):
                 if j == 0:
                     pn = np.zeros(np.sum(np.r_[vd, vc]))
                     b = 0
+                    iinverted[j] = True
                 else:
-                    pn = np.r_[depth[j-1,:][vd], model[j-1,:][vc]]
+                    if threed: # mean of 3 closest inverted survey
+                        ipt = iorder[j]
+                        dist = np.sqrt(np.sum((xy-xy[ipt,:])**2, axis=1))
+                        icloseInverted = np.argsort(dist[iinverted])[:3]
+                        val = np.c_[depth[icloseInverted,:][:,vd],
+                                    model[icloseInverted,:][:,vc]]
+                        pn = np.mean(val, axis=0)
+                        iinverted[ipt] = True
+                    else: # previous survey
+                        pn = np.r_[depth[j-1,:][vd], model[j-1,:][vc]]
                     
                 # define profile from previous survey for time-lapse constrain
                 if i == 0 or gamma == 0:
@@ -1643,6 +1659,51 @@ class Problem(object):
         ax.format_coord = format_coord
         fig.tight_layout()
 
+
+
+    def show3D(self, index=0, ax=None, vmin=None, vmax=None,
+                maxDepth=None, padding=1, cmap='viridis_r', dist=False,
+                contour=False, rmse=False, errorbar=False, overlay=False,
+                elev=False
+        """Show inverted model in 3D with pyvista (pip install pyvista).
+        
+        Parameters
+        ----------
+        index : int, optional
+            Index of the survey to plot.
+        ax : Matplotlib.Axes, optional
+            If specified, the graph will be plotted against this axis.
+        vmin : float, optional
+            Minimum value of the colorbar.
+        vmax : float, optional
+            Maximum value of the colorbar.
+        maxDepth : float, optional
+            Maximum negative depths of the graph.
+        padding : float, optional
+            DONT'T KNOW
+        cmap : str, optional
+            Name of the Matplotlib colormap to use.
+        dist : bool, optional
+            If `True`, true distances are used for X. Otherwise measurement
+            index is used.
+        contour : bool, optional
+            If `True` a contour plot will be plotted.
+        rmse : bool, optional
+            If `True`, the RMSE for each transect will be plotted on a second axis.
+            Note that misfit can also be shown with `showMisfit()`.
+        errorbar : bool, optional
+            If `True` and inversion is MCMC-based, standard deviation bar are
+            drawn for the predicted depths.
+        overlay : bool, optional
+            If `True`, a white transparent overlay is applied depending on the
+            conductivity standard deviation from MCMC-based inversion
+        elev : bool, optional
+            If `True`, each inverted profile will be adjusted according to
+            elevation.
+        """
+        
+        pass
+        
 
 
     def setModels(self, depths, models):

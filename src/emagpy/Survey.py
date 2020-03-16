@@ -929,302 +929,302 @@ class Survey(object):
             
             
         
-    # ### jamyd91 contribution ### 
-    # def consPtStat(self):# work out distance between consective points 
-    #     """compute geometrical statistics of consective points, azimuth and 
-    #     bearing of walking direction, time between consective measurements and
-    #     distance between consecutive measurements. Results appended to self.df. 
+    ### jamyd91 contribution ### 
+    def consPtStat(self):# work out distance between consective points 
+        """compute geometrical statistics of consective points, azimuth and 
+        bearing of walking direction, time between consective measurements and
+        distance between consecutive measurements. Results appended to self.df. 
         
-    #     Notes
-    #     ---------
-    #     Requires local coordinates system to be assigned first! 
-    #     """
-    #     df = self.df
-    #     try:
-    #         x = df.x.values # x values of data frame
-    #         y = df.y.values # y values of data frame 
-    #     except AttributeError:
-    #         raise KeyError(" %s \n ... It looks like no local coordinate system has been assigned, try running self.convertFromNMEA() first")
-    #     dist = np.zeros_like(x,dtype=float) # allocate array to store distance between points 
-    #     bearing = np.zeros_like(x,dtype=float) # allocate array to store survey bearing 
-    #     azimuth = np.zeros_like(x,dtype=float) # allocate array to store survey bearing 
-    #     dist[0] = 999 # first value cant have a distance 
-    #     #time handling 
-    #     timeStr = df.Time.values # string arguments describing time 
-    #     timeLs = timeStr[0].split(':') # parse the time string
-    #     second = float(timeLs[2]) # seconds
-    #     micro = (second - int(second))*100000 # parse the micro second argument 
-    #     times = [time(hour = int(timeLs[0]), #make python datetime.time class
-    #                        minute = int(timeLs[1]), 
-    #                        second = int(second),
-    #                        microsecond=int(micro)
-    #                        )]*len(x)
-    #     current_date = datetime.now()
-    #     current_year = current_date.year
-    #     current_month = current_date.month
-    #     current_day = current_date.day
-    #     dttimes = [datetime(year=current_year,
-    #                       month= current_month,
-    #                       day=current_day,
-    #                       hour = int(timeLs[0]), 
-    #                       minute = int(timeLs[1]), 
-    #                       second = int(second), 
-    #                       microsecond=int(micro))]*len(x)
+        Notes
+        ---------
+        Requires local coordinates system to be assigned first! 
+        """
+        df = self.df
+        try:
+            x = df.x.values # x values of data frame
+            y = df.y.values # y values of data frame 
+        except AttributeError:
+            raise KeyError(" %s \n ... It looks like no local coordinate system has been assigned, try running self.convertFromNMEA() first")
+        dist = np.zeros_like(x,dtype=float) # allocate array to store distance between points 
+        bearing = np.zeros_like(x,dtype=float) # allocate array to store survey bearing 
+        azimuth = np.zeros_like(x,dtype=float) # allocate array to store survey bearing 
+        dist[0] = 999 # first value cant have a distance 
+        #time handling 
+        timeStr = df.Time.values # string arguments describing time 
+        timeLs = timeStr[0].split(':') # parse the time string
+        second = float(timeLs[2]) # seconds
+        micro = (second - int(second))*100000 # parse the micro second argument 
+        times = [time(hour = int(timeLs[0]), #make python datetime.time class
+                            minute = int(timeLs[1]), 
+                            second = int(second),
+                            microsecond=int(micro)
+                            )]*len(x)
+        current_date = datetime.now()
+        current_year = current_date.year
+        current_month = current_date.month
+        current_day = current_date.day
+        dttimes = [datetime(year=current_year,
+                          month= current_month,
+                          day=current_day,
+                          hour = int(timeLs[0]), 
+                          minute = int(timeLs[1]), 
+                          second = int(second), 
+                          microsecond=int(micro))]*len(x)
             
-    #     def quadrantCheck(dx,dy):
-    #         quad = 0
-    #         edge = False
-    #         if dx>0 and dy>0:#both positive
-    #             quad = 1 # 'NE'
-    #         elif dx>0 and dy<0:
-    #             quad = 2 # 'SE'
-    #         elif dx<0 and dy<0:#both negative
-    #             quad = 3 # 'SW'
-    #         elif dx<0 and dy>0:
-    #             quad = 4 # 'NE'
-    #         else:#edge case
-    #             edge = True
-    #             if dx==0 and dy==0:
-    #                 quad = 0 #'0'
-    #             elif dx==0 and dy>0:
-    #                 quad = 0
-    #             elif dx>0 and dy==0:
-    #                 quad = 90
-    #             elif dx==0 and dy<0:
-    #                 quad = 180
-    #             elif dx<0 and dy==0:
-    #                 quad = 270
-    #         return quad, edge
+        def quadrantCheck(dx,dy):
+            quad = 0
+            edge = False
+            if dx>0 and dy>0:#both positive
+                quad = 1 # 'NE'
+            elif dx>0 and dy<0:
+                quad = 2 # 'SE'
+            elif dx<0 and dy<0:#both negative
+                quad = 3 # 'SW'
+            elif dx<0 and dy>0:
+                quad = 4 # 'NE'
+            else:#edge case
+                edge = True
+                if dx==0 and dy==0:
+                    quad = 0 #'0'
+                elif dx==0 and dy>0:
+                    quad = 0
+                elif dx>0 and dy==0:
+                    quad = 90
+                elif dx==0 and dy<0:
+                    quad = 180
+                elif dx<0 and dy==0:
+                    quad = 270
+            return quad, edge
                     
-    #     #go through each datframe entry and work out relevant stats 
-    #     for i in range(1,len(x)):
-    #         dx = x[i] - x[i-1] # delta x 
-    #         dy = y[i] - y[i-1] # delta y 
-    #         h = np.sqrt(dx**2 + dy**2) # hypoternues length 
-    #         dist[i] = h
+        #go through each datframe entry and work out relevant stats 
+        for i in range(1,len(x)):
+            dx = x[i] - x[i-1] # delta x 
+            dy = y[i] - y[i-1] # delta y 
+            h = np.sqrt(dx**2 + dy**2) # hypoternues length 
+            dist[i] = h
             
-    #         #bearing stat
-    #         quad, edge = quadrantCheck(dx,dy)
-    #         if edge:
-    #             az = quad
-    #         else:
-    #             angle = np.rad2deg(np.arcsin(dx/h)) # angle of measurement direction relative to north 
-    #             if quad == 1:
-    #                 az = angle
-    #             elif quad == 2:
-    #                 az = 180 - angle 
-    #             elif quad == 3:
-    #                 az = 180 + abs(angle)
-    #             elif quad == 4:
-    #                 az = 360 - abs(angle) 
+            #bearing stat
+            quad, edge = quadrantCheck(dx,dy)
+            if edge:
+                az = quad
+            else:
+                angle = np.rad2deg(np.arcsin(dx/h)) # angle of measurement direction relative to north 
+                if quad == 1:
+                    az = angle
+                elif quad == 2:
+                    az = 180 - angle 
+                elif quad == 3:
+                    az = 180 + abs(angle)
+                elif quad == 4:
+                    az = 360 - abs(angle) 
             
-    #         azimuth[i] = az
-    #         if az > 180: #if over 180
-    #             bearing[i] = az - 180 # add 180 in order to get a postive bearing or strike 
-    #         else:
-    #             bearing[i] = az
+            azimuth[i] = az
+            if az > 180: #if over 180
+                bearing[i] = az - 180 # add 180 in order to get a postive bearing or strike 
+            else:
+                bearing[i] = az
             
-    #         #time related stats
-    #         timeLs = timeStr[i].split(':') # parse the time
-    #         second = float(timeLs[2])
-    #         micro = (second - int(second))*100000
-    #         times[i] = time(hour = int(timeLs[0]), 
-    #                          minute = int(timeLs[1]), 
-    #                          second = int(second), 
-    #                          microsecond=int(micro))
-    #         dttimes[i] = datetime(year=current_year,#datetimes needed to get time delta objects 
-    #                               month= current_month,
-    #                               day=current_day,
-    #                               hour = int(timeLs[0]), 
-    #                               minute = int(timeLs[1]), 
-    #                               second = int(second), 
-    #                               microsecond=int(micro))
-    #     df['conDist'] = dist # distance between consecutive points 
-    #     df['azimuth'] = azimuth # walking direction in terms of azimuth relative to local coordinate system
-    #     df['bearing'] = bearing # walking direction in terms of bearing relative to local coordinate system
-    #     df['PythonTime'] = times # times in  python datetime format 
-    #     df['elasped(sec)'] = [(dttimes[i] - dttimes[0]).seconds for i in range(len(x))]# number of seconds elasped 
+            #time related stats
+            timeLs = timeStr[i].split(':') # parse the time
+            second = float(timeLs[2])
+            micro = (second - int(second))*100000
+            times[i] = time(hour = int(timeLs[0]), 
+                              minute = int(timeLs[1]), 
+                              second = int(second), 
+                              microsecond=int(micro))
+            dttimes[i] = datetime(year=current_year,#datetimes needed to get time delta objects 
+                                  month= current_month,
+                                  day=current_day,
+                                  hour = int(timeLs[0]), 
+                                  minute = int(timeLs[1]), 
+                                  second = int(second), 
+                                  microsecond=int(micro))
+        df['conDist'] = dist # distance between consecutive points 
+        df['azimuth'] = azimuth # walking direction in terms of azimuth relative to local coordinate system
+        df['bearing'] = bearing # walking direction in terms of bearing relative to local coordinate system
+        df['PythonTime'] = times # times in  python datetime format 
+        df['elasped(sec)'] = [(dttimes[i] - dttimes[0]).seconds for i in range(len(x))]# number of seconds elasped 
             
-    #     #return df 
-    #     self.df = df
+        #return df 
+        self.df = df
     
     
     
-    # def rmRepeatPt(self, tolerance=0.2):
-    #     """Remove points taken too close together consecutively.
+    def rmRepeatPt(self, tolerance=0.2):
+        """Remove points taken too close together consecutively.
         
-    #     Parameters
-    #     ----------
-    #     tolerance : float, optional
-    #         Minimum distance away previous point in order to be retained. 
+        Parameters
+        ----------
+        tolerance : float, optional
+            Minimum distance away previous point in order to be retained. 
         
-    #     Returns 
-    #     -------
-    #     self.fil_df : pandas dataframe
-    #         Truncated dataframe leaving only the measurements which are spaced 
-    #         more than [tolerance value] apart. 
-    #     """
-    #     #error checking
-    #     if not isinstance(tolerance,int) and not isinstance(tolerance,float):
-    #         raise ValueError("tolerance instance should be int or float")
-    #     df = self.df
-    #     try:
-    #         vals = df.conDist
-    #     except AttributeError as e:
-    #         raise KeyError("Error: %s \n... Try running self.consPtStat first"%e)
-    #     ioi = vals>tolerance
-    #     out = df[ioi].copy()
-    #     #return out.reset_index() 
-    #     self.fil_df = out.reset_index()
+        Returns 
+        -------
+        self.fil_df : pandas dataframe
+            Truncated dataframe leaving only the measurements which are spaced 
+            more than [tolerance value] apart. 
+        """
+        #error checking
+        if not isinstance(tolerance,int) and not isinstance(tolerance,float):
+            raise ValueError("tolerance instance should be int or float")
+        df = self.df
+        try:
+            vals = df.conDist
+        except AttributeError as e:
+            raise KeyError("Error: %s \n... Try running self.consPtStat first"%e)
+        ioi = vals>tolerance
+        out = df[ioi].copy()
+        #return out.reset_index() 
+        self.fil_df = out.reset_index()
         
     
     
-    # def rmBearing(self, phiMin, phiMax):
-    #     """Remove measurments recorded in a certain bearing range. Where phiMax -
-    #     phiMin is the bearing range to remove. 
+    def rmBearing(self, phiMin, phiMax):
+        """Remove measurments recorded in a certain bearing range. Where phiMax -
+        phiMin is the bearing range to remove. 
         
-    #     Parameters
-    #     ----------
-    #     phiMin : float, optional
-    #         Minimum angle, in degrees. 
-    #     phiMax : float, optional
-    #         Maximum angle, in degrees.
+        Parameters
+        ----------
+        phiMin : float, optional
+            Minimum angle, in degrees. 
+        phiMax : float, optional
+            Maximum angle, in degrees.
         
-    #     Returns 
-    #     -------
-    #     self.fil_df : pandas dataframe
-    #         Truncated dataframe leaving only the measurements from outside the 
-    #         given bearing range. 
-    #     """
-    #     #error checking
-    #     if not isinstance(phiMin,int) and not isinstance(phiMin,float):
-    #         raise ValueError("phiMin instance should be int or float")
-    #     if not isinstance(phiMax,int) and not isinstance(phiMax,float):
-    #         raise ValueError("phiMax instance should be int or float")
-    #     if phiMin >= phiMax:
-    #         raise ValueError("Min and max bearings cannot be the same, and min must be smaller!")
-    #     df = self.df
-    #     try:
-    #         vals = df.bearing
-    #     except AttributeError as e:
-    #         raise KeyError("Error: %s \n... Try running self.consPtStat first"%e)
+        Returns 
+        -------
+        self.fil_df : pandas dataframe
+            Truncated dataframe leaving only the measurements from outside the 
+            given bearing range. 
+        """
+        #error checking
+        if not isinstance(phiMin,int) and not isinstance(phiMin,float):
+            raise ValueError("phiMin instance should be int or float")
+        if not isinstance(phiMax,int) and not isinstance(phiMax,float):
+            raise ValueError("phiMax instance should be int or float")
+        if phiMin >= phiMax:
+            raise ValueError("Min and max bearings cannot be the same, and min must be smaller!")
+        df = self.df
+        try:
+            vals = df.bearing
+        except AttributeError as e:
+            raise KeyError("Error: %s \n... Try running self.consPtStat first"%e)
         
-    #     ioi= [True]*len(vals)
-    #     for i in range(len(vals)):
-    #         if vals[i] > phiMin and vals[i] < phiMax:
-    #             ioi[i] = False
+        ioi= [True]*len(vals)
+        for i in range(len(vals)):
+            if vals[i] > phiMin and vals[i] < phiMax:
+                ioi[i] = False
         
-    #     out = df[ioi].copy()
-    #     #return out.reset_index() 
-    #     self.fil_df = out.reset_index()# its necassary to reset the indexes for other filtering techniques 
+        out = df[ioi].copy()
+        #return out.reset_index() 
+        self.fil_df = out.reset_index()# its necassary to reset the indexes for other filtering techniques 
         
         
         
-    # def driftStn(self, xStn=None, yStn=None, tolerance=0.5):
-    #     """Extract values taken at a given x y point. By default the drift 
-    #     station is taken at the location where the survey starts.
+    def driftStn(self, xStn=None, yStn=None, tolerance=0.5):
+        """Extract values taken at a given x y point. By default the drift 
+        station is taken at the location where the survey starts.
         
-    #     Parameters
-    #     ----------
-    #     xStn : float, optional
-    #         X coordinate of drift station (using local coordinate system, 
-    #         not long and lat)
-    #     yStn : float, optional
-    #         Y coordinate of drift station (using local coordinate system, 
-    #         not long and lat)
-    #     tolerance : float, optional
-    #         Maximum distance away from the drift station using local units. 
+        Parameters
+        ----------
+        xStn : float, optional
+            X coordinate of drift station (using local coordinate system, 
+            not long and lat)
+        yStn : float, optional
+            Y coordinate of drift station (using local coordinate system, 
+            not long and lat)
+        tolerance : float, optional
+            Maximum distance away from the drift station using local units. 
         
-    #     Returns
-    #     -------
-    #     self.drift_df : pandas.DataFrame
-    #         Truncated dataframe leaving only the measurements from the drift
-    #         station. 
-    #     """
-    #     df = self.df
-    #     x = df.x.values # x values of data frame
-    #     y = df.y.values # y values of data frame 
-    #     if xStn is None or yStn is None:
-    #         xStn = x[0] # take first xy measurement as drift station
-    #         yStn = y[0]
+        Returns
+        -------
+        self.drift_df : pandas.DataFrame
+            Truncated dataframe leaving only the measurements from the drift
+            station. 
+        """
+        df = self.df
+        x = df.x.values # x values of data frame
+        y = df.y.values # y values of data frame 
+        if xStn is None or yStn is None:
+            xStn = x[0] # take first xy measurement as drift station
+            yStn = y[0]
         
-    #     dx = x - xStn # vector calculation
-    #     dy = y - yStn
-    #     dist = np.sqrt(dx**2 + dy**2) 
-    #     ioi = dist < tolerance # index of interest 
+        dx = x - xStn # vector calculation
+        dy = y - yStn
+        dist = np.sqrt(dx**2 + dy**2) 
+        ioi = dist < tolerance # index of interest 
 
-    #     self.drift_df = df[ioi].copy() #return df[ioi].copy()
+        self.drift_df = df[ioi].copy() #return df[ioi].copy()
         
         
         
-    # def plotDrift(self, coil=None, ax=None, fit=True):
-    #     """ Plot drift through time.
+    def plotDrift(self, coil=None, ax=None, fit=True):
+        """ Plot drift through time.
         
-    #     Parameters
-    #     ----------
-    #     coil : str, optional
-    #         Coil for which to plot the drift.
-    #     ax : matplotlib.Axes, optional
-    #         If specified, the graph will be plotted against.
-    #     fit : boolean, optional
-    #         If `True` a relatinship will be fitted.
-    #     """
-    #     if ax is None:
-    #         fig, ax = plt.subplots()
-    #     try:
-    #         df = self.drift_df.copy()
-    #     except AttributeError:
-    #         self.driftStn()
-    #         df = self.drift_df.copy()
-    #     if coil is None:
-    #         coil = 'Cond.1 [mS/m]'
-    #     vals = df[coil].values
-    #     ax.scatter(df['PythonTime'].values,vals)
-    #     ax.set_xlabel('Time')
-    #     ax.set_ylabel('EC [mS/m]')
-    #     if fit:
-    #         self.fitDrift(coil=coil)
-    #         seconds = self.drift_df['elasped(sec)'].values
-    #         times = self.drift_df['PythonTime'].values
-    #         cond_mdl = np.polyval(self.drift_mdl,seconds)
-    #         ax.plot(times,cond_mdl)
-        
-        
-    # def fitDrift(self, coil=None, order=1):
-    #     """Fit a polynomial model to the drift.
-        
-    #     Parameters
-    #     ----------
-    #     coil : str, optional
-    #         Coil for which to plot the drift.
-    #     order : int, optional
-    #         Order of the polyfit. Default is 1.
-    #     """
-    #     seconds = self.drift_df['elasped(sec)'].values
-    #     cond = self.drift_df[coil].values
-    #     mdl = np.polyfit(seconds,cond,order)
-    #     self.drift_mdl = mdl
+        Parameters
+        ----------
+        coil : str, optional
+            Coil for which to plot the drift.
+        ax : matplotlib.Axes, optional
+            If specified, the graph will be plotted against.
+        fit : boolean, optional
+            If `True` a relatinship will be fitted.
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+        try:
+            df = self.drift_df.copy()
+        except AttributeError:
+            self.driftStn()
+            df = self.drift_df.copy()
+        if coil is None:
+            coil = 'Cond.1 [mS/m]'
+        vals = df[coil].values
+        ax.scatter(df['PythonTime'].values,vals)
+        ax.set_xlabel('Time')
+        ax.set_ylabel('EC [mS/m]')
+        if fit:
+            self.fitDrift(coil=coil)
+            seconds = self.drift_df['elasped(sec)'].values
+            times = self.drift_df['PythonTime'].values
+            cond_mdl = np.polyval(self.drift_mdl,seconds)
+            ax.plot(times,cond_mdl)
         
         
+    def fitDrift(self, coil=None, order=1):
+        """Fit a polynomial model to the drift.
         
-    # def applyDriftCorrection(self, coil=None):
-    #     """Apply a drift correction to the coil values.
+        Parameters
+        ----------
+        coil : str, optional
+            Coil for which to plot the drift.
+        order : int, optional
+            Order of the polyfit. Default is 1.
+        """
+        seconds = self.drift_df['elasped(sec)'].values
+        cond = self.drift_df[coil].values
+        mdl = np.polyfit(seconds,cond,order)
+        self.drift_mdl = mdl
         
-    #     Parameters
-    #     ----------
-    #     coil : str, optional
-    #         Coil for which to plot the drift.
-    #     """
-    #     try:
-    #         mdl = self.drift_mdl
-    #     except AttributeError:
-    #         self.fitDrift(coil=coil)
-    #         mdl = self.drift_mdl
-    #     mdl[-1] = 0 # in this case the c value should be 0 so that the model is normalised to zero
-    #     df = self.df
-    #     vals = df[coil].values
-    #     correction = np.polyval(mdl,df['elasped(sec)'].values)
-    #     self.df[coil] = vals - correction
+        
+        
+    def applyDriftCorrection(self, coil=None):
+        """Apply a drift correction to the coil values.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Coil for which to plot the drift.
+        """
+        try:
+            mdl = self.drift_mdl
+        except AttributeError:
+            self.fitDrift(coil=coil)
+            mdl = self.drift_mdl
+        mdl[-1] = 0 # in this case the c value should be 0 so that the model is normalised to zero
+        df = self.df
+        vals = df[coil].values
+        correction = np.polyval(mdl,df['elasped(sec)'].values)
+        self.df[coil] = vals - correction
         
         
 #    def aoi(self, polyX, polyY):
