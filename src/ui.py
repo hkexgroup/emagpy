@@ -1160,12 +1160,6 @@ class App(QMainWindow):
                     self.gammaLabel.setVisible(False)
                     self.gammaEdit.setVisible(False)
             
-            # the following methods don't accept objective function
-            constrain = [self.alphaEdit, self.betaEdit, self.gammaEdit, self.lCombo]
-            if index in [5,6,7]:
-                [a.setEnabled(False) for a in constrain]
-            else:
-                [a.setEnabled(True) for a in constrain]
                 
         self.methodCombo = QComboBox()
         self.methodCombo.setToolTip('''Choice of solver:
@@ -1174,12 +1168,12 @@ class App(QMainWindow):
         TNC : Truncated Newton, robust
         Nelder-Mead : more robust
         ROPE : McMC-based
-        SCEUA : McMC-based
-        DREAM : McMC-based
-        McMC : Markov Chain Monte Carlo
+        SCEUA : MCMC-based
+        DREAM : MCMC-based
+        MCMC : Markov Chain Monte Carlo
         ANN : Artificial Neural Network''')
         mMinimize = ['L-BFGS-B', 'CG', 'TNC', 'Nelder-Mead']
-        mMCMC = ['ROPE', 'SCEUA', 'DREAM', 'McMC']
+        mMCMC = ['ROPE', 'SCEUA', 'DREAM', 'MCMC']
         methods = mMinimize + mMCMC + ['ANN']
         for method in methods:
             self.methodCombo.addItem(method)

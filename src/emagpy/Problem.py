@@ -319,11 +319,6 @@ class Problem(object):
         vd = ~self.fixedDepths # variable depths
         vc = ~self.fixedConds # variable conductivity
         depths0 = self.depths0[0][0,:] # approximation
-
-        # check beta constrain
-        if beta != 0 and method in ['MCMC','DREAM','SCEUA']:
-            raise ValueError('MCMC, DREAM and SCUEA do not accept constrains.')
-            beta = 0
             
         # check time-lapse constrain
         if gamma != 0:
@@ -477,11 +472,7 @@ class Problem(object):
             
                 def simulation(self, vector):
                     x = np.array(vector)
-                    if method == 'ROPE':
-                        return x
-                    else:
-                        simulations = self.fmodel(x, self.ini0).flatten()
-                        return simulations
+                    return x # this are actually the parameters
                 
                 def evaluation(self): # what the function return when called with the optimal values
                     observations = self.obsVals.flatten()
@@ -494,7 +485,6 @@ class Problem(object):
                     val = -objfunc(simulation, evaluation, self.pn, self.spn,
                                     self.alpha, self.beta, self.gamma, self.ini0)
                     
-                    # the objectivefunction is not used by MCMC, DREAM or SCEUA just by ROPE
                     return val
         
         
@@ -593,8 +583,8 @@ class Problem(object):
             
                 # sequential
                 if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
-                    with HiddenPrints():
-                        outt = solve(*params[j])
+                    # with HiddenPrints():
+                    outt = solve(*params[j])
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
                     
                     obs = params[j][0]
