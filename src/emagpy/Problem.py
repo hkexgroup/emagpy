@@ -583,8 +583,8 @@ class Problem(object):
             
                 # sequential
                 if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
-                    # with HiddenPrints():
-                    outt = solve(*params[j])
+                    with HiddenPrints():
+                        outt = solve(*params[j])
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
                     
                     obs = params[j][0]
