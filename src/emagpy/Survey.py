@@ -128,9 +128,20 @@ def convertFromCoord(df, targetProjection='EPSG:27700'):
 class Survey(object):
     """ Create a Survey object containing the raw EMI data.
     
-    
+    Parameters
+    ----------
+    fname : str
+        Path of the .csv file to import.
+    freq : float, optional
+        The instrument frequency in Hz. Can be specified per coil in the .csv.
+    hx : float, optional
+        The height of the instrument above the ground. Can be specified per coil
+        in the .csv.
+    targetProjection : str, optional
+        If specified, the 'Latitude' and 'Longitude' NMEA string will be
+        converted to the targeted grid e.g. : 'EPSG:27700'.
     """
-    def __init__(self, fname=None, freq=None, hx=None):
+    def __init__(self, fname=None, freq=None, hx=None, targetProjection=None):
         self.df = None # main dataframe
         self.drift_df = None # drift station dataframe
         self.fil_df = None # filtered dataframe 
@@ -146,14 +157,14 @@ class Survey(object):
         self.iselect = []
         self.projection = None # store the project
         if fname is not None:
-            self.readFile(fname)
+            self.readFile(fname, targetProjection=targetProjection)
             if freq is not None:
                 self.freqs = np.ones(len(self.coils))*freq
             if hx is not None:
                 self.hx = np.ones(len(self.coils))*hx
         
     
-    def readFile(self, fname, sensor=None):
+    def readFile(self, fname, sensor=None, targetProjection=None):
         """Read a .csv file.
         
         Parameters
@@ -168,10 +179,10 @@ class Survey(object):
         if fname.find('.DAT')!=-1:
             delimiter = '\t'
         df = pd.read_csv(fname, delimiter=delimiter)
-        self.readDF(df, name, sensor)
+        self.readDF(df, name, sensor, targetProjection)
         
         
-    def readDF(self, df, name=None, sensor=None):
+    def readDF(self, df, name=None, sensor=None, targetProjection=None):
         """Parse dataframe.
         """
         self.name = 'Survey 1' if name is None else name
@@ -201,6 +212,8 @@ class Survey(object):
         self.cpos = [a['orientation'] for a in coilInfo]
         self.df = df
         self.sensor = sensor
+        if targetProjection is not None:
+            self.convertFromNMEA(targetProjection=targetProjection)
 
         
     def getCoilInfo(self, arg):
@@ -606,7 +619,7 @@ class Survey(object):
     
     def gridData(self, nx=100, ny=100, method='nearest', xmin=None, xmax=None,
                  ymin=None, ymax=None):
-        """ Grid data (for 3D).
+        """ Grid data.
         
         Parameters
         ----------

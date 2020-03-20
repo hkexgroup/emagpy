@@ -62,7 +62,7 @@ class Problem(object):
         self.runningUI = False # True if run in UI, just change output of parallel stuff
         
         
-    def createSurvey(self, fname, freq=None, hx=None):
+    def createSurvey(self, fname, freq=None, hx=None, targetProjection=None):
         """Create a survey object.
         
         Parameters
@@ -73,9 +73,12 @@ class Problem(object):
             Frequency for all the coils (can also be specified for each coil in the file).
         hx : float, optional
             Height of the instrument above the ground (can also be specified for each coil in the file).
+        targetProjection : str, optional
+            If specified, a conversion from NMEA string in 'Latitude' and 'Longitude'
+            columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         """
         # create Survey object
-        survey = Survey(fname, freq=freq, hx=hx)
+        survey = Survey(fname, freq=freq, hx=hx, targetProjection=targetProjection)
         
         # remove NaN from survey
         inan = np.zeros(survey.df.shape[0], dtype=bool)
@@ -98,32 +101,84 @@ class Problem(object):
             if all(check) is True:
                 self.surveys.append(survey)
         
+            
         
-    def createTimeLapseSurvey(self, dirname):
-        """ Create a list of surveys object.
+    def createMultipleSurveys(self, fnames, targetProjection=None):
+        """Import multiple surveys.
         
         Parameters
         ----------
-        dirname : str
-            Directory with files to be parsed or list of file to be parsed.
+        fnames : list of str
+            List of file to be parsed or directory where the files are.
+        targetProjection : str, optional
+            If specified, a conversion from NMEA string in 'Latitude' and 'Longitude'
+            columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         """
-        files = dirname
-        if isinstance(dirname, list): # it's a list of filename
-            if len(dirname) < 2:
+        if isinstance(fnames, list): # it's a list of filename
+            if len(fnames) < 2:
                 raise ValueError('at least two files needed for timelapse inversion')
-            files = dirname
         else: # it's a directory and we import all the files inside
-            if os.path.isdir(dirname):
-                files = [os.path.join(dirname, f) for f in np.sort(os.listdir(dirname)) if f[0] != '.']
+            if os.path.isdir(fnames):
+                fnames = [os.path.join(fnames, f) for f in np.sort(os.listdir(fnames)) if f[0] != '.']
                 # this filter out hidden file as well
             else:
                 raise ValueError('dirname should be a directory path or a list of filenames')
-        for f in files:
-            self.createSurvey(f)
+        for fname in fnames:
+            self.createSurvey(fname, targetProjection=targetProjection)
+            
+    
+    
+    def createMergedSurvey(self, fnames, method='nearest', targetProjection=None):
+        """Create a unique survey from different files by spatially interpolating the values.
+        This can be useful when two surveys (Hi and Lo mode, vertical and horizontal) were
+        taken on the same site successively. The method adds the 'x' and 'y' positions of all
+        surveys and use interpolation to compute the missing values.
         
+        Paramaters
+        ----------
+        fnames : list of str
+            Paths of the .csv file with the data. Note each file need an 'x' and 'y' column for
+            the spatial merge.
+        method : str, optional
+            Interpolation method to use. Either 'nearest', 'linear' or 'cubic'.
+        targetProjection : str, optional
+            If specified, a conversion from NMEA string in 'Latitude' and 'Longitude'
+            columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
+        """
+        # import all surveys
+        surveys = []
+        for fname in fnames:
+            surveys.append(Survey(fname, targetProjection=targetProjection))
+        
+        # check all surveys have different coil configurations
+        coils = np.hstack([survey.coils for survey in surveys])
+        if len(np.unique(coils)) < len(coils):
+            raise Exception('Each survey to be merged should have different coil configurations.')
+            return
+        
+        # spatially merge the survey
+        xy = np.vstack([survey.df[['x','y']].values for survey in surveys])
+        df = pd.DataFrame(xy, columns=['x','y'])
+        for survey in surveys:
+            points = survey.df[['x','y']].values
+            for coil in survey.coils:
+                values = survey.df[coil].values
+                df[coil] = griddata(points, values, xy, method=method)
+        
+        # append the newly merged survey
+        mergedSurvey = Survey()
+        mergedSurvey.readDF(df)
+        self.surveys.append(mergedSurvey)
+        self.coils = mergedSurvey.coils
+        self.freqs = mergedSurvey.freqs
+        self.cspacing = mergedSurvey.cspacing
+        self.cpos = mergedSurvey.cpos
+        self.hx = mergedSurvey.hx
+            
         
     
-    def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer', hx=0):
+    def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer',
+                 hx=0, targetProjection=None):
         """Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
@@ -138,9 +193,13 @@ class Problem(object):
         hx : float, optional
             Height of the device above the ground in meters according to the
             calibration use (e.g. `F-Ground` -> 0 m, `F-1m` -> 1 m).
+        targetProjection : str, optional
+            If both Lo and Hi dataframe contains 'Latitude' with NMEA values
+            a conversion first is done using `self.convertFromNMEA()` before
+            being regrid using nearest neightbours.
         """
         survey = Survey()
-        survey.importGF(fnameLo, fnameHi, device, hx)
+        survey.importGF(fnameLo, fnameHi, device, hx, targetProjection)
         self.coils = survey.coils
         self.freqs = survey.freqs
         self.cspacing = survey.cspacing
@@ -1278,8 +1337,9 @@ class Problem(object):
     
     
     
-    def gridData(self, nx=100, ny=100, method='nearest'):
-        """ Grid data (for 3D).
+    def gridData(self, nx=100, ny=100, method='nearest', 
+                 xmin=None, xmax=None, ymin=None, ymax=None):
+        """ Grid data on the same grid for all surveys.
         
         Parameters
         ----------
@@ -1290,10 +1350,27 @@ class Problem(object):
         method : str, optional
             Interpolation method (nearest, cubic or linear see
             `scipy.interpolate.griddata`). Default is `nearest`.
+        xmin : float, optional
+            Mininum X value.
+        xmax : float, optional
+            Maximum X value.
+        ymin : float, optional
+            Minimium Y value.
+        ymax : float, optional
+            Maximum Y value
         """
-        
+        if xmin is None:
+            xmin = np.min([s.df['x'].min() for s in self.surveys])
+        if xmax is None:
+            xmax = np.max([s.df['x'].max() for s in self.surveys])
+        if ymin is None:
+            ymin = np.min([s.df['y'].min() for s in self.surveys])
+        if ymax is None:
+            ymax = np.max([s.df['y'].max() for s in self.surveys])
+            
         for survey in self.surveys:
-            survey.gridData(nx=nx, ny=ny, method=method)
+            survey.gridData(nx=nx, ny=ny, method=method, xmin=xmin, xmax=xmax,
+                           ymin=ymin, ymax=ymax)
         
     
 
