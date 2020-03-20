@@ -103,7 +103,7 @@ class Problem(object):
         
             
         
-    def createMultipleSurveys(self, fnames, targetProjection=None):
+    def createTimeLapseSurvey(self, fnames, targetProjection=None):
         """Import multiple surveys.
         
         Parameters

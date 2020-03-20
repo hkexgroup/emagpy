@@ -25,8 +25,9 @@ k.filterDiff()
 
 #%% mapping potatoes field
 k = Problem()
-k.createSurvey(datadir + 'potatoes/potatoesLo.csv')
-k.convertFromNMEA()
+k.createMergedSurvey([datadir + 'potatoes/potatoesLo.csv',
+                      datadir + 'potatoes/potatoesHi.csv'],
+                     targetProjection='EPSG:27700')
 k.crossOverPoints()
 k.plotCrossOverMap()
 k.showMap(contour=True, pts=True)
