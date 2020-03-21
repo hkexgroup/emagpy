@@ -1764,7 +1764,8 @@ class Problem(object):
 
         # load with pyvista
         if pl is None:
-            pl = pv.Plotter()
+            pl = pv.BackgroundPlotter()
+            # pl.background_color = 'white'
         mesh = pv.read(fname)
         pl.add_mesh(mesh)
         pl.show()
