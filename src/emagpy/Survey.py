@@ -659,13 +659,13 @@ class Survey(object):
         df = pd.DataFrame()
         df['x'] = X.flatten()
         df['y'] = Y.flatten()
-        for coil in self.coils:
-            values = self.df[coil].values
+        for col in np.r_[self.coils, ['elevation']]:
+            values = self.df[col].values
             if method == 'idw':
                 z = idw(X.flatten(), Y.flatten(), x, y, values)
             else:
                 z = griddata(np.c_[x, y], values, (X, Y), method=method)
-            df[coil] = z.flatten()
+            df[col] = z.flatten()
         self.df = df[ie]
         # TODO add OK kriging ?
         

@@ -171,7 +171,12 @@ class Problem(object):
             for coil in survey.coils:
                 values = survey.df[coil].values
                 df[coil] = griddata(points, values, xy, method=method)
-        
+            values = survey.df['elevation'].values
+            if np.sum(values) != 0:
+                df['elevation'] = griddata(points, values, xy, method=method)
+            else:
+                df['elevation'] = 0
+                
         # append the newly merged survey
         mergedSurvey = Survey()
         mergedSurvey.readDF(df)
@@ -1767,11 +1772,11 @@ class Problem(object):
         
         # TODO replace this with a dummy location
         fname = '/home/jkl/Downloads/tip.vtk'
-        self.saveVTK(fname, index=index)
+        self.saveVTK(fname, index=index, elev=elev)
 
         # load with pyvista
         if pl is None:
-            pl = pv.BackgroundPlotter()
+            pl = pv.Plotter()
             # pl.background_color = 'white'
         mesh = pv.read(fname)
         pl.add_mesh(mesh)
@@ -1779,7 +1784,7 @@ class Problem(object):
         
         
     
-    def saveVTK(self, fname, index=0, maxDepth=None):
+    def saveVTK(self, fname, index=0, maxDepth=None, elev=False):
         """ Writes a vtk file.
         
         Parameters
@@ -1790,6 +1795,8 @@ class Problem(object):
             Index of the survey to save.
         maxDepth : float, optional
             Maximum positively defined depth of the bottom infinite layer.
+        elev : bool, optional
+            If `True`, topography will be added.
         """
         if fname[-4:] != '.vtk':
             fname = fname + '.vtk'
@@ -1802,15 +1809,16 @@ class Problem(object):
         padding = 1
         if maxDepth is None:
             maxDepth = np.nanpercentile(depths, 98) + padding
-        
+        depths = -np.c_[np.zeros(nsample), depths, np.ones(depths.shape[0])*maxDepth]
+        if elev:
+            depths = depths + self.surveys[index].df['elevation'].values[:,None]
+
         triang = mtri.Triangulation(xy[:,0], xy[:,1])
         triangles = triang.triangles # connection matrix for 2D
         ntri = triangles.shape[0]
         
         # build node and connection matrix for prism
-        z = np.r_[np.zeros(nsample),
-                  depths.flatten('F'),
-                  np.ones(nsample)*maxDepth]
+        z = depths.flatten('F')
         nodes = np.c_[np.tile(xy.T, nlayer+1).T, -z]
         nnodes = nodes.shape[0]
         ec = sig.flatten('F')
