@@ -128,7 +128,7 @@ class Problem(object):
             
     
     
-    def createMergedSurvey(self, fnames, method='nearest', targetProjection=None):
+    def createMergedSurvey(self, fnames, method='nearest', how='add', targetProjection=None):
         """Create a unique survey from different files by spatially interpolating the values.
         This can be useful when two surveys (Hi and Lo mode, vertical and horizontal) were
         taken on the same site successively. The method adds the 'x' and 'y' positions of all
@@ -141,6 +141,10 @@ class Problem(object):
             the spatial merge.
         method : str, optional
             Interpolation method to use. Either 'nearest', 'linear' or 'cubic'.
+        how : str, optional
+            How to merge the data from the different surveys:
+                - 'add': add all positions from all surveys and interpolate
+                - 'first': use positions from first survey only and interpolate on other surveys
         targetProjection : str, optional
             If specified, a conversion from NMEA string in 'Latitude' and 'Longitude'
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
@@ -157,7 +161,10 @@ class Problem(object):
             return
         
         # spatially merge the survey
-        xy = np.vstack([survey.df[['x','y']].values for survey in surveys])
+        if how == 'first':
+            xy = surveys[0].df[['x','y']].values
+        else: # 'add'
+            xy = np.vstack([survey.df[['x','y']].values for survey in surveys])
         df = pd.DataFrame(xy, columns=['x','y'])
         for survey in surveys:
             points = survey.df[['x','y']].values

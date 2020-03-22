@@ -666,7 +666,7 @@ class Survey(object):
             else:
                 z = griddata(np.c_[x, y], values, (X, Y), method=method)
             df[coil] = z.flatten()
-        self.dfg = df[ie]
+        self.df = df[ie]
         # TODO add OK kriging ?
         
     
