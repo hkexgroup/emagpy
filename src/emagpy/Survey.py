@@ -670,7 +670,7 @@ class Survey(object):
         # TODO add OK kriging ?
         
     
-    def crossOverPoints(self, coil=None, ax=None, dump=print, minDist=1):
+    def crossOverPointsError(self, coil=None, ax=None, dump=print, minDist=1):
         """ Build an error model based on the cross-over points.
         
         Parameters
@@ -1132,8 +1132,92 @@ class Survey(object):
         self.fil_df = out.reset_index()# its necassary to reset the indexes for other filtering techniques 
         
         
+    def driftCorrection(self, xStation=None, yStation=None, coils='all', 
+                        radius=1, fit='all', ax=None, apply=False):
+        """Compute drift correction from EMI given a station point and a radius.
+
+        Parameters
+        ----------
+        xStation : float, optional
+            X position of the drift station. Default from first point.
+        yStation : float, optional
+            Y position of the drift station. Default from first point.
+        coil : str or list of str, optional
+            Name of coil for the analysis. Default is 'all'.
+        radius : float, optional
+            Radius around the station point inside which data will be averaged.
+            The default is 1.
+        fit : str, optional
+            Type of fit. Either 'all' if one drift correction is applied on all
+            data (default) or 'each' if one fit is done between each time
+            the user came back to the drift point.
+        ax : matplotlib.Axes, optional
+            If specified, the drift graph will be plotted against. The default is None.
+        apply : bool, optional
+            If `True` the drift correction will be applied. The default is False.
+        """
+        x = self.df['x'].values
+        y = self.df['y'].values
+        if xStation is None:
+            xStation = x[0]
+        if yStation is None:
+            yStation = y[0]
+        if coils == 'all':
+            coils = self.coils
+        if isinstance(coils, str):
+            coils = [coils]
+        val = self.df[coils].values
+        dist = np.sqrt((x-xStation)**2 + (y-yStation)**2)
+        idrift = dist < radius
+        igroup = np.where(np.diff(idrift) != 0)[0]
+        igroup = np.r_[0, igroup, val.shape[0]]
         
-    def driftStn(self, xStn=None, yStn=None, tolerance=0.5):
+        # compute group mean and std
+        groups = [val[igroup[i]:igroup[i+1],:] for i in range(len(igroup)-1)]
+        vm = np.array([np.mean(g, axis=0) for g in groups])
+        vstd = np.array([np.std(g, axis=0) for g in groups])
+        xs = np.linspace(0, 1, vm.shape[0])
+        vpred = np.zeros(vm.shape)
+        if fit == 'all':
+            for i, coil in enumerate(coils):
+                slope, offset = np.polyfit(xs, vm[:,i], 1)
+                print('{:s}: ECa = {:.2f} * x {:+.2f}'.format(coil, slope, offset))
+                vpred[:,i] = xs * slope + offset
+                if apply:
+                    vm[:,i] = vm[:,i] - xs * slope - offset + np.mean(vm[:,i])
+                    corr = -np.linspace(0, 1, self.df.shape[0]) * slope - offset + np.mean(vm[:,i])
+                    self.df.loc[:,coil] = self.df[coil].values + corr
+        elif fit == 'each':
+            for i, coil in enumerate(coils):
+                slope, offset = np.polyfit(xs, vm[:,i], 1)
+                print('{:s}: ECa = {:.2f} * x {:+.2f}'.format(coil, slope, offset))
+                vpred[:,i] = xs * slope + offset
+                if apply:
+                    vm[:,i] = vm[:,i] - xs * slope - offset + np.mean(vm[:,i])
+                    corr = -np.linspace(0, 1, self.df.shape[0]) * slope - offset + np.mean(vm[:,i])
+                    self.df.loc[:,coil] = self.df[coil].values + corr
+
+        
+        if ax is None:
+            fig, ax = plt.subplots()
+            
+        if fit == 'all':
+            xx = np.arange(vm.shape[0])
+            for i, coil in enumerate(coils):
+                cax = ax.errorbar(xx, vm[:,i], yerr=vstd[:,i],
+                            marker='.', label=coil, linestyle='none')
+                ax.plot(xx, vpred[:,i], '-', color=cax[0].get_color())
+            ax.set_ylabel('ECa at drift station [mS/m]')
+            ax.set_xlabel('Drift points')
+            ax.legend()
+            if apply is True:
+                ax.set_title('Drift fitted and applied')
+            else:
+                ax.set_title('Drift fitted but not applied')
+        
+        
+        
+    def drift(self, xStn=None, yStn=None, tolerance=0.5):
         """Extract values taken at a given x y point. By default the drift 
         station is taken at the location where the survey starts.
         
@@ -1240,21 +1324,4 @@ class Survey(object):
         self.df[coil] = vals - correction
         
         
-#    def aoi(self, polyX, polyY):
-#        """Identify area of interest inside a polygon.
-#        
-#        Parameters
-#        ----------
-#        polyX : ???
-#        
-#        polyY : ???
-#        """
-#        df = self.df
-#        try:
-#            x = df.x.values # x values of data frame
-#            y = df.y.values # y values of data frame
-#        except AttributeError:
-#            raise KeyError(" %s \n ... It looks like no local coordinate system has been assigned, try running self.convertFromNMEA() first")        
-#        inside = iip.isinpolygon(x,y,[polyX,polyY]) # dependencies not satisfied
-#        self.df['AOI'] = inside
 

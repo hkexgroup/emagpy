@@ -28,6 +28,8 @@ k = Problem()
 k.createMergedSurvey([datadir + 'potatoes/potatoesLo.csv',
                       datadir + 'potatoes/potatoesHi.csv'],
                      targetProjection='EPSG:27700')
+k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5)
+#%%
 k.crossOverPoints()
 k.plotCrossOverMap()
 k.showMap(contour=True, pts=True)
