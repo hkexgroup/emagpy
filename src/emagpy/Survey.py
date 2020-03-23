@@ -1227,7 +1227,7 @@ class Survey(object):
         else:
             ax.set_title('Drift fitted but not applied')
         
-        
+    # TODO add drift based on crossOverPoints... with time?
         
     def drift(self, xStn=None, yStn=None, tolerance=0.5):
         """Extract values taken at a given x y point. By default the drift 
