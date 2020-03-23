@@ -33,7 +33,6 @@ k.plotCrossOverMap()
 k.showMap(contour=True, pts=True)
 k.show()
 k.gridData(method='cubic')
-k.surveys[0].df = k.surveys[0].dfg
 
 
 #%% inversion with uncertainty
