@@ -1132,6 +1132,7 @@ class Survey(object):
         self.fil_df = out.reset_index()# its necassary to reset the indexes for other filtering techniques 
         
         
+        
     def driftCorrection(self, xStation=None, yStation=None, coils='all', 
                         radius=1, fit='all', ax=None, apply=False):
         """Compute drift correction from EMI given a station point and a radius.
@@ -1171,9 +1172,11 @@ class Survey(object):
         idrift = dist < radius
         igroup = np.where(np.diff(idrift) != 0)[0]
         igroup = np.r_[0, igroup, val.shape[0]]
+        a = 0 if idrift[0] == True else 1
         
         # compute group mean and std
-        groups = [val[igroup[i]:igroup[i+1],:] for i in np.arange(len(igroup)-1)[::2]]
+        groups = [val[igroup[i]:igroup[i+1],:] for i in np.arange(len(igroup)-1)[a::2]]
+        print('{:d} drift points detected.'.format(len(groups)))
         vm = np.array([np.mean(g, axis=0) for g in groups])
         vsem = np.array([np.std(g, axis=0)/np.sqrt(len(g)) for g in groups])
         if fit == 'all':
@@ -1193,23 +1196,23 @@ class Survey(object):
             vpred = np.zeros((vm.shape[0]*2-2, vm.shape[1]))
             xpred = np.repeat(np.arange(vm.shape[0]),2)[1:-1]
             for i, coil in enumerate(coils):
-                print(coil)
                 for j in range(vm.shape[0]-1):
                     slope, offset = np.polyfit(xs, vm[j:j+2,i], 1)
-                    print(slope, offset)
                     vpred[j*2:j*2+2,i] = xs * slope + offset
                     if apply:
+                        # correct part between two drift points
                         ie = np.zeros(self.df.shape[0], dtype=bool)
-                        ie[igroup[j*2+1:j*2+2]] = True
+                        ie[igroup[a+j*2+1]:igroup[a+j*2+2]] = True
                         corr = -(np.linspace(0, 1, np.sum(ie)) * slope + offset) + np.mean(vm[:,i])
-                        self.df.loc[:,coil] = self.df[coil].values + corr
+                        self.df.loc[ie, coil] = self.df[ie][coil].values + corr
                 if apply:
-                    vm[:,i] = np.mean(vm[:,i])
-                         
-            #TODO correction
-            print(vpred)
-            print(xpred)
-            print(vm)
+                    # correct drift points
+                    for j in range(vm.shape[0]):
+                        ie = np.zeros(self.df.shape[0], dtype=bool)
+                        ie[igroup[a+j*2]:igroup[a+j*2+1]] = True
+                        corr = -vm[j,i] + np.mean(vm[:,i])
+                        self.df.loc[ie, coil] = self.df[ie][coil].values + corr
+                    vm[:,i] = np.mean(vm[:,i]) # for graph
 
         # graph
         if ax is None:
@@ -1227,8 +1230,43 @@ class Survey(object):
         else:
             ax.set_title('Drift fitted but not applied')
         
-    # TODO add drift based on crossOverPoints... with time?
         
+    def crossOverPointsDrift(self, coil=None, ax=None, minDist=1):
+        """Build an error model based on the cross-over points.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Name of the coil.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
+        """
+        if coil is None:
+            coil = self.coils[0]
+        df = self.df
+        dist = cdist(df[['x', 'y']].values,
+                     df[['x', 'y']].values)
+        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
+        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
+        ix, iy = ix[ifar], iy[ifar]
+        print('found', len(ix), '/', df.shape[0], 'crossing points')
+        
+        if len(ix) < 10:
+            print('None or too few colocated measurements found for error model.')
+            return
+        
+        val = df[coil].values
+        x = val[ix]
+        y = val[iy]
+        means = np.mean(np.c_[x,y], axis=1)
+        error = np.abs(x - y)
+    # TODO add drift based on crossOverPoints... with time?
+    # - identify cross-over points based on distance matrix
+    
+    
     def drift(self, xStn=None, yStn=None, tolerance=0.5):
         """Extract values taken at a given x y point. By default the drift 
         station is taken at the location where the survey starts.

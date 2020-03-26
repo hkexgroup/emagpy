@@ -542,20 +542,18 @@ class Problem(object):
                     return spotpy.parameter.generate(self.params)
             
                 def simulation(self, vector):
-                    x = np.array(vector)
-                    return x # this are actually the parameters
+                    x = np.array(vector) # this are actually the parameters
+                    return x 
                 
                 def evaluation(self): # what the function return when called with the optimal values
                     observations = self.obsVals.flatten()
                     return observations
                 
                 def objectivefunction(self, simulation, evaluation, params=None):
-                    # val = -spotpy.objectivefunctions.rmse(evaluation, simulation)
                     # simulation is actually parameters, the simulation (forward model)
                     # is done inside the objective function itself
                     val = -objfunc(simulation, evaluation, self.pn, self.spn,
-                                    self.alpha, self.beta, self.gamma, self.ini0)
-                    
+                                   self.alpha, self.beta, self.gamma, self.ini0)
                     return val
         
         
@@ -567,10 +565,7 @@ class Problem(object):
                 x0 = np.r_[ini0[0][vd], ini0[1][vc]]
                 res = minimize(objfunc, x0, args=(obs, pn, spn, alpha, beta, gamma, ini0),
                                method=method, bounds=bounds, options=options)
-                out = res.x
-                # status = 'converged' if res.success else 'not converged'
-                # if res.success:
-                #     c += 1      
+                out = res.x     
             elif method in mMCMC: # MCMC based methods
                 spotpySetup = spotpy_setup(obs, bounds, pn, spn, alpha, beta, 
                                            gamma, ini0, fmodel)
@@ -594,8 +589,6 @@ class Problem(object):
                 outval = np.array([results[col][ibest] for col in cols])
                 outstd = np.array([np.nanstd(results[col]) for col in cols])
                 out = (outval, outstd)
-                # status = 'ok'
-                
             return out
         
         # inversion row by row
@@ -657,7 +650,6 @@ class Problem(object):
                     with HiddenPrints():
                         outt = solve(*params[j])
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
-                    
                     obs = params[j][0]
                     if method in mMCMC:
                         std = outt[1]
@@ -675,7 +667,8 @@ class Problem(object):
                 try:
                     with HiddenPrints():
                         outs = Parallel(n_jobs=njobs, verbose=0)(delayed(solve)(*a) for a in tqdm(params))
-                except Exception: # might be when we kill it using UI
+                except Exception as e: # might be when we kill it using UI
+                    print('Error in // inversion:', e)
                     return
                 
            # artifical neural network inversion 
@@ -2241,7 +2234,7 @@ class Problem(object):
         
         
         
-    def crossOverPoints(self, index=0, coil=None, ax=None, dump=print):
+    def crossOverPointsError(self, index=0, coil=None, ax=None, dump=print):
         """ Build an error model based on the cross-over points.
         
         Parameters
@@ -2256,7 +2249,7 @@ class Problem(object):
             Function to print the output.
         """
         survey = self.surveys[index]
-        survey.crossOverPoints(coil=coil, ax=ax, dump=dump)
+        survey.crossOverPointsError(coil=coil, ax=ax, dump=dump)
     
     
     
