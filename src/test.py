@@ -30,10 +30,10 @@ k.createMergedSurvey([datadir + 'potatoes/potatoesLo.csv',
                       datadir + 'potatoes/potatoesHi.csv'],
                      targetProjection='EPSG:27700')
 df0 = k.surveys[0].df.copy()
-# k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
-# k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all', apply=True)
-# k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
-k.surveys[0].crossOverPointsDrift()
+k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
+k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all', apply=True)
+k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
+# k.surveys[0].crossOverPointsDrift()
 
 #%%
 k.crossOverPointsError()
