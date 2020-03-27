@@ -1657,7 +1657,7 @@ class Problem(object):
             xc = centroid[:,0].reshape((-1, nsample)).T
             yc = centroid[:,1].reshape((-1, nsample)).T
             zc = sig
-            cax = ax.contourf(xc, yc, zc, cmap=cmap, levels=levels)
+            cax = ax.contourf(xc, yc, zc, cmap=cmap, levels=levels, extend='both')
             # set clip path
             # pathvert = np.c_[np.r_[xs[:,0], xs[::-1,0]], np.r_[ys[:,-1], ys[::-1,0]]]
             # path = mpath.Path(pathvert)
