@@ -1263,115 +1263,68 @@ class Survey(object):
         y = val[iy]
         means = np.mean(np.c_[x,y], axis=1)
         error = np.abs(x - y)
+    
+    
+    
+    def crossOverPointsDrift(self, coil=None, ax=None, dump=print, minDist=1,
+                             apply=False):
+        """ Build an error model based on the cross-over points.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Name of the coil.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
+        dump : function, optional
+            Output function for information.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
+        apply : bool, optional
+            If `True`, the drift correction will be applied.
+        """
+        if coil is None:
+            coil = self.coils
+        df = self.df
+        dist = cdist(df[['x', 'y']].values,
+                     df[['x', 'y']].values)
+        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
+        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
+        ix, iy = ix[ifar], iy[ifar]
+        print('found', len(ix), '/', df.shape[0], 'crossing points')
+        
+        if len(ix) < 10:
+            dump('None or too few colocated measurements found for error model.')
+            return
+        print(ix)
+        print(iy)
+        
+        val = df[coil].values
+        x = val[ix]
+        y = val[iy]
+        means = np.mean(np.c_[x,y], axis=1)
+        error = np.abs(x - y)
+        
+        # bin data (constant number)
+        nbins = 30 # number of data per bin
+        end = int(np.floor(len(means)/nbins)*nbins)
+        errorBinned = error[:end].reshape((-1, nbins)).mean(axis=1)
+        meansBinned = means[:end].reshape((-1, nbins)).mean(axis=1)
+        
+        # bin data (constant width)
+        # errorBinned, binEdges, _ = binned_statistic(
+        #         means, error, 'mean', bins=20)
+        # meansBinned = binEdges[:-1] + np.diff(binEdges)
+        
+
+        # compute model
+        inan = ~np.isnan(meansBinned) & ~np.isnan(errorBinned)
+        inan = inan & (meansBinned > 0) & (errorBinned > 0)
+        slope, intercept, r_value, p_value, std_err = linregress(
+                np.log10(meansBinned[inan]), np.log10(errorBinned[inan]))
+        
     # TODO add drift based on crossOverPoints... with time?
     # - identify cross-over points based on distance matrix
     
-    
-    def drift(self, xStn=None, yStn=None, tolerance=0.5):
-        """Extract values taken at a given x y point. By default the drift 
-        station is taken at the location where the survey starts.
-        
-        Parameters
-        ----------
-        xStn : float, optional
-            X coordinate of drift station (using local coordinate system, 
-            not long and lat)
-        yStn : float, optional
-            Y coordinate of drift station (using local coordinate system, 
-            not long and lat)
-        tolerance : float, optional
-            Maximum distance away from the drift station using local units. 
-        
-        Returns
-        -------
-        self.drift_df : pandas.DataFrame
-            Truncated dataframe leaving only the measurements from the drift
-            station. 
-        """
-        df = self.df
-        x = df.x.values # x values of data frame
-        y = df.y.values # y values of data frame 
-        if xStn is None or yStn is None:
-            xStn = x[0] # take first xy measurement as drift station
-            yStn = y[0]
-        
-        dx = x - xStn # vector calculation
-        dy = y - yStn
-        dist = np.sqrt(dx**2 + dy**2) 
-        ioi = dist < tolerance # index of interest 
-
-        self.drift_df = df[ioi].copy() #return df[ioi].copy()
-        
-        
-        
-    def plotDrift(self, coil=None, ax=None, fit=True):
-        """ Plot drift through time.
-        
-        Parameters
-        ----------
-        coil : str, optional
-            Coil for which to plot the drift.
-        ax : matplotlib.Axes, optional
-            If specified, the graph will be plotted against.
-        fit : boolean, optional
-            If `True` a relatinship will be fitted.
-        """
-        if ax is None:
-            fig, ax = plt.subplots()
-        try:
-            df = self.drift_df.copy()
-        except AttributeError:
-            self.driftStn()
-            df = self.drift_df.copy()
-        if coil is None:
-            coil = 'Cond.1 [mS/m]'
-        vals = df[coil].values
-        ax.scatter(df['PythonTime'].values,vals)
-        ax.set_xlabel('Time')
-        ax.set_ylabel('EC [mS/m]')
-        if fit:
-            self.fitDrift(coil=coil)
-            seconds = self.drift_df['elasped(sec)'].values
-            times = self.drift_df['PythonTime'].values
-            cond_mdl = np.polyval(self.drift_mdl,seconds)
-            ax.plot(times,cond_mdl)
-        
-        
-    def fitDrift(self, coil=None, order=1):
-        """Fit a polynomial model to the drift.
-        
-        Parameters
-        ----------
-        coil : str, optional
-            Coil for which to plot the drift.
-        order : int, optional
-            Order of the polyfit. Default is 1.
-        """
-        seconds = self.drift_df['elasped(sec)'].values
-        cond = self.drift_df[coil].values
-        mdl = np.polyfit(seconds,cond,order)
-        self.drift_mdl = mdl
-        
-        
-        
-    def applyDriftCorrection(self, coil=None):
-        """Apply a drift correction to the coil values.
-        
-        Parameters
-        ----------
-        coil : str, optional
-            Coil for which to plot the drift.
-        """
-        try:
-            mdl = self.drift_mdl
-        except AttributeError:
-            self.fitDrift(coil=coil)
-            mdl = self.drift_mdl
-        mdl[-1] = 0 # in this case the c value should be 0 so that the model is normalised to zero
-        df = self.df
-        vals = df[coil].values
-        correction = np.polyval(mdl,df['elasped(sec)'].values)
-        self.df[coil] = vals - correction
-        
-        
 
