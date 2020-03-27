@@ -24,11 +24,19 @@ k.filterDiff()
 
 
 #%% mapping potatoes field
+plt.close('all')
 k = Problem()
 k.createMergedSurvey([datadir + 'potatoes/potatoesLo.csv',
                       datadir + 'potatoes/potatoesHi.csv'],
                      targetProjection='EPSG:27700')
-k.crossOverPoints()
+df0 = k.surveys[0].df.copy()
+# k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
+# k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all', apply=True)
+# k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
+k.surveys[0].crossOverPointsDrift()
+
+#%%
+k.crossOverPointsError()
 k.plotCrossOverMap()
 k.showMap(contour=True, pts=True)
 k.show()

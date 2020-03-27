@@ -670,7 +670,7 @@ class Survey(object):
         # TODO add OK kriging ?
         
     
-    def crossOverPoints(self, coil=None, ax=None, dump=print, minDist=1):
+    def crossOverPointsError(self, coil=None, ax=None, dump=print, minDist=1):
         """ Build an error model based on the cross-over points.
         
         Parameters
@@ -1133,128 +1133,198 @@ class Survey(object):
         
         
         
-    def driftStn(self, xStn=None, yStn=None, tolerance=0.5):
-        """Extract values taken at a given x y point. By default the drift 
-        station is taken at the location where the survey starts.
-        
-        Parameters
-        ----------
-        xStn : float, optional
-            X coordinate of drift station (using local coordinate system, 
-            not long and lat)
-        yStn : float, optional
-            Y coordinate of drift station (using local coordinate system, 
-            not long and lat)
-        tolerance : float, optional
-            Maximum distance away from the drift station using local units. 
-        
-        Returns
-        -------
-        self.drift_df : pandas.DataFrame
-            Truncated dataframe leaving only the measurements from the drift
-            station. 
-        """
-        df = self.df
-        x = df.x.values # x values of data frame
-        y = df.y.values # y values of data frame 
-        if xStn is None or yStn is None:
-            xStn = x[0] # take first xy measurement as drift station
-            yStn = y[0]
-        
-        dx = x - xStn # vector calculation
-        dy = y - yStn
-        dist = np.sqrt(dx**2 + dy**2) 
-        ioi = dist < tolerance # index of interest 
+    def driftCorrection(self, xStation=None, yStation=None, coils='all', 
+                        radius=1, fit='all', ax=None, apply=False):
+        """Compute drift correction from EMI given a station point and a radius.
 
-        self.drift_df = df[ioi].copy() #return df[ioi].copy()
-        
-        
-        
-    def plotDrift(self, coil=None, ax=None, fit=True):
-        """ Plot drift through time.
-        
         Parameters
         ----------
-        coil : str, optional
-            Coil for which to plot the drift.
+        xStation : float, optional
+            X position of the drift station. Default from first point.
+        yStation : float, optional
+            Y position of the drift station. Default from first point.
+        coil : str or list of str, optional
+            Name of coil for the analysis. Default is 'all'.
+        radius : float, optional
+            Radius around the station point inside which data will be averaged.
+            The default is 1.
+        fit : str, optional
+            Type of fit. Either 'all' if one drift correction is applied on all
+            data (default) or 'each' if one fit is done between each time
+            the user came back to the drift point.
         ax : matplotlib.Axes, optional
-            If specified, the graph will be plotted against.
-        fit : boolean, optional
-            If `True` a relatinship will be fitted.
+            If specified, the drift graph will be plotted against. The default is None.
+        apply : bool, optional
+            If `True` the drift correction will be applied. The default is False.
         """
+        x = self.df['x'].values
+        y = self.df['y'].values
+        if xStation is None:
+            xStation = x[0]
+        if yStation is None:
+            yStation = y[0]
+        if coils == 'all':
+            coils = self.coils
+        if isinstance(coils, str):
+            coils = [coils]
+        val = self.df[coils].values
+        dist = np.sqrt((x-xStation)**2 + (y-yStation)**2)
+        idrift = dist < radius
+        igroup = np.where(np.diff(idrift) != 0)[0]
+        igroup = np.r_[0, igroup, val.shape[0]]
+        a = 0 if idrift[0] == True else 1
+        
+        # compute group mean and std
+        groups = [val[igroup[i]:igroup[i+1],:] for i in np.arange(len(igroup)-1)[a::2]]
+        print('{:d} drift points detected.'.format(len(groups)))
+        vm = np.array([np.mean(g, axis=0) for g in groups])
+        vsem = np.array([np.std(g, axis=0)/np.sqrt(len(g)) for g in groups])
+        if fit == 'all':
+            xs = np.linspace(0, 1, vm.shape[0])
+            vpred = np.zeros(vm.shape)
+            xpred = np.arange(vm.shape[0])
+            for i, coil in enumerate(coils):
+                slope, offset = np.polyfit(xs, vm[:,i], 1)
+                print('{:s}: ECa = {:.2f} * x {:+.2f}'.format(coil, slope, offset))
+                vpred[:,i] = xs * slope + offset
+                if apply:
+                    vm[:,i] = vm[:,i] - xs * slope - offset + np.mean(vm[:,i])
+                    corr = -np.linspace(0, 1, self.df.shape[0]) * slope - offset + np.mean(vm[:,i])
+                    self.df.loc[:,coil] = self.df[coil].values + corr
+        elif fit == 'each':
+            xs = np.array([0,1])
+            vpred = np.zeros((vm.shape[0]*2-2, vm.shape[1]))
+            xpred = np.repeat(np.arange(vm.shape[0]),2)[1:-1]
+            for i, coil in enumerate(coils):
+                for j in range(vm.shape[0]-1):
+                    slope, offset = np.polyfit(xs, vm[j:j+2,i], 1)
+                    vpred[j*2:j*2+2,i] = xs * slope + offset
+                    if apply:
+                        # correct part between two drift points
+                        ie = np.zeros(self.df.shape[0], dtype=bool)
+                        ie[igroup[a+j*2+1]:igroup[a+j*2+2]] = True
+                        corr = -(np.linspace(0, 1, np.sum(ie)) * slope + offset) + np.mean(vm[:,i])
+                        self.df.loc[ie, coil] = self.df[ie][coil].values + corr
+                if apply:
+                    # correct drift points
+                    for j in range(vm.shape[0]):
+                        ie = np.zeros(self.df.shape[0], dtype=bool)
+                        ie[igroup[a+j*2]:igroup[a+j*2+1]] = True
+                        corr = -vm[j,i] + np.mean(vm[:,i])
+                        self.df.loc[ie, coil] = self.df[ie][coil].values + corr
+                    vm[:,i] = np.mean(vm[:,i]) # for graph
+
+        # graph
         if ax is None:
             fig, ax = plt.subplots()
-        try:
-            df = self.drift_df.copy()
-        except AttributeError:
-            self.driftStn()
-            df = self.drift_df.copy()
+        xx = np.arange(vm.shape[0])
+        for i, coil in enumerate(coils):
+            cax = ax.errorbar(xx, vm[:,i], yerr=vsem[:,i],
+                        marker='.', label=coil, linestyle='none')
+            ax.plot(xpred, vpred[:,i], '-', color=cax[0].get_color())
+        ax.set_ylabel('ECa at drift station [mS/m]')
+        ax.set_xlabel('Drift points')
+        ax.legend()
+        if apply is True:
+            ax.set_title('Drift fitted and applied')
+        else:
+            ax.set_title('Drift fitted but not applied')
+        
+        
+    def crossOverPointsDrift(self, coil=None, ax=None, minDist=1):
+        """Build an error model based on the cross-over points.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Name of the coil.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
+        """
         if coil is None:
-            coil = 'Cond.1 [mS/m]'
-        vals = df[coil].values
-        ax.scatter(df['PythonTime'].values,vals)
-        ax.set_xlabel('Time')
-        ax.set_ylabel('EC [mS/m]')
-        if fit:
-            self.fitDrift(coil=coil)
-            seconds = self.drift_df['elasped(sec)'].values
-            times = self.drift_df['PythonTime'].values
-            cond_mdl = np.polyval(self.drift_mdl,seconds)
-            ax.plot(times,cond_mdl)
-        
-        
-    def fitDrift(self, coil=None, order=1):
-        """Fit a polynomial model to the drift.
-        
-        Parameters
-        ----------
-        coil : str, optional
-            Coil for which to plot the drift.
-        order : int, optional
-            Order of the polyfit. Default is 1.
-        """
-        seconds = self.drift_df['elasped(sec)'].values
-        cond = self.drift_df[coil].values
-        mdl = np.polyfit(seconds,cond,order)
-        self.drift_mdl = mdl
-        
-        
-        
-    def applyDriftCorrection(self, coil=None):
-        """Apply a drift correction to the coil values.
-        
-        Parameters
-        ----------
-        coil : str, optional
-            Coil for which to plot the drift.
-        """
-        try:
-            mdl = self.drift_mdl
-        except AttributeError:
-            self.fitDrift(coil=coil)
-            mdl = self.drift_mdl
-        mdl[-1] = 0 # in this case the c value should be 0 so that the model is normalised to zero
+            coil = self.coils[0]
         df = self.df
-        vals = df[coil].values
-        correction = np.polyval(mdl,df['elasped(sec)'].values)
-        self.df[coil] = vals - correction
+        dist = cdist(df[['x', 'y']].values,
+                     df[['x', 'y']].values)
+        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
+        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
+        ix, iy = ix[ifar], iy[ifar]
+        print('found', len(ix), '/', df.shape[0], 'crossing points')
         
+        if len(ix) < 10:
+            print('None or too few colocated measurements found for error model.')
+            return
         
-#    def aoi(self, polyX, polyY):
-#        """Identify area of interest inside a polygon.
-#        
-#        Parameters
-#        ----------
-#        polyX : ???
-#        
-#        polyY : ???
-#        """
-#        df = self.df
-#        try:
-#            x = df.x.values # x values of data frame
-#            y = df.y.values # y values of data frame
-#        except AttributeError:
-#            raise KeyError(" %s \n ... It looks like no local coordinate system has been assigned, try running self.convertFromNMEA() first")        
-#        inside = iip.isinpolygon(x,y,[polyX,polyY]) # dependencies not satisfied
-#        self.df['AOI'] = inside
+        val = df[coil].values
+        x = val[ix]
+        y = val[iy]
+        means = np.mean(np.c_[x,y], axis=1)
+        error = np.abs(x - y)
+    
+    
+    
+    def crossOverPointsDrift(self, coil=None, ax=None, dump=print, minDist=1,
+                             apply=False):
+        """ Build an error model based on the cross-over points.
+        
+        Parameters
+        ----------
+        coil : str, optional
+            Name of the coil.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
+        dump : function, optional
+            Output function for information.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
+        apply : bool, optional
+            If `True`, the drift correction will be applied.
+        """
+        if coil is None:
+            coil = self.coils
+        df = self.df
+        dist = cdist(df[['x', 'y']].values,
+                     df[['x', 'y']].values)
+        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
+        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
+        ix, iy = ix[ifar], iy[ifar]
+        print('found', len(ix), '/', df.shape[0], 'crossing points')
+        
+        if len(ix) < 10:
+            dump('None or too few colocated measurements found for error model.')
+            return
+        print(ix)
+        print(iy)
+        
+        val = df[coil].values
+        x = val[ix]
+        y = val[iy]
+        means = np.mean(np.c_[x,y], axis=1)
+        error = np.abs(x - y)
+        
+        # bin data (constant number)
+        nbins = 30 # number of data per bin
+        end = int(np.floor(len(means)/nbins)*nbins)
+        errorBinned = error[:end].reshape((-1, nbins)).mean(axis=1)
+        meansBinned = means[:end].reshape((-1, nbins)).mean(axis=1)
+        
+        # bin data (constant width)
+        # errorBinned, binEdges, _ = binned_statistic(
+        #         means, error, 'mean', bins=20)
+        # meansBinned = binEdges[:-1] + np.diff(binEdges)
+        
+
+        # compute model
+        inan = ~np.isnan(meansBinned) & ~np.isnan(errorBinned)
+        inan = inan & (meansBinned > 0) & (errorBinned > 0)
+        slope, intercept, r_value, p_value, std_err = linregress(
+                np.log10(meansBinned[inan]), np.log10(errorBinned[inan]))
+        
+    # TODO add drift based on crossOverPoints... with time?
+    # - identify cross-over points based on distance matrix
+    
 
