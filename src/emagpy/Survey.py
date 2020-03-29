@@ -777,6 +777,7 @@ class Survey(object):
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
 
+
     
     def gfCorrection(self):
         """Converting GF calibrated ECa to LIN ECa.
@@ -1230,41 +1231,6 @@ class Survey(object):
         else:
             ax.set_title('Drift fitted but not applied')
         
-        
-    def crossOverPointsDrift(self, coil=None, ax=None, minDist=1):
-        """Build an error model based on the cross-over points.
-        
-        Parameters
-        ----------
-        coil : str, optional
-            Name of the coil.
-        ax : Matplotlib.Axes, optional
-            Matplotlib axis on which the plot is plotted against if specified.
-        minDist : float, optional
-            Point at less than `minDist` from each other are considered
-            identical (cross-over). Default is 1 meter.
-        """
-        if coil is None:
-            coil = self.coils[0]
-        df = self.df
-        dist = cdist(df[['x', 'y']].values,
-                     df[['x', 'y']].values)
-        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
-        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
-        ix, iy = ix[ifar], iy[ifar]
-        print('found', len(ix), '/', df.shape[0], 'crossing points')
-        
-        if len(ix) < 10:
-            print('None or too few colocated measurements found for error model.')
-            return
-        
-        val = df[coil].values
-        x = val[ix]
-        y = val[iy]
-        means = np.mean(np.c_[x,y], axis=1)
-        error = np.abs(x - y)
-    
-    
     
     def crossOverPointsDrift(self, coil=None, ax=None, dump=print, minDist=1,
                              apply=False):
@@ -1285,7 +1251,9 @@ class Survey(object):
             If `True`, the drift correction will be applied.
         """
         if coil is None:
-            coil = self.coils
+            coils = self.coils
+        if isinstance(coil, str):
+            coils = [coil]
         df = self.df
         dist = cdist(df[['x', 'y']].values,
                      df[['x', 'y']].values)
@@ -1294,37 +1262,23 @@ class Survey(object):
         ix, iy = ix[ifar], iy[ifar]
         print('found', len(ix), '/', df.shape[0], 'crossing points')
         
-        if len(ix) < 10:
-            dump('None or too few colocated measurements found for error model.')
-            return
-        print(ix)
-        print(iy)
+        print(ix.shape)
+        print(iy.shape)
         
-        val = df[coil].values
-        x = val[ix]
-        y = val[iy]
-        means = np.mean(np.c_[x,y], axis=1)
-        error = np.abs(x - y)
+        val = df[coils].values
+        x = val[ix,:]
+        y = val[iy,:]
+        misfit = np.abs(x - y)
+        xsample = np.abs(ix - iy) # number of sample taken between
+        # two pass
         
-        # bin data (constant number)
-        nbins = 30 # number of data per bin
-        end = int(np.floor(len(means)/nbins)*nbins)
-        errorBinned = error[:end].reshape((-1, nbins)).mean(axis=1)
-        meansBinned = means[:end].reshape((-1, nbins)).mean(axis=1)
+        if ax is None:
+            fig, ax = plt.subplots()
+        ax.semilogy(xsample, misfit, '.')
+        ax.set_xlabel('Number of samples between two pass at same location')
+        ax.set_ylabel('Misfit between the two pass [mS/m]')
+        #TODO not sure about this
         
-        # bin data (constant width)
-        # errorBinned, binEdges, _ = binned_statistic(
-        #         means, error, 'mean', bins=20)
-        # meansBinned = binEdges[:-1] + np.diff(binEdges)
         
-
-        # compute model
-        inan = ~np.isnan(meansBinned) & ~np.isnan(errorBinned)
-        inan = inan & (meansBinned > 0) & (errorBinned > 0)
-        slope, intercept, r_value, p_value, std_err = linregress(
-                np.log10(meansBinned[inan]), np.log10(errorBinned[inan]))
         
-    # TODO add drift based on crossOverPoints... with time?
-    # - identify cross-over points based on distance matrix
-    
-
+        

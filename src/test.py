@@ -196,4 +196,20 @@ k.invert(threed=True, beta=0.1)
 # k.showResults(rmse=True)
 
 
+#%% uncertainty
+nlayer = 2
+npos = 5
+conds = np.ones((npos, nlayer))*[20, 40]
+depths = np.ones((npos, nlayer-1))*0.5
+coils = ['HCP0.32','HCP0.71','HCP1.18','VCP0.32','VCP0.71','VCP1.18']
+k = Problem()
+k.setModels([depths], [conds])
+dfs = k.forward(forwardModel='CS', coils=coils, noise=0.0)
+# k.showResults()
+k.setInit(depths0=[0.7], fixedDepths=[False])
+bnds = [(0.01, 1), (5, 50), (5, 50)]
+k.invert(forwardModel='CS', method='MCMC', rep=300, bnds=bnds, alpha=0, 
+         regularization='l2', njobs=1)
+k.showResults(rmse=True, errorbar=True)
+
 

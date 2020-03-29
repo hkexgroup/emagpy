@@ -17,7 +17,7 @@ import matplotlib.tri as mtri
 # import matplotlib.patches as mpatches
 # import matplotlib.path as mpath
 from scipy.optimize import minimize
-from scipy.stats import linregress
+from scipy.stats import linregress, gaussian_kde
 
 # for parallel computing
 from joblib import Parallel, delayed
@@ -528,7 +528,7 @@ class Problem(object):
                     for i, bnd in enumerate(bounds):
                         self.params.append(
                                 spotpy.parameter.Uniform(
-                                        'x{:d}'.format(i), bnd[0], bnd[1], 10, 10, bnd[0], bnd[1]))
+                                        'x{:d}'.format(i), low=bnd[0], high=bnd[1], optguess=np.mean(bnd)))
                     self.obsVals = obsVals
                     self.pn = pn
                     self.spn = spn
@@ -552,8 +552,11 @@ class Problem(object):
                 def objectivefunction(self, simulation, evaluation, params=None):
                     # simulation is actually parameters, the simulation (forward model)
                     # is done inside the objective function itself
+                    # val = -spotpy.objectivefunctions.rmse(evaluation, fmodel(simulation, self.ini0))
                     val = -objfunc(simulation, evaluation, self.pn, self.spn,
-                                   self.alpha, self.beta, self.gamma, self.ini0)
+                                    self.alpha, self.beta, self.gamma, self.ini0)
+                    # NOTE the objfunc is negative as spotpy algorithm will search
+                    # at maximizing the misfit
                     return val
         
         
@@ -584,11 +587,62 @@ class Problem(object):
                 # because the save file (stdout) is one and close in //
                 sampler.sample(rep) # this is outputing too much so we use hiddenprints() context
                 results = np.array(sampler.getdata())
-                ibest = np.argmin(np.abs(results['like1']))
                 cols = ['parx{:d}'.format(a) for a in range(len(bounds))]
+                ibest = np.argmin(np.abs(results['like1'])) # lowest misfit sampled
                 outval = np.array([results[col][ibest] for col in cols])
-                outstd = np.array([np.nanstd(results[col]) for col in cols])
+                # actually the mode is not a such a good estimate
+                # samples = [results[col] for col in cols]
+                # outval = np.array([a[np.argmax(gaussian_kde(a)(a))] for a in samples])
+                ie = np.abs(results['like1']) < np.nanpercentile(np.abs(results['like1']), 10)
+                outstd = np.array([np.nanstd(results[col][ie]) for col in cols])
                 out = (outval, outstd)
+                
+                # vals = np.array([results[col] for col in cols]).T
+                # ibest = np.argmin(np.abs(results['like1']))
+                # bmisfit = np.abs(results[ibest]['like1'])
+                # print('lowest misfit is: {:.2f} with param'.format(
+                #     bmisfit), results[ibest][cols])
+                # samples = [results[col] for col in cols]
+                # pmode = np.array([a[np.argmax(gaussian_kde(a)(a))] for a in samples])
+                # pmisfit = spotpy.objectivefunctions.rmse(obs, fmodel(pmode, ini0))
+                # print('mode misfit is: {:.2f} with param'.format(pmisfit), pmode)
+                # stds[i,:] = np.std(vals, axis=0)
+                # tmisfit = spotpy.objectivefunctions.rmse(obs, fmodel(np.array([0.5, 20, 40]), ini0))
+                
+                # import seaborn as sns
+                # fig, axs = plt.subplots(3, 1, figsize=(3,7))
+                # ax = axs[0]
+                # ax.set_title('(a) depth m={:.2f} std={:.2f}'.format(
+                # np.mean(vals[:,0]), np.std(vals[:,0])))
+                # # ax.hist(vals[:,0], bins=20)
+                # sns.kdeplot(vals[:,0], ax=ax)
+                # # ax.axvline(pmode[0], color='m', linestyle='-')
+                # ax.axvline(0.5, color='r', linestyle='--')
+                # ax.axvline(vals[ibest,0], color='lime', linestyle='--')
+                # ax.set_ylabel('KDE')
+                # ax = axs[1]
+                # ax.set_title('(b) layer1 m={:.2f} std={:.2f}'.format(
+                # np.mean(vals[:,1]), np.std(vals[:,1])))
+                # # ax.hist(vals[:,1], bins=20)
+                # sns.kdeplot(vals[:,1], ax=ax)
+                # # ax.axvline(pmode[1], color='m', linestyle='-')
+                # ax.axvline(20, color='r', linestyle='--')
+                # ax.axvline(vals[ibest,1], color='lime', linestyle='--')
+                # ax.set_ylabel('KDE')
+                # ax = axs[2]
+                # ax.set_title('(c) layer2 m={:.2f} std={:.2f}'.format(
+                # np.mean(vals[:,2]), np.std(vals[:,2])))
+                # # ax.hist(vals[:,2], bins=20)
+                # sns.kdeplot(vals[:,2], ax=ax)
+                # # ax.axvline(pmode[2], color='m', linestyle='-', label='{:.2f}'.format(pmisfit))
+                # ax.axvline(40, color='r', linestyle='--', label='True (RMSE={:.2f})'.format(tmisfit))
+                # ax.axvline(vals[ibest,2], color='lime', linestyle='--', label='Best est. (RMSE={:.2f})'.format(bmisfit))
+                # ax.legend(fontsize=8)
+                # ax.set_ylabel('KDE')
+                # fig.tight_layout()
+                # fig.savefig('figures/mcmc.jpg', dpi=500)
+                # fig.show()
+                                
             return out
         
         # inversion row by row
@@ -651,6 +705,7 @@ class Problem(object):
                         outt = solve(*params[j])
                     dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
                     obs = params[j][0]
+                    ini0 = params[j][-1]
                     if method in mMCMC:
                         std = outt[1]
                         stds[j,:] = std
@@ -659,7 +714,7 @@ class Problem(object):
                         out = outt
                     depth[j,vd] = out[:np.sum(vd)]
                     model[j,vc] = out[np.sum(vd):]
-                    rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, params[j][-1])**2)/len(obs))
+                    rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, ini0)**2)/len(obs))
             
             
             # parallel computing with locky backend
@@ -1112,7 +1167,7 @@ class Problem(object):
             for df in dfs:
                 s = Survey()
                 s.readDF(df)
-                s.name = 'True model'
+                s.name = 'Model'
                 self.surveys.append(s)
         
         return dfs
