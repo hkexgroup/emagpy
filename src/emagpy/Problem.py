@@ -273,22 +273,27 @@ class Problem(object):
         
         
     
-    def importModel(self, fname):
+    def importModel(self, fnames):
         """Import a save model from previous inversion.
         
         Parameters
         ----------
-        fname : str
-            Path of the .csv file.
+        fname : str or list of str
+            Path(s) of the .csv file.
         """
-        df = pd.read_csv(fname)
-        ccols = [c for c in df.columns if c[:5] == 'layer']
-        dcols = [c for c in df.columns if c[:5] == 'depth']
-        if len(ccols) != len(dcols) + 1:
-            print('Number of depths should be number of layer - 1')
-        conds = df[ccols].values
-        depths = df[dcols].values
-        self.setModels([depths], [conds])
+        if isinstance(fnames, str):
+            fnames = [fnames]
+        conds = []
+        depths = []
+        for fname in fnames:
+            df = pd.read_csv(fname)
+            ccols = [c for c in df.columns if c[:5] == 'layer']
+            dcols = [c for c in df.columns if c[:5] == 'depth']
+            if len(ccols) != len(dcols) + 1:
+                print('Number of depths should be number of layer - 1')
+            conds.append(df[ccols].values)
+            depths.append(df[dcols].values)
+        self.setModels(depths, conds)
     
     
         
@@ -494,7 +499,7 @@ class Problem(object):
             cond = self.conds0[0][0,:].copy()
             if np.sum(vc) > 0:
                 cond[vc] = p[:np.sum(vc)]
-            return np.dot(L, cond)
+            return cond[:-1] - cond[1:]
         
         # set up regularisation
         # p : parameter, app : ECa,
@@ -1605,7 +1610,7 @@ class Problem(object):
                 xerr = self.pstds[index][ipos,np.sum(vd) + i]
                 ax.errorbar(xc, -yc, xerr=xerr, color='k', linestyle='none', capsize=2)
         ax.set_xlabel('EC [mS/m]')
-        ax.set_ylabel('Depth [m]')
+        ax.set_ylabel('Elevation [m]')
         ax.set_title('{:s}, sample {:d} (RMSE={:.2f})'.format(
             self.surveys[index].name, ipos, self.rmses[index][ipos]))
         
@@ -1767,10 +1772,7 @@ class Problem(object):
             ax.set_xlabel('Distance [m]')
         else:
             ax.set_xlabel('Samples')
-        if elev:
-            ax.set_ylabel('Elevation [m]')
-        else:
-            ax.set_ylabel('Depth [m]')
+        ax.set_ylabel('Elevation [m]')
         if len(self.surveys) > 0:
             ax.set_title(self.surveys[index].name)
         ax.set_ylim([np.min(depths), np.max(depths)])
@@ -1989,7 +1991,7 @@ class Problem(object):
             Index of the reference model. By defaut the first model
             (corresponding to the first survey) is used as reference.
         """
-        for i in range(len(self.surveys)):
+        for i in range(len(self.models)):
             if i != ref:
                 self.models[i] = self.models[i] - self.models[ref]
         

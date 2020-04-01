@@ -296,8 +296,9 @@ def getRn2(lamb, sigg, f, d): # compute reflexion coefficients
 
 # test code
 #getR0_2(1, np.array([60,70,60]), 30000, np.array([0.3, 0.5]))
-#lamb = np.array([1])
-#%timeit getRn2(lamb, np.array([60,60,60]), 30000, np.array([0.3, 0.5]))
+#lamb = hankel5_lamb/0.32
+#%timeit getRn2(lamb, np.array([60,70,60]), 30000, np.array([0.3, 0.5]))
+
 
 #@njit
 def getQ2(cpos, s, sig, f, h, typ=None):
