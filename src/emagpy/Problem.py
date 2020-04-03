@@ -458,7 +458,7 @@ class Problem(object):
         # build ANN network
         if method == 'ANN':
             if gamma != 0 or beta != 0:
-                dump('ANN does not accept any smoothing parameters.')
+                dump('WARNING: ANN does not accept any smoothing parameters.\n')
             dump('Building and training ANN network\n')
             t0 = time.time()
             if bounds is None: # happen where all depths are fixed
@@ -496,9 +496,11 @@ class Problem(object):
         
         # model misfit only for conductivities not depths
         def modelMisfit(p):
-            cond = self.conds0[0][0,:].copy()
-            if np.sum(vc) > 0:
-                cond[vc] = p[:np.sum(vc)]
+            # cond = self.conds0[0][0,:].copy()
+            # if np.sum(vc) > 0:
+                # cond[vc] = p[:np.sum(vc)]
+            # return cond[:-1] - cond[1:]
+            cond = p[:np.sum(vc)] # smoothing only for parameters elements
             return cond[:-1] - cond[1:]
         
         # set up regularisation
@@ -508,13 +510,13 @@ class Problem(object):
         if regularization  == 'l1':
             def objfunc(p, app, pn, spn, alpha, beta, gamma, ini0):
                 return np.sqrt(np.sum(np.abs(dataMisfit(p, app, ini0)))/len(app)
-                               + alpha*np.sum(np.abs(modelMisfit(p)))/nc
+                               + alpha*np.sum(np.abs(modelMisfit(p)))/np.sum(vc)
                                + beta*np.sum(np.abs(p - pn))/len(p)
                                + gamma*np.sum(np.abs(p - spn))/len(p))
         elif regularization == 'l2':
             def objfunc(p, app, pn, spn, alpha, beta, gamma, ini0):
                 return np.sqrt(np.sum(dataMisfit(p, app, ini0)**2)/len(app)
-                               + alpha*np.sum(modelMisfit(p)**2)/nc
+                               + alpha*np.sum(modelMisfit(p)**2)/np.sum(vc)
                                + beta*np.sum((p - pn)**2)/len(p)
                                + gamma*np.sum((p - spn)**2)/len(p))
             
