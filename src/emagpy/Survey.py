@@ -6,8 +6,9 @@ Created on Tue Apr 16 20:27:12 2019
 @author: jkl
 """
 import os
+import warnings
 from datetime import time, datetime
-#NB: using python datetime due to compatbility issues between pandas and matplotlib for plotting
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,7 +17,9 @@ from scipy.spatial.distance import cdist
 from scipy.interpolate import griddata, NearestNDInterpolator
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
+
 from emagpy.invertHelper import Q2eca
+
 
 
 def clipConvexHull(xdata,ydata,x,y,z):
@@ -254,9 +257,9 @@ class Survey(object):
             ie2 = (self.df[self.coils].values < vmax).all(1)
         else:
             ie2 = np.ones(self.df.shape[0], dtype=bool)
-        ie = ie1 & ie2
-        print('Deleted {:d}/{:d} measurements'.format(np.sum(~ie), len(ie)))
-        self.df = self.df[ie]
+        i2keep = ie1 & ie2
+        print('{:d}/{:d} data removed (filterRange).'.format(np.sum(~i2keep), len(i2keep)))
+        self.df = self.df[i2keep].reset_index(drop=True)
         
         
     def rollingMean(self, window=3):
@@ -294,13 +297,13 @@ class Survey(object):
         vmin = np.nanpercentile(val, qmin)
         vmax = np.nanpercentile(val, qmax)
         i2keep = (val > vmin) & (val < vmax)
-        print('filterPercentile: {:d}/{:d} measurements removed.'.format(np.sum(~i2keep), len(i2keep)))
+        print('{:d}/{:d} data removed (fitlerPercentile).'.format(np.sum(~i2keep), len(i2keep)))
         self.df = self.df[i2keep]
     
     
     def filterDiff(self, coil=None, thresh=5):
-        """Filter out consecutive measurements when the difference between them
-        is larger than val.
+        """Keep consecutive measurements when the difference between them
+        is smaller than `thresh`.
         
         Parameters
         ----------
@@ -314,7 +317,7 @@ class Survey(object):
             coil = self.coils[0]
         val = self.df[coil].values
         i2keep = np.r_[0, np.abs(np.diff(val))] < thresh
-        print('filterDiff: {:d}/{:d} measurements removed.'.format(np.sum(~i2keep), len(i2keep)))
+        print('{:d}/{:d} data removed (filterDiff).'.format(np.sum(~i2keep), len(i2keep)))
         self.df = self.df[i2keep]
     
     
@@ -352,11 +355,11 @@ class Survey(object):
             distance = np.sqrt(np.sum(np.diff(xy, axis=0)**2, axis=1))
             xpos = np.r_[[0], np.cumsum(distance)]
         
-        def setSelect(ie, boolVal):
+        def setSelect(ie, boolVal): # pragma: no cover
             ipoints[ie] = boolVal
             self.iselect = ipoints
     
-        def onpick(event):
+        def onpick(event): # pragma: no cover
             xid = xpos[event.ind[0]]
             isame = xpos == xid
             if (ipoints[isame] == True).all():
@@ -395,9 +398,10 @@ class Survey(object):
         ipoints = np.zeros(len(x), dtype=bool)
 
 
-    def dropSelected(self):
-        self.df = self.df[~self.iselect]
-        print('{:d} points removed'.format(np.sum(self.iselect)))        
+    def dropSelected(self): # pragma: no cover
+        i2keep = ~self.iselect
+        print('{:d}/{:d} data removed (filterDiff).'.format(np.sum(~i2keep), len(i2keep)))
+        self.df = self.df[i2keep].reset_index(drop=True)
 
 
     def tcorrECa(self, tdepths, tprofile):
@@ -472,19 +476,6 @@ class Survey(object):
         ax.set_title(coil)
         if contour is True:
             levels = np.linspace(vmin, vmax, nlevel)
-#            nx = 100
-#            ny = 100
-#            X, Y = np.meshgrid(np.linspace(np.min(x), np.max(x), nx),
-#                           np.linspace(np.min(y), np.max(y), ny))
-#            inside = np.ones(nx*ny)
-#            inside2 = clipConvexHull(x, y, X.flatten(), Y.flatten(), inside)
-#            ie = ~np.isnan(inside2)
-#            Z = idw(X.flatten(), Y.flatten(), x, y, val)
-##            z = griddata(np.c_[x, y], values, (X, Y), method=method)
-#            Z[~ie] = np.nan
-#            Z = Z.reshape(X.shape)
-#            cax = ax.contourf(X, Y, Z, levels=levels)
-#            
             cax = ax.tricontourf(x, y, val, levels=levels, extend='both', cmap=cmap)
             if pts is True:
                 ax.plot(x, y, 'k+')
@@ -639,16 +630,16 @@ class Survey(object):
             Interpolation method (nearest, cubic or linear see
             `scipy.interpolate.griddata`) or IDW (default).
         """
-        x = self.df['x'].values
-        y = self.df['y'].values
+        xknown = self.df['x'].values
+        yknown = self.df['y'].values
         if xmin is None:
-            xmin = np.min(x)
+            xmin = np.min(xknown)
         if xmax is None:
-            xmax = np.max(x)
+            xmax = np.max(xknown)
         if ymin is None:
-            ymin = np.min(y)
+            ymin = np.min(yknown)
         if ymax is None:
-            ymax = np.max(y)
+            ymax = np.max(yknown)
         X, Y = np.meshgrid(np.linspace(xmin, xmax, nx),
                            np.linspace(ymin, ymax, ny))
         inside = np.ones(nx*ny)
@@ -662,12 +653,18 @@ class Survey(object):
         for col in np.r_[self.coils, ['elevation']]:
             values = self.df[col].values
             if method == 'idw':
-                z = idw(X.flatten(), Y.flatten(), x, y, values)
+                z = idw(X.flatten(), Y.flatten(), xknown, yknown, values)
+            elif method == 'kriging':
+                from pykrige.ok import OrdinaryKriging
+                gridx = np.linspace(xmin, xmax, nx)
+                gridy = np.linspace(ymin, ymax, ny)
+                OK = OrdinaryKriging(xknown, yknown, values, variogram_model='linear',
+                                     verbose=True, enable_plotting=False, nlags=25)
+                z, ss = OK.execute('grid', gridx, gridy)
             else:
-                z = griddata(np.c_[x, y], values, (X, Y), method=method)
+                z = griddata(np.c_[xknown, yknown], values, (X, Y), method=method)
             df[col] = z.flatten()
         self.df = df[ie]
-        # TODO add OK kriging ?
         
     
     def crossOverPointsError(self, coil=None, ax=None, dump=print, minDist=1):
@@ -942,48 +939,45 @@ class Survey(object):
             self.gfCorrection() # convert calibrated ECa to LIN ECa
             
             
-        
-    ### jamyd91 contribution ### 
-    def consPtStat(self):# work out distance between consective points 
-        """compute geometrical statistics of consective points, azimuth and 
+            
+    ### jamyd91 contribution edited by jkl ### 
+    def computeStat(self, timef=None):
+        """Compute geometrical statistics of consective points: azimuth and 
         bearing of walking direction, time between consective measurements and
-        distance between consecutive measurements. Results appended to self.df. 
+        distance between consecutive measurements. Results added to the main
+        dataframe.
         
+        Parameters
+        ----------
+        timef : str, optional
+            Time format of the 'time' column of the dataframe (if available).
+            To be passed to `pd.to_datetime()`. If `None`, it will be inferred.
+            e.g. '%Y-%m-%d %H:%M:%S'
+            
         Notes
-        ---------
-        Requires local coordinates system to be assigned first! 
+        -----
+        Requires projected spatial data (using convertFromNMEA() if needed).
         """
         df = self.df
-        try:
-            x = df.x.values # x values of data frame
-            y = df.y.values # y values of data frame 
-        except AttributeError:
-            raise KeyError(" %s \n ... It looks like no local coordinate system has been assigned, try running self.convertFromNMEA() first")
-        dist = np.zeros_like(x,dtype=float) # allocate array to store distance between points 
-        bearing = np.zeros_like(x,dtype=float) # allocate array to store survey bearing 
-        azimuth = np.zeros_like(x,dtype=float) # allocate array to store survey bearing 
-        dist[0] = 999 # first value cant have a distance 
-        #time handling 
-        timeStr = df.Time.values # string arguments describing time 
-        timeLs = timeStr[0].split(':') # parse the time string
-        second = float(timeLs[2]) # seconds
-        micro = (second - int(second))*100000 # parse the micro second argument 
-        times = [time(hour = int(timeLs[0]), #make python datetime.time class
-                            minute = int(timeLs[1]), 
-                            second = int(second),
-                            microsecond=int(micro)
-                            )]*len(x)
-        current_date = datetime.now()
-        current_year = current_date.year
-        current_month = current_date.month
-        current_day = current_date.day
-        dttimes = [datetime(year=current_year,
-                          month= current_month,
-                          day=current_day,
-                          hour = int(timeLs[0]), 
-                          minute = int(timeLs[1]), 
-                          second = int(second), 
-                          microsecond=int(micro))]*len(x)
+        x = df['x'].values
+        y = df['y'].values
+        interdist = np.sqrt(np.sum(np.diff(np.c_[x,y], axis=0)**2, axis=1))
+        bearing = np.zeros(len(x)-1) # first point doesn't have bearing
+        azimuth = np.zeros(len(x)-1) # or azimuth
+
+        # time handling
+        if 'time' in df.columns:
+            tcol = 'time'
+        elif 'Time' in df.columns:
+            tcol = 'Time'
+        elif 'date' in df.columns:
+            tcol = 'date'
+        elif 'Date' in df.columns:
+            tcol = 'Date'
+        else:
+            tcol = 'none'
+        if tcol != 'none':
+            times = pd.to_datetime(df[tcol], format=timef)
             
         def quadrantCheck(dx,dy):
             quad = 0
@@ -1009,93 +1003,69 @@ class Survey(object):
                 elif dx<0 and dy==0:
                     quad = 270
             return quad, edge
+        quadrantCheck = np.vectorize(quadrantCheck)
                     
-        #go through each datframe entry and work out relevant stats 
-        for i in range(1,len(x)):
-            dx = x[i] - x[i-1] # delta x 
-            dy = y[i] - y[i-1] # delta y 
-            h = np.sqrt(dx**2 + dy**2) # hypoternues length 
-            dist[i] = h
+        dx = np.diff(x) # delta x 
+        dy = np.diff(y) # delta y 
+        h = np.sqrt(dx**2 + dy**2) # length of hypothenus 
+        
+        # computing quadrant and if point is on edge case
+        quad, edge = quadrantCheck(dx,dy)
+        angle = np.rad2deg(np.arcsin(dx/h)) # angle of measurement direction relative to north 
+
+        # computing azimuth
+        azimuth[edge] = quad[edge]
+        
+        ie = (edge == False) & (quad == 1)
+        azimuth[ie] = angle[ie]
+        
+        ie = (edge == False) & (quad == 2)
+        azimuth[ie] = 180 - angle[ie]
+        
+        ie = (edge == False) & (quad == 3)
+        azimuth[ie] = 180 + abs(angle[ie])
+        
+        ie = (edge == False) & (quad == 4)
+        azimuth[ie] = 360 - abs(angle[ie])
+        
+        # computing bearing
+        bearing[azimuth > 180] = azimuth[azimuth > 180] - 180 # add 180 in order to get a postive bearing or strike 
+        bearing[azimuth <= 180] = azimuth[azimuth <= 180]
+
+        elapsed = times - times[0]
+
+        df['interdist'] = np.r_[0, interdist] # distance between consecutive points 
+        df['azimuth'] = np.r_[0, azimuth] # walking direction in terms of azimuth relative to local coordinate system
+        df['bearing'] = np.r_[0, bearing] # walking direction in terms of bearing relative to local coordinate system
+        df['surveyTime'] = times # times in python datetime format 
+        df['elapsed(sec)'] = [a.seconds for a in elapsed]# number of seconds elasped 
             
-            #bearing stat
-            quad, edge = quadrantCheck(dx,dy)
-            if edge:
-                az = quad
-            else:
-                angle = np.rad2deg(np.arcsin(dx/h)) # angle of measurement direction relative to north 
-                if quad == 1:
-                    az = angle
-                elif quad == 2:
-                    az = 180 - angle 
-                elif quad == 3:
-                    az = 180 + abs(angle)
-                elif quad == 4:
-                    az = 360 - abs(angle) 
-            
-            azimuth[i] = az
-            if az > 180: #if over 180
-                bearing[i] = az - 180 # add 180 in order to get a postive bearing or strike 
-            else:
-                bearing[i] = az
-            
-            #time related stats
-            timeLs = timeStr[i].split(':') # parse the time
-            second = float(timeLs[2])
-            micro = (second - int(second))*100000
-            times[i] = time(hour = int(timeLs[0]), 
-                              minute = int(timeLs[1]), 
-                              second = int(second), 
-                              microsecond=int(micro))
-            dttimes[i] = datetime(year=current_year,#datetimes needed to get time delta objects 
-                                  month= current_month,
-                                  day=current_day,
-                                  hour = int(timeLs[0]), 
-                                  minute = int(timeLs[1]), 
-                                  second = int(second), 
-                                  microsecond=int(micro))
-        df['conDist'] = dist # distance between consecutive points 
-        df['azimuth'] = azimuth # walking direction in terms of azimuth relative to local coordinate system
-        df['bearing'] = bearing # walking direction in terms of bearing relative to local coordinate system
-        df['PythonTime'] = times # times in  python datetime format 
-        df['elasped(sec)'] = [(dttimes[i] - dttimes[0]).seconds for i in range(len(x))]# number of seconds elasped 
-            
-        #return df 
         self.df = df
     
     
     
-    def rmRepeatPt(self, tolerance=0.2):
-        """Remove points taken too close together consecutively.
+    def filterRepeated(self, tolerance=0.2):
+        """Remove consecutive points when the distance between them is
+        below `tolerance`.
         
         Parameters
         ----------
         tolerance : float, optional
-            Minimum distance away previous point in order to be retained. 
-        
-        Returns 
-        -------
-        self.fil_df : pandas dataframe
-            Truncated dataframe leaving only the measurements which are spaced 
-            more than [tolerance value] apart. 
+            Minimum distance away previous point in order to be retained.
         """
-        #error checking
+        # error checking
         if not isinstance(tolerance,int) and not isinstance(tolerance,float):
             raise ValueError("tolerance instance should be int or float")
-        df = self.df
-        try:
-            vals = df.conDist
-        except AttributeError as e:
-            raise KeyError("Error: %s \n... Try running self.consPtStat first"%e)
-        ioi = vals>tolerance
-        out = df[ioi].copy()
-        #return out.reset_index() 
-        self.fil_df = out.reset_index()
+        if 'interdist' not in self.df.columns:
+            self.computeStat()
+        i2keep = self.df['interdist'].values > tolerance
+        print('{:d}/{:d} data removed (filterRepeated).'.format(np.sum(~i2keep), len(i2keep)))
+        self.df = self.df[i2keep].reset_index(drop=True)
         
     
     
-    def rmBearing(self, phiMin, phiMax):
-        """Remove measurments recorded in a certain bearing range. Where phiMax -
-        phiMin is the bearing range to remove. 
+    def fitlerBearing(self, phiMin, phiMax):
+        """Keep measurements in a certain bearing range between phiMin and phiMax. 
         
         Parameters
         ----------
@@ -1103,34 +1073,20 @@ class Survey(object):
             Minimum angle, in degrees. 
         phiMax : float, optional
             Maximum angle, in degrees.
-        
-        Returns 
-        -------
-        self.fil_df : pandas dataframe
-            Truncated dataframe leaving only the measurements from outside the 
-            given bearing range. 
         """
-        #error checking
+        # error checking
         if not isinstance(phiMin,int) and not isinstance(phiMin,float):
             raise ValueError("phiMin instance should be int or float")
         if not isinstance(phiMax,int) and not isinstance(phiMax,float):
             raise ValueError("phiMax instance should be int or float")
         if phiMin >= phiMax:
             raise ValueError("Min and max bearings cannot be the same, and min must be smaller!")
-        df = self.df
-        try:
-            vals = df.bearing
-        except AttributeError as e:
-            raise KeyError("Error: %s \n... Try running self.consPtStat first"%e)
-        
-        ioi= [True]*len(vals)
-        for i in range(len(vals)):
-            if vals[i] > phiMin and vals[i] < phiMax:
-                ioi[i] = False
-        
-        out = df[ioi].copy()
-        #return out.reset_index() 
-        self.fil_df = out.reset_index()# its necassary to reset the indexes for other filtering techniques 
+        if 'bearing' not in self.df.columns:
+            self.computeStat()
+        bearing = self.df['bearing'].values
+        i2keep = (bearing > phiMin) & (bearing < phiMax)
+        print('{:d}/{:d} data removed (filterBearing).'.format(np.sum(~i2keep), len(i2keep)))
+        self.df = self.df[i2keep].reset_index(drop=True)
         
         
         
@@ -1233,7 +1189,7 @@ class Survey(object):
         
     
     def crossOverPointsDrift(self, coil=None, ax=None, dump=print, minDist=1,
-                             apply=False):
+                             apply=False): # pragma: no cover
         """ Build an error model based on the cross-over points.
         
         Parameters
@@ -1280,5 +1236,5 @@ class Survey(object):
         #TODO not sure about this
         
         
-        
+
         

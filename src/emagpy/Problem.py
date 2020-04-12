@@ -10,6 +10,7 @@ import sys
 import numpy as np
 import pandas as pd
 import time
+import tempfile
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
 from matplotlib.colors import ListedColormap
@@ -311,7 +312,6 @@ class Problem(object):
                 - FSlin : Full Maxwell solution with low-induction number (LIN) approximation
                 - FSeq : Full Maxwell solution without LIN approximation (see Andrade et al., 2016)
                 - CSgn : Cumulative sensitivity with jacobian matrix (using Gauss-Newton)
-                - CSgndiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
         method : str, optional
             Name of the optimization method either L-BFGS-B, TNC, CG or Nelder-Mead
             to be passed to `scipy.optimize.minmize()` or ROPE, SCEUA, DREAM, MCMC for
@@ -367,7 +367,7 @@ class Problem(object):
             self.setInit(self.depths0)
             
         # switch in case Gauss-Newton routine is selected
-        if forwardModel in ['CSgn', 'CSgndiff']:
+        if forwardModel in ['CSgn']:
             self.invertGN(alpha=alpha, alpha_ref=None, dump=dump)
             return
         
@@ -435,6 +435,12 @@ class Problem(object):
                 bounds = list(tuple(zip(bot[vc], top[vc])))
             else:
                 bounds = bnds
+            # check len(bounds) match len(param)
+            nparam = np.sum(vd) + np.sum(vc)
+            if len(bnds) != nparam:
+                raise ValueError('len(bounds) ({:d}) should be the same as '
+                                 'the number of parameters ({:d})'.format(len(bounds), nparam))
+            
             # check initial values lies within bounds
             # d0 = self.depths0[vd]
             # s0 = self.conds0[vc]
@@ -456,7 +462,7 @@ class Problem(object):
             # dump('bounds = ' + str(bounds) + '\n')
 
         # build ANN network
-        if method == 'ANN':
+        if method == 'ANN': # pragma: no cover
             if gamma != 0 or beta != 0:
                 dump('WARNING: ANN does not accept any smoothing parameters.\n')
             dump('Building and training ANN network\n')
@@ -734,7 +740,7 @@ class Problem(object):
                     return
                 
            # artifical neural network inversion 
-            elif method == 'ANN':
+            elif method == 'ANN': # pragma: no cover
                 obss = np.vstack([a[0] for a in params])
                 normobss = self.norm(obss) # normalize data
                 outs = self.model.predict(normobss)
@@ -780,7 +786,7 @@ class Problem(object):
             
     
     def buildANN(self, fmodel, bounds, noise=0.05, iplot=False, nsample=100,
-                 dump=None, epochs=500):
+                 dump=None, epochs=500): # pragma: no cover
         """Build and train the artificial neural network on synthetic values
         derived from observed ECa values.
         
@@ -806,7 +812,7 @@ class Problem(object):
             import tensorflow as tf
             from tensorflow import keras
         except:
-            raise ImportError('Tensorflow is needed for NN inversion.')
+            raise ImportError('Tensorflow is needed for ANN inversion.')
             return
         
         if dump is None:
@@ -977,7 +983,7 @@ class Problem(object):
                 app = apps[j,:]
                 cond = np.ones((len(conds0),1))*np.nanmean(app) # initial EC is the mean of the apparent (doesn't matter)
                 # OR search for best starting model here
-                for l in range(1): # FIXME this is diverging with time ...
+                for l in range(1): # only one iteration as the jacobian doesn't depend on the cond
                     d = dataMisfit(cond, app)
                     LHS = np.dot(J.T, J) + alpha*L
                     RHS = np.dot(J.T, d[:,None]) - alpha*np.dot(L, cond) # minus or plus doesn't matter here ?!
@@ -1064,8 +1070,8 @@ class Problem(object):
     
     
     def filterDiff(self, coil=None, thresh=5):
-        """Filter out consecutive measurements when the difference between them
-        is larger than val.
+        """Keep consecutive measurements when the difference between them
+        is smaller than `thresh`.
         
         Parameters
         ----------
@@ -1077,6 +1083,54 @@ class Problem(object):
         """
         for s in self.surveys:
             s.filterDiff(coil=coil, thresh=thresh)
+            
+
+    def filterBearing(self, phiMin, phiMax):
+        """Keep measurements in a certain bearing range between phiMin and phiMax. 
+        
+        Parameters
+        ----------
+        phiMin : float, optional
+            Minimum angle, in degrees. 
+        phiMax : float, optional
+            Maximum angle, in degrees.
+        """
+        for s in self.surveys:
+            s.fitlerBearing(phiMin=phiMin, phiMax=phiMax)
+        
+        
+    def computeStat(self, timef=None):
+        """Compute geometrical statistics of consective points: azimuth and 
+        bearing of walking direction, time between consective measurements and
+        distance between consecutive measurements. Results added to the main
+        dataframe.
+        
+        Parameters
+        ----------
+        timef : str, optional
+            Time format of the 'time' column of the dataframe (if available).
+            To be passed to `pd.to_datetime()`. If `None`, it will be inferred.
+            e.g. '%Y-%m-%d %H:%M:%S'
+            
+        Notes
+        -----
+        Requires projected spatial data (using convertFromNMEA() if needed).
+        """
+        for s in self.surveys:
+            s.computeStat(timef=timef)
+            
+            
+    def filterRepeated(self, tolerance=0.2):
+        """Remove consecutive points when the distance between them is
+        below `tolerance`.
+        
+        Parameters
+        ----------
+        tolerance : float, optional
+            Minimum distance away previous point in order to be retained.
+        """
+        for s in self.surveys:
+            s.filterRepeated(tolerance=tolerance)
             
         
         
@@ -1395,12 +1449,6 @@ class Problem(object):
             data = np.c_[survey.df[['x','y']].values, self.models[i], self.depths[i]]
             df = pd.DataFrame(data, columns=[['x','y'] + lcol + dcol])
             df.to_csv(fname, index=False)
-    
-    
-    def mergeSurvey(self, indexA, indexB):
-        """Merge two surveys based on their position
-        """
-        pass
     
     
     
@@ -1792,8 +1840,9 @@ class Problem(object):
 
 
     def show3D(self, index=0, pl=None, vmin=None, vmax=None,
-                maxDepth=None, cmap='viridis_r',
-                contour=False, elev=False):
+                maxDepth=None, cmap='viridis_r', elev=False, edges=False,
+                background_color=(0.8,0.8,0.8), pvslices=([],[],[]),
+                pvthreshold=None, pvgrid=False, pvcontour=[]): # pragma: no cover
         """Show inverted model in 3D with pyvista (pip install pyvista).
         
         Parameters
@@ -1810,11 +1859,22 @@ class Problem(object):
             Maximum negative depths of the graph.
         cmap : str, optional
             Name of the Matplotlib colormap to use.
-        contour : bool, optional
-            If `True` a contour plot will be plotted.
         elev : bool, optional
             If `True`, each inverted profile will be adjusted according to
             elevation.
+        edges : bool, optional
+            If `True`, edges will be displayed.
+        background_color : tuple, optional 
+            Background color assigned to pyvista plotter object when created.
+        pvslices : tuple of list of float, optional
+            Determine the X, Y, Z slices. e.g.: ([3], [], [-3, -4]) will add
+            a slice normal to X in 3 and two slices normal to Z in -3 and -4.
+        pvthreshold : list of two floats, optional
+            Keep values between pvthreshold[0] and pvthreshold[1].
+        pvgrid : bool, optional
+            Show grid or not.
+        pvcontour : list of float, optional
+            Values of the isosurface to be plotted.
         """
         try:
             import pyvista as pv
@@ -1822,17 +1882,54 @@ class Problem(object):
             raise ImportError('Please install pyvista: pip install pyvista.')
             return
         
-        # TODO replace this with a dummy location
-        fname = '/home/jkl/Downloads/tip.vtk'
+        folder = tempfile.TemporaryDirectory()
+        fname = os.path.join(folder.name, 'emagpyMesh.vtk')
         self.saveVTK(fname, index=index, elev=elev)
+        
+        if vmin is None:
+            vmin = np.nanmin(self.models[index])
+        if vmax is None:
+            vmax = np.nanmax(self.models[index])
 
         # load with pyvista
         if pl is None:
             pl = pv.Plotter()
-            # pl.background_color = 'white'
-        mesh = pv.read(fname)
-        pl.add_mesh(mesh)
+        pl.set_background(background_color)
+        self.pvmesh = pv.read(fname)
+        if pvthreshold is not None:
+            self.pvmesh = self.pvmesh.threshold(value=pvthreshold)
+        if len(pvcontour) > 0:
+            self.pvmesh = self.pvmesh.cell_data_to_point_data()
+            self.pvmesh = self.pvmesh.contour(isosurfaces=pvcontour)
+        if pvgrid:
+            pl.show_grid(color='k')
+                
+        if np.sum([len(a) for a in pvslices]) > 0: # we have slices
+            pl.add_mesh(self.pvmesh.outline(), color='k')
+            for i, ss in enumerate(pvslices):
+                normal = np.zeros(3)
+                normal[i] = 1
+                for s in ss:
+                    origin = np.zeros(3)
+                    origin[i] = s
+                    mesh_slice = self.pvmesh.slice(normal=normal, origin=origin)
+                    pl.add_mesh(mesh_slice,
+                                cmap=cmap,
+                                clim=[vmin, vmax],
+                                show_edges=edges,
+                                scalar_bar_args={'color':'k'})
+        else:           
+            pl.add_mesh(self.pvmesh,
+                        cmap=cmap,
+                        clim=[vmin,vmax],
+                        show_edges=edges,
+                        scalar_bar_args={'color':'k',
+                                         'vertical':False,
+                                         'title_font_size':16,
+                                         'label_font_size':14})
+    
         pl.show()
+        folder.cleanup()
         
         
     
