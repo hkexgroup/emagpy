@@ -33,4 +33,4 @@ k.showOne2one() # 1:1 line of misfit of apparent EC
 
 Check out the jupyter notebook examples in `emagpy/examples/`.
 
-
+[![coverage report](https://gitlab.com/hkex/emagpy/badges/master/coverage.svg)](https://gitlab.com/hkex/emagpy/-/commits/master)
