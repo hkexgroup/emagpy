@@ -14,7 +14,12 @@ datadir = 'examples/'
 
 #%% importing from GF instrument and filtering
 k = Problem()
-k.importGF(datadir + 'cover-crop/coverCropLo.dat', datadir + 'cover-crop/coverCropHi.dat')
+k.importGF(datadir + 'cover-crop/coverCropLo.dat',
+           datadir + 'cover-crop/coverCropHi.dat')
+k.importGF(datadir + 'cover-crop/coverCropLo.dat')
+k.importGF(datadir + 'cover-crop/coverCropHi.dat')
+k.importGF(datadir + 'cover-crop/coverCropLo.dat',
+           datadir + 'cover-crop/coverCropHi.dat', device='CMD Explorer')
 
 # filtering
 k.filterRange(vmin=0, vmax=25)
@@ -22,25 +27,38 @@ k.filterPercentile(qmin=2, qmax=95)
 k.rollingMean()
 k.filterDiff()
 
+k = Problem()
+k.importGF(fnameLo=datadir + 'potatoes/potatoesLo.dat',
+           fnameHi=datadir + 'potatoes/potatoesHi.dat',
+           targetProjection='EPSG:27700')
+k.computeStat()
+k.showMap()
+k.filterBearing(phiMin=0, phiMax=25)
+k.showMap()
+k.filterRepeated(tolerance=1.5)
+k.showMap()
+
 
 #%% mapping potatoes field
-plt.close('all')
 k = Problem()
 k.createMergedSurvey([datadir + 'potatoes/potatoesLo.csv',
                       datadir + 'potatoes/potatoesHi.csv'],
                      targetProjection='EPSG:27700')
 df0 = k.surveys[0].df.copy()
 k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
+k.surveys[0].driftCorrection(radius=5, fit='each')
 k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all', apply=True)
 k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
 # k.surveys[0].crossOverPointsDrift()
-
-#%%
 k.crossOverPointsError()
 k.plotCrossOverMap()
 k.showMap(contour=True, pts=True)
 k.show()
 k.gridData(method='cubic')
+k.gridData(method='linear')
+k.gridData(method='idw')
+# k.gridData(method='kriging')
+k.showMap()
 
 
 #%% inversion with uncertainty
@@ -48,7 +66,7 @@ k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.surveys[0].df = k.surveys[0].df[:20]
 k.setInit(depths0=[0.3, 0.7], fixedDepths=[True, False], fixedConds=[False, True, False])
-k.invert(method='ROPE', rep=500, njobs=-1)
+k.invert(method='DREAM', rep=500, njobs=-1, bnds=[(0.1, 0.5),(0,50,),(0,50)])
 k.showResults(errorbar=True, overlay=True)
 k.showResults(errorbar=True, overlay=True, contour=True)
 k.showProfile(errorbar=True)
@@ -57,15 +75,15 @@ k.showProfile(errorbar=True)
 #%% inversion
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
-k.surveys[0].df = k.surveys[0].df[:5] # only keep 10 first measurements to make it faster
+k.surveys[0].df = k.surveys[0].df[:4] # only keep first measurements to make it faster
 k.lcurve()
 
 titles = []
 for m in ['L-BFGS-B', 'ROPE']:
-    for fm in ['CS','FSlin','FSeq']:
+    for fm in ['CS','FSlin','FSeq','Q']:
         t0 = time.time()
         fig, axs = plt.subplots(1, 3, figsize=(10,3))
-        k.invert(forwardModel=fm, method=m)
+        k.invert(forwardModel=fm, method=m, njobs=-1)
         k.showResults(ax=axs[2])
         k.showMisfit(ax=axs[1])
         k.showOne2one(ax=axs[0])
@@ -83,7 +101,7 @@ k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.surveys[0].df = k.surveys[0].df[:20]
 k.setInit(depths0=[0.5], fixedDepths=[False])
-k.invert(forwardModel='CS', method='ROPE', alpha=0.07, beta=0.1, rep=300)
+k.invert(forwardModel='CS', method='SCEUA', alpha=0.07, beta=0.1, rep=300)
 k.showResults(errorbar=True)
 
 
@@ -116,14 +134,18 @@ k.showResults(index=1, cmap='bwr', ax=axs[2])
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 # k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
-k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv', apply=True)
+k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv',
+            forwardModel='CS', apply=False)
+k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv',
+            forwardModel='FSlin', apply=False)
+k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv',
+            forwardModel='FSeq', apply=True)
 
 t0 = time.time()
 # k.invert(method='ROPE', njobs=-1)
 k.invert(njobs=-1)
 t1 = time.time()
 k.showResults()
-
 
 t2 = time.time()
 # k.invert(method='ROPE', njobs=1)
@@ -139,22 +161,29 @@ k.createTimeLapseSurvey(datadir + 'timelapse-wheat')
 k.surveys = k.surveys[:2]
 k.computeApparentChange()
 k.setInit(depths0=np.linspace(0.1, 2, 10))
-k.invertGN()
+k.invert(forwardModel='CSgn')
 k.getRMSE()
-k.showResults(index=1, cmap='bwr')
+k.showResults(index=1, cmap='bwr', dist=True)
 
 
 #%% mapping and save georeferenced slice
 k = Problem()
+try:
+    k.setInit(depths0=[2, 1]) # exception
+    k.showResults() # exception
+except:
+    pass
 k.createSurvey(datadir + 'saprolite/regolith.csv')
 k.convertFromNMEA()
-k.invertGN()
+k.invert(forwardModel='CSgn')
 k.showSlice()
 k.saveMap(fname=datadir + 'saprolite/map.tiff', method='idw')
-k.saveSlice(fname=datadir + 'saprolite/slice.tiff')
+# k.saveMap(fname=datadir + 'saprolite/map2.tiff', method='kriging', color=True)
+k.saveSlice(fname=datadir + 'saprolite/slice.tiff', color=True)
 k.saveInvData(datadir + 'saprolite/')
+k.importModel(datadir + 'saprolite/inv_regolith.csv')
 k.showSlice()
-k.showDepths()
+k.showSlice(contour=True, pts=True)
 
 
 #%% forward modelling
@@ -176,17 +205,30 @@ dfs = k1.forward(forwardModel='FSlin', coils=coils0, noise=0.05)
 k1.show()
 fig, axs = plt.subplots(1, 2, figsize=(8,3), sharex=True, sharey=True)
 k1.showResults(ax=axs[0])
-k1.setInit(depths0=[0.5], fixedDepths=[False])
+k1.setInit(depths0=[0.5], fixedDepths=[False], conds0=[20, 30])
 k1.invert(method='ROPE')
 k1.showResults(ax=axs[1], rmse=True)
 
 
-#%%
+#%% quasi3D inversion
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+k.setInit(depths0=[0.5], fixedDepths=[False])
 k.invert(threed=True, beta=0.1)
-#k.showResults()
-#k.saveVTK('/home/jkl/Downloads/tip.vtk')
+k.saveVTK(datadir + 'cover-crop/inv.vtk')
+try:
+    import pyvista as pv
+    pl = pv.BackgroundPlotter()
+    k.show3D(pl=pl, edges=True, pvgrid=True)
+    pl.clear()
+    k.show3D(pl=pl, pvcontour=[20, 30, 40], pvgrid=True)
+    pl.clear()
+    k.show3D(pl=pl, pvslices=([5,10,15,20,25],[1.5],[0.5]), pvgrid=True)
+except:
+    pass
+k.showDepths()
+k.showDepths(contour=True, pts=True)
+
 
 #%% ANN inversion
 # k = Problem()
@@ -206,7 +248,7 @@ k = Problem()
 k.setModels([depths], [conds])
 dfs = k.forward(forwardModel='CS', coils=coils, noise=0.0)
 # k.showResults()
-k.setInit(depths0=[0.7], fixedDepths=[False])
+k.setInit(depths0=[0.7], fixedDepths=[False], conds0=np.ones(conds.shape)*25)
 bnds = [(0.01, 1), (5, 50), (5, 50)]
 k.invert(forwardModel='CS', method='MCMC', rep=300, bnds=bnds, alpha=0, 
          regularization='l2', njobs=1)

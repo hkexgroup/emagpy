@@ -3,7 +3,7 @@ image: python:3.7-stretch
 test:
   script:
   - pip install -r requirements.txt
-  - pip install rasterio
+  - pip install rasterio pykrige
   - pip install coverage
   - cd src
   - coverage run --source=emagpy test.py
