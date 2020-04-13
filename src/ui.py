@@ -1225,7 +1225,6 @@ class App(QMainWindow):
         
         self.parallelCheck = QCheckBox('Parallel')
         self.parallelCheck.setToolTip('If checked, inversion will be run in parallel.')
-        # self.parallelCheck.setEnabled(False) # TODO
         
         self.annSampleLabel = QLabel('Number of samples:')
         self.annSampleEdit = QLineEdit('100')
@@ -1299,7 +1298,7 @@ class App(QMainWindow):
                                     method=method, options={'maxiter':nit},
                                     beta=beta, gamma=gamma, nsample=nsample,
                                     noise=noise/100, njobs=njobs)
-        
+            
             # plot results
             if self.problem.ikill == False: # program wasn't killed
                 self.mwInv.setCallback(self.problem.showResults)
@@ -1459,7 +1458,7 @@ class App(QMainWindow):
         invOptions.addWidget(self.lCombo)
         invOptions.addWidget(self.nitLabel)
         invOptions.addWidget(self.nitEdit)
-        invOptions.addWidget(self.parallelCheck)
+        # invOptions.addWidget(self.parallelCheck) # disable for compilation
         invOptions.addWidget(self.annSampleLabel)
         invOptions.addWidget(self.annSampleEdit)
         invOptions.addWidget(self.annNoiseLabel)

@@ -714,27 +714,31 @@ class Problem(object):
             
                 # sequential
                 if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
-                    with HiddenPrints():
-                        outt = solve(*params[j])
-                    dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
-                    obs = params[j][0]
-                    ini0 = params[j][-1]
-                    if method in mMCMC:
-                        std = outt[1]
-                        stds[j,:] = std
-                        out = outt[0]
-                    else:
-                        out = outt
-                    depth[j,vd] = out[:np.sum(vd)]
-                    model[j,vc] = out[np.sum(vd):]
-                    rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, ini0)**2)/len(obs))
+                    try:
+                        with HiddenPrints():
+                            outt = solve(*params[j])
+                        dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
+                        obs = params[j][0]
+                        ini0 = params[j][-1]
+                        if method in mMCMC:
+                            std = outt[1]
+                            stds[j,:] = std
+                            out = outt[0]
+                        else:
+                            out = outt
+                        depth[j,vd] = out[:np.sum(vd)]
+                        model[j,vc] = out[np.sum(vd):]
+                        rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, ini0)**2)/len(obs))
+                    except Exception as e:
+                        print('Killed')
+                        return
+                        
             
-            
-            # parallel computing with locky backend
+            # parallel computing with loky backend
             if (method != 'ANN') & (njobs != 1):
                 try:
                     with HiddenPrints():
-                        outs = Parallel(n_jobs=njobs, verbose=0)(delayed(solve)(*a) for a in tqdm(params))
+                        outs = Parallel(n_jobs=njobs, verbose=0, backend='loky')(delayed(solve)(*a) for a in tqdm(params))
                 except Exception as e: # might be when we kill it using UI
                     print('Error in // inversion:', e)
                     return
