@@ -26,7 +26,7 @@ def extra_datas(mydir):
     rec_glob("%s/*" % mydir, files)
     extra_datas = []
     for f in files:
-        extra_datas.append((f, os.path.dirname(os.path.join('resipy',f))))
+        extra_datas.append((f, os.path.dirname(os.path.join('emagpy',f))))
 
     return extra_datas
 
@@ -37,7 +37,7 @@ a = Analysis(['ui.py'],
              pathex=[],
              binaries=[],
              datas=datas,
-             hiddenimports=['numpy.core._dtype_ctypes'],
+             hiddenimports=['pkg_resources.py2_warn'],
              hookspath=[],
              runtime_hooks=[],
              excludes=[],
