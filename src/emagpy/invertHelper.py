@@ -214,7 +214,7 @@ def getQ(cpos, s, sig, f, h, typ=5):
             def func(lamb):
                 return getRn(lamb, sig, f, h)*lamb
     dicoHankel = {1:func_hankel,
-                2:func_hankel2,
+                # 2:func_hankel2,
                 3:func_hankel3,
                 5:func_hankel5}
     dicoBessel = {'hcp':0,
@@ -322,12 +322,19 @@ def getQ2(cpos, s, sig, f, h, typ=None):
 def getQs(cond, depths, s, cpos, f, hx=0):
     app = np.zeros(len(cpos), dtype=complex)
     h = np.r_[depths[0], np.diff(depths)]
-    if hx > 0:
-        h = np.r_[hx,h]
-        cond = np.r_[0, cond]
+    if isinstance(hx, int) or isinstance(hx, float):
+        hx = [hx] * len(cpos)
+    if isinstance(f, int) or isinstance(f, float):
+        f = [f] * len(cpos)
     cond = cond*1e-3
     for i in range(len(cpos)):
-        app[i] = getQ2(cpos[i], s[i], cond, f=f, h=h)
+        if hx[i] > 0: # adding air layer of 0 mS/m
+            thick = np.r_[hx[i], h]
+            sig = np.r_[0, cond]
+        else:
+            thick = h
+            sig = cond
+        app[i] = getQ2(cpos[i], s[i], sig, f=f[i], h=thick)
     return app
 
 
