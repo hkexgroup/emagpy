@@ -202,18 +202,13 @@ class App(QMainWindow):
     def __init__(self, parent=None):
         super().__init__()
         
-        # do the checks for wine and updates in seperate thread
-#        tupdate = customThread(self.updateChecker)
-#        tupdate.signal.connect(self.updateCheckerShow)
-#        tupdate.start()
-        
         self.setWindowTitle('EMagPy v{:s}'.format(EMagPy_version))
         self.setGeometry(100,100,1100,600)
         
         if frozen == 'not':
             self.datadir = os.path.join(bundle_dir, './examples')
         else:
-            self.datadir = os.path.join(bundle_dir, 'resipy', 'examples')
+            self.datadir = os.path.join(bundle_dir, 'emagpy', 'examples')
         self.fnameHi = None
         self.fnameLo = None
         self.running = False # True when inverison is running
@@ -470,7 +465,7 @@ class App(QMainWindow):
         # import data
         def importBtnFunc():
             self._dialog = QFileDialog()
-            fnames, _ = self._dialog.getOpenFileNames(importTab, 'Select data file(s)', self.datadir, '*.csv')
+            fnames, _ = self._dialog.getOpenFileNames(importTab, 'Select data file(s)', self.datadir, '*.csv *.CSV')
             if len(fnames) > 0:
                 self.processFname(fnames)
                     
