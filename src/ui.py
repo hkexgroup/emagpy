@@ -209,8 +209,11 @@ class App(QMainWindow):
         
         self.setWindowTitle('EMagPy v{:s}'.format(EMagPy_version))
         self.setGeometry(100,100,1100,600)
-
-        self.datadir = os.path.join(bundle_dir, 'examples')
+        
+        if frozen == 'not':
+            self.datadir = os.path.join(bundle_dir, './examples')
+        else:
+            self.datadir = os.path.join(bundle_dir, 'resipy', 'examples')
         self.fnameHi = None
         self.fnameLo = None
         self.running = False # True when inverison is running
