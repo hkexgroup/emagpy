@@ -27,6 +27,7 @@ from emagpy import Problem
 from emagpy import EMagPy_version
 import numpy as np
 import pandas as pd
+from multiprocessing import freeze_support
 
 from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButton, QWidget,
     QTabWidget, QVBoxLayout, QLabel, QLineEdit, QMessageBox,
@@ -518,8 +519,12 @@ class App(QMainWindow):
         self.projEdit.setValidator(QDoubleValidator())
         self.projEdit.setEnabled(False)
 
+        def projBtnFunc():
+            val = float(self.projEdit.text()) if self.projEdit.text() != '' else None
+            self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
+            replot()
         self.projBtn = QPushButton('Convert NMEA')
-        self.projBtn.clicked.connect(self.projBtnFunc)
+        self.projBtn.clicked.connect(projBtnFunc)
         self.projBtn.setEnabled(False)
         
         
@@ -1458,7 +1463,7 @@ class App(QMainWindow):
         invOptions.addWidget(self.lCombo)
         invOptions.addWidget(self.nitLabel)
         invOptions.addWidget(self.nitEdit)
-        # invOptions.addWidget(self.parallelCheck) # disable for compilation
+        invOptions.addWidget(self.parallelCheck) # disable for compilation
         invOptions.addWidget(self.annSampleLabel)
         invOptions.addWidget(self.annSampleEdit)
         invOptions.addWidget(self.annNoiseLabel)
@@ -1666,11 +1671,6 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         self.contourCheck.setEnabled(True)
         self.ptsCheck.setEnabled(True)
     
-    
-    def projBtnFunc(self):
-        val = float(self.projEdit.text()) if self.projEdit.text() != '' else None
-        self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
-        replot()
             
     def errorDump(self, text, flag=1):
         text = str(text)
@@ -1724,6 +1724,7 @@ PLoS ONE, <strong>10</strong>,12 (2015)
 #%% main function
 if __name__ == '__main__':
     catchErrors() # prevent crash of the app
+    freeze_support()
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     app.setWindowIcon(QIcon(os.path.join(bundle_dir, 'logo.png'))) # that's the true app icon
