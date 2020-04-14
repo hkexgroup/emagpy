@@ -610,6 +610,7 @@ class Problem(object):
                 outstd = np.array([np.nanstd(results[col][ie]) for col in cols])
                 out = (outval, outstd)
                 
+                # below is for paper figure on MCMC inversion
                 # vals = np.array([results[col] for col in cols]).T
                 # ibest = np.argmin(np.abs(results['like1']))
                 # bmisfit = np.abs(results[ibest]['like1'])
@@ -623,9 +624,9 @@ class Problem(object):
                 # tmisfit = spotpy.objectivefunctions.rmse(obs, fmodel(np.array([0.5, 20, 40]), ini0))
                 
                 # import seaborn as sns
-                # fig, axs = plt.subplots(3, 1, figsize=(3,7))
+                # fig, axs = plt.subplots(1, 3, figsize=(8,2.5))
                 # ax = axs[0]
-                # ax.set_title('(a) depth m={:.2f} std={:.2f}'.format(
+                # ax.set_title('(a) depth m={:.1f} std={:.1f}'.format(
                 # np.mean(vals[:,0]), np.std(vals[:,0])))
                 # # ax.hist(vals[:,0], bins=20)
                 # sns.kdeplot(vals[:,0], ax=ax)
@@ -634,7 +635,7 @@ class Problem(object):
                 # ax.axvline(vals[ibest,0], color='lime', linestyle='--')
                 # ax.set_ylabel('KDE')
                 # ax = axs[1]
-                # ax.set_title('(b) layer1 m={:.2f} std={:.2f}'.format(
+                # ax.set_title('(b) layer1 m={:.1f} std={:.1f}'.format(
                 # np.mean(vals[:,1]), np.std(vals[:,1])))
                 # # ax.hist(vals[:,1], bins=20)
                 # sns.kdeplot(vals[:,1], ax=ax)
@@ -643,7 +644,7 @@ class Problem(object):
                 # ax.axvline(vals[ibest,1], color='lime', linestyle='--')
                 # ax.set_ylabel('KDE')
                 # ax = axs[2]
-                # ax.set_title('(c) layer2 m={:.2f} std={:.2f}'.format(
+                # ax.set_title('(c) layer2 m={:.1f} std={:.1f}'.format(
                 # np.mean(vals[:,2]), np.std(vals[:,2])))
                 # # ax.hist(vals[:,2], bins=20)
                 # sns.kdeplot(vals[:,2], ax=ax)
