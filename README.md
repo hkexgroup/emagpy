@@ -31,6 +31,23 @@ k.showMisfit() # display predicted and observed apparent EC
 k.showOne2one() # 1:1 line of misfit of apparent EC
 ```
 
-Check out the jupyter notebook examples in `emagpy/examples/`.
+For more example, check out the [jupyter-notebook](jupyter notebooks).
+
+
+Downloads
+---------
+as a self-extractable executable:
+
+[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.0.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-windows.exe)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.0.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-macos.dmg)
+[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.0.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-linux)
+
+as a zip file:
+
+[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.0.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-windows.zip)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.0.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-macos.app.zip)
+[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.0.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-linux.zip)
+
+
 
 [![coverage report](https://gitlab.com/hkex/emagpy/badges/master/coverage.svg)](https://gitlab.com/hkex/emagpy/-/commits/master)
