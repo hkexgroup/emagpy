@@ -1202,7 +1202,10 @@ class Problem(object):
             self.hx = hxs
             self.freqs = freqs
             
-        # define the forward model        
+        # define the forward model
+        if forwardModel == 'Q':
+            print('For the Q forward model, the ECa values will be computed using FSeq')
+            forwardModel = 'FSeq'
         if forwardModel in ['CS','FSlin','FSeq']:
             if forwardModel == 'CS':
                 def fmodel(p, depth):
@@ -1213,6 +1216,9 @@ class Problem(object):
             elif forwardModel == 'FSeq':
                 def fmodel(p, depth):
                     return fMaxwellQ(p, depth, cspacing, cpos, f=freqs, hx=hxs)
+        else:
+            raise ValueError('Forward model {:s} is not available.'
+                             'Choose between CS, FSlin or FSeq'.format(forwardModel))
         
         def addnoise(x, level=0.05):
             return x + np.random.randn(len(x))*x*level
