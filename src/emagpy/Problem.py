@@ -61,6 +61,7 @@ class Problem(object):
         self.calibrated = False # flag for ERT calibration
         self.annReplaced = 0 # number of measurement outliers by ANN
         self.runningUI = False # True if run in UI, just change output of parallel stuff
+        self.forwardModel = None # store the forward model choosen for showMisfit and showOne2One
         
         
     def createSurvey(self, fname, freq=None, hx=None, targetProjection=None):
@@ -369,7 +370,9 @@ class Problem(object):
         # switch in case Gauss-Newton routine is selected
         if forwardModel in ['CSgn']:
             self.invertGN(alpha=alpha, alpha_ref=None, dump=dump)
+            self.forwardModel = 'CS'
             return
+        self.forwardModel = forwardModel # for future RMSE or misfit computation
         
         self.models = []
         self.depths = []
@@ -1149,8 +1152,6 @@ class Problem(object):
                 - CS : Cumulative sensitivity (default)
                 - FS : Full Maxwell solution with low-induction number (LIN) approximation
                 - FSeq : Full Maxwell solution without LIN approximation (see Andrade 2016)
-                - CSfast : Cumulative sensitivity with jacobian matrix (not minimize) - NOT IMPLEMENTED YET
-                - CSdiff : Cumulative sensitivty for difference inversion - NOT IMPLEMENTED YET
         coils : list of str, optional
             If `None`, then the default attribute of the object will be used (foward
             mode on inverted solution).
@@ -2100,10 +2101,21 @@ class Problem(object):
                 self.models[i] = self.models[i] - self.models[ref]
         
     
-    def getRMSE(self):
+    def getRMSE(self, forwardModel=None):
         """Returns RMSE for all coils (columns) and all surveys (row).
+        
+        Parameters
+        ----------
+        forwardModel : str, optional
+            Type of forward model:
+                - CS : Cumulative sensitivity (default)
+                - FS : Full Maxwell solution with low-induction number (LIN) approximation
+                - FSeq : Full Maxwell solution without LIN approximation (see Andrade 2016)
+            If `None` (default), the forward model used for the inversion is used.
         """
-        dfsForward = self.forward()
+        if forwardModel is None:
+            forwardModel = self.forwardModel
+        dfsForward = self.forward(forwardModel=forwardModel)
         def rmse(x, y):
             return np.sqrt(np.sum((x - y)**2)/len(x))
         
@@ -2122,7 +2134,7 @@ class Problem(object):
         
         
         
-    def showMisfit(self, index=0, coil='all', ax=None):
+    def showMisfit(self, index=0, coil='all', forwardModel=None, ax=None):
         """Show Misfit after inversion.
             
         Parameters
@@ -2131,10 +2143,18 @@ class Problem(object):
             Index of the survey to plot.
         coil : str, optional
             Which coil to plot. Default is all.
+        forwardModel : str, optional
+            Type of forward model:
+                - CS : Cumulative sensitivity (default)
+                - FS : Full Maxwell solution with low-induction number (LIN) approximation
+                - FSeq : Full Maxwell solution without LIN approximation (see Andrade 2016)
+            If `None` (default), the forward model used for the inversion is used.
         ax : matplotlib.Axes, optional
             If specified the graph will be plotted on this axis.
         """
-        dfsForward = self.forward()
+        if forwardModel is None:
+            forwardModel = self.forwardModel
+        dfsForward = self.forward(forwardModel=forwardModel)
         survey = self.surveys[index]
         cols = survey.coils
         obsECa = survey.df[cols].values
@@ -2152,7 +2172,8 @@ class Problem(object):
         
         
         
-    def showOne2one(self, index=0, coil='all', ax=None, vmin=None, vmax=None):
+    def showOne2one(self, index=0, coil='all', forwardModel=None, ax=None,
+                    vmin=None, vmax=None):
         """Show one to one plot with inversion results.
             
         Parameters
@@ -2161,6 +2182,12 @@ class Problem(object):
             Index of the survey to plot.
         coil : str, optional
             Which coil to plot. Default is all.
+        forwardModel : str, optional
+            Type of forward model:
+                - CS : Cumulative sensitivity (default)
+                - FS : Full Maxwell solution with low-induction number (LIN) approximation
+                - FSeq : Full Maxwell solution without LIN approximation (see Andrade 2016)
+            If `None` (default), the forward model used for the inversion is used.
         ax : matplotlib.Axes, optional
             If specified the graph will be plotted on this axis.
         vmin : float, optional
@@ -2168,7 +2195,9 @@ class Problem(object):
         vmax : float, optional
             Maximum ECa on the graph.
         """
-        dfsForward = self.forward()
+        if forwardModel is None:
+            forwardModel = self.forwardModel
+        dfsForward = self.forward(forwardModel=forwardModel)
         survey = self.surveys[index]
         cols = survey.coils
         obsECa = survey.df[cols].values

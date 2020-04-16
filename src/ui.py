@@ -519,12 +519,8 @@ class App(QMainWindow):
         self.projEdit.setValidator(QDoubleValidator())
         self.projEdit.setEnabled(False)
 
-        def projBtnFunc():
-            val = float(self.projEdit.text()) if self.projEdit.text() != '' else None
-            self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
-            replot()
         self.projBtn = QPushButton('Convert NMEA')
-        self.projBtn.clicked.connect(projBtnFunc)
+        self.projBtn.clicked.connect(self.projBtnFunc)
         self.projBtn.setEnabled(False)
         
         
@@ -536,20 +532,6 @@ class App(QMainWindow):
         # display options
         self.showParams = {'index': 0, 'coil':'all', 'contour':False, 'vmin':None,
                            'vmax':None,'pts':False, 'cmap':'viridis_r'} 
-        def replot():
-            index = self.showParams['index']
-            coil = self.showParams['coil']
-            contour = self.showParams['contour']
-            vmin = self.showParams['vmin']
-            vmax = self.showParams['vmax']
-            pts = self.showParams['pts']
-            cmap = self.showParams['cmap']
-            if self.mapRadio.isChecked():
-                self.mwRaw.replot(index=index, coil=coil, contour=contour,
-                                  vmin=vmin, vmax=vmax, pts=pts, cmap=cmap)
-            else:
-                self.mwRaw.replot(index=index, coil=coil, vmin=vmin, vmax=vmax)
-                
 
         # vmin/vmax filtering
         self.vminfLabel = QLabel('Vmin:')
@@ -1611,7 +1593,26 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         self.table_widget.setLayout(self.layout)
         self.setCentralWidget(self.table_widget)
         self.show()
+    
+    def projBtnFunc(self):
+        val = float(self.projEdit.text()) if self.projEdit.text() != '' else None
+        self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
+        self.replot()
 
+    def replot(self):
+        index = self.showParams['index']
+        coil = self.showParams['coil']
+        contour = self.showParams['contour']
+        vmin = self.showParams['vmin']
+        vmax = self.showParams['vmax']
+        pts = self.showParams['pts']
+        cmap = self.showParams['cmap']
+        if self.mapRadio.isChecked():
+            self.mwRaw.replot(index=index, coil=coil, contour=contour,
+                              vmin=vmin, vmax=vmax, pts=pts, cmap=cmap)
+        else:
+            self.mwRaw.replot(index=index, coil=coil, vmin=vmin, vmax=vmax)
+                
     def processFname(self, fnames):
         self.problem.surveys = [] # empty the list of current survey
         if len(fnames) == 1:
