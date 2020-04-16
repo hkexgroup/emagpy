@@ -175,7 +175,10 @@ class Survey(object):
         fname : str
             Filename.
         sensor : str, optional
-            Type of sensor.
+            Name of the sensor (for metadata only).
+        targetProjection : str, optional
+            EPSG string describing the projection of a 'Latitude' and 'Longitude'
+            column is found in the dataframe. e.g. 'EPSG:27700' for the British grid.
         """
         name = os.path.basename(fname)[:-4]
         delimiter=','
@@ -187,10 +190,23 @@ class Survey(object):
         
     def readDF(self, df, name=None, sensor=None, targetProjection=None):
         """Parse dataframe.
+        
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            A pandas dataframe where each column contains ECa per coil and
+            each row a different positions.
+        name : str, optional
+            Name of the survey.
+        sensor : str, optional
+            A string describing the sensor (for metadata only).
+        targetProjection : str, optional
+            EPSG string describing the projection of a 'Latitude' and 'Longitude'
+            column is found in the dataframe. e.g. 'EPSG:27700' for the British grid.
         """
         self.name = 'Survey 1' if name is None else name
         for c in df.columns:
-            orientation = c[:3]
+            orientation = c[:3].upper()
             if ((orientation == 'VCP') | (orientation == 'VMD') | (orientation == 'PRP') |
                     (orientation == 'HCP') | (orientation == 'HMD')):
                 # replace all orientation in HCP/VCP/PRP mode
@@ -202,6 +218,7 @@ class Survey(object):
                     self.coilsInph.append(c)
                 else:
                     self.coils.append(c)
+        df = df.rename(columns={'X':'x','Y':'y','ELEVATION':'elevation'})
         if 'x' not in df.columns:
             df['x'] = np.arange(df.shape[0])
         if 'y' not in df.columns:
@@ -220,7 +237,8 @@ class Survey(object):
 
         
     def getCoilInfo(self, arg):
-        orientation = arg[:3].lower()
+        arg = arg.lower()
+        orientation = arg[:3].upper()
         b = arg[3:].split('f')
         coilSeparation = float(b[0])
         if len(b) > 1:
