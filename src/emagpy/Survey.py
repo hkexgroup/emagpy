@@ -238,7 +238,7 @@ class Survey(object):
         
     def getCoilInfo(self, arg):
         arg = arg.lower()
-        orientation = arg[:3].upper()
+        orientation = arg[:3]
         b = arg[3:].split('f')
         coilSeparation = float(b[0])
         if len(b) > 1:
