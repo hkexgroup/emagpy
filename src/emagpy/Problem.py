@@ -1271,23 +1271,36 @@ class Problem(object):
     
     
     
-    def showMap(self, index=0, **kwargs):
-        """Show spatial map of the selected survey.
+    def showMap(self, index=0, coil=None, contour=False, ax=None, vmin=None, vmax=None,
+                pts=False, cmap='viridis_r', xlab='x', ylab='y', nlevel=7):
+        """ Display a map of the measurements.
         
         Parameters
         ----------
         index : int, optional
             Survey number, by default, the first survey is chosen.
+        coil : str, optional
+            Name of the coil to plot. By default, the first coil is plotted.
+        contour : bool, optional
+            If `True` filled contour will be plotted using `tricontourf`.
+        ax : Matplotlib.Axes, optional
+            If specified, the graph will be plotted against the axis.
+        vmin : float, optional
+            Minimum of the colorscale.
+        vmax : float, optional
+            Maximum of the colorscale.
+        pts : bool, optional
+            If `True` the measurements location will be plotted on the graph.
+        xlab : str, optional
+            X label.
+        ylab : str, optional
+            Y label.
+        nlevel : int, optional
+            Number of levels for the contourmap. Default is 7.
         """
-        coil = kwargs['coil'] if 'coil' in kwargs else None
-        vmin = kwargs['vmin'] if 'vmin' in kwargs else None
-        vmax = kwargs['vmax'] if 'vmax' in kwargs else None
-        contour = kwargs['contour'] if 'contour' in kwargs else False
-        pts = kwargs['pts'] if 'pts' in kwargs else False
-        cmap = kwargs['cmap'] if 'cmap' in kwargs else 'viridis_r'
-        ax = kwargs['ax'] if 'ax' in kwargs else None
         self.surveys[index].showMap(coil=coil, vmin=vmin, vmax=vmax,
-                    contour=contour, pts=pts, cmap=cmap, ax=ax)
+                    contour=contour, pts=pts, cmap=cmap, ax=ax, xlab=xlab,
+                    ylab=ylab, nlevel=nlevel)
         
     
     

@@ -53,10 +53,10 @@ extensions = [
 example_gallery_config = {
     'examples_dirs': '../jupyter-notebook',
     'gallery_dirs': 'auto_examples',
-    'dont_preprocess': '../jupyter-notebook/comparison-inversion-cover-crop.ipynb',
-    'pattern': '.+.ipynb',
-    'urls': 'https://github.com/hkexgroup/emagpy/blob/stable/jupyter-notebook',
-    'binder_url': 'https://mybinder.org/v2/gl/hkex%2Femagpy/stable?filepath=jupyter-notebook',
+    'dont_preprocess': '../jupyter-notebook/nb_comparison-inversion-cover-crop.ipynb',
+    'pattern': 'nb_.+.ipynb',
+    'urls': 'https://github.com/hkexgroup/emagpy/blob/master/jupyter-notebook',
+    'binder_url': 'https://mybinder.org/v2/gl/hkex%2Femagpy/master?filepath=jupyter-notebook',
 }
 
 
