@@ -30,7 +30,7 @@ import pandas as pd
 from multiprocessing import freeze_support
 
 from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButton, QWidget,
-    QTabWidget, QVBoxLayout, QLabel, QLineEdit, QMessageBox,
+    QTabWidget, QVBoxLayout, QLabel, QLineEdit, QMessageBox, QCompleter,
     QFileDialog, QCheckBox, QComboBox, QTextEdit, QHBoxLayout,
     QTableWidget, QFormLayout, QTableWidgetItem, QHeaderView, QProgressBar,
     QStackedLayout, QGroupBox)#, QRadioButton, QAction, QListWidget, QShortcut)
@@ -515,9 +515,22 @@ class App(QMainWindow):
 
         
         # projection (only if GPS data are available)
-        self.projEdit = QLineEdit('27700')
-        self.projEdit.setValidator(QDoubleValidator())
-        self.projEdit.setEnabled(False)
+        self.projLabel = QLabel('EPSG:')
+        self.projLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        
+        ### Preparing the ~5000 projections:
+        pcs = pd.read_csv(resource_path('emagpy/pcs.csv'))
+        pcs_names = pcs['COORD_REF_SYS_NAME'].tolist()
+        pcs_names.extend(pcs['COORD_REF_SYS_NAME_rev'].tolist())
+        self.pcsCompleter = QCompleter(pcs_names)
+        self.pcsCompleter.setCaseSensitivity(Qt.CaseInsensitive)
+        
+        self.projEdit = QLineEdit()
+        self.projEdit.setPlaceholderText('Type projection CRS')
+        self.projEdit.setToolTip('Type the CRS projection and then select from the options')
+        # self.projEdit.setValidator(QDoubleValidator())
+        self.projEdit.setCompleter(self.pcsCompleter)
+        # self.projEdit.setEnabled(False)
 
         self.projBtn = QPushButton('Convert NMEA')
         self.projBtn.clicked.connect(self.projBtnFunc)
@@ -664,7 +677,7 @@ class App(QMainWindow):
         
         def showMapOptions(arg):
             objs = [self.ptsLabel, self.ptsCheck, self.contourLabel,
-                    self.contourCheck, self.cmapCombo]
+                    self.contourCheck, self.cmapCombo, self.psMapExpBtn]
             [o.setVisible(arg) for o in objs]
             if arg is False:
                 self.coilCombo.addItem('all')
@@ -722,6 +735,33 @@ class App(QMainWindow):
         self.ptsCheck.clicked.connect(ptsCheckFunc)
         self.ptsCheck.setToolTip('Show measurements points')
         self.ptsCheck.setVisible(False)
+        
+        # export GIS raster layer
+        def setProjection():
+            val = self.projEdit.text()
+            if any(pcs['COORD_REF_SYS_NAME'] == val) is True or any(pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
+                epsg_code = pcs['COORD_REF_SYS_CODE'][pcs['COORD_REF_SYS_NAME'] == val].values
+                epsgVal = 'EPSG:'+str(epsg_code)
+                self.problem.projection = epsgVal
+            else:
+                self.errorDump('CRS projection is not correctly defined')
+            
+            
+            
+        def expPsMap():
+            fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
+            print('fname:', fname)
+            setProjection()
+            self.problem.saveMap(fname=fname)
+            
+            
+            
+        self.psMapExpBtn = QPushButton('Exp. GIS layer')
+        self.psMapExpBtn.setToolTip('Export a georeferenced TIFF file to directly be imported in GIS software.\n'
+                                    'Choose the correct EPSG CRS projection!')
+        self.psMapExpBtn.setVisible(False)
+        self.psMapExpBtn.clicked.connect(expPsMap)
+        
 
 
         # display it
@@ -739,7 +779,7 @@ class App(QMainWindow):
         topLayout.addWidget(self.hxLabel, 10)
         topLayout.addWidget(self.hxEdit, 10)
         topLayout.addWidget(self.importGFApply, 10)
-        topLayout.addWidget(QLabel('EPSG:'), 5)
+        topLayout.addWidget(self.projLabel, 5)
         topLayout.addWidget(self.projEdit, 10)
         topLayout.addWidget(self.projBtn, 10)
         
@@ -771,6 +811,7 @@ class App(QMainWindow):
         midLayout.addWidget(self.contourCheck)
         midLayout.addWidget(self.ptsLabel)
         midLayout.addWidget(self.ptsCheck)
+        midLayout.addWidget(self.psMapExpBtn)
         
         importLayout.addLayout(topLayout)
         importLayout.addLayout(filtLayout)

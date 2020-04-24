@@ -510,8 +510,8 @@ class Survey(object):
         
 
     def saveMap(self, fname, coil=None, nx=100, ny=100, method='linear',
-                xmin=None, xmax=None, ymin=None, ymax=None, color=False,
-                cmap='viridis_r', vmin=None, vmax=None, nlevel=7):
+                xmin=None, xmax=None, ymin=None, ymax=None, color=True,
+                cmap='viridis_r', vmin=None, vmax=None, nlevel=14):
         """Save a georeferenced raster TIFF file.
         
         Parameters
