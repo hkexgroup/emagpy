@@ -1203,6 +1203,7 @@ class App(QMainWindow):
         self.lCombo = QComboBox()
         self.lCombo.addItem('l1')
         self.lCombo.addItem('l2')
+        self.lCombo.setToolTip('Set to l1 for sharp model and l2 for smooth model.')
         self.lCombo.setCurrentIndex(0)
         
         self.nitLabel = QLabel('Nit:')
