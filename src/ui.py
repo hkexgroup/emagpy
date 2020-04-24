@@ -544,7 +544,7 @@ class App(QMainWindow):
             vmin = float(self.vminfEdit.text()) if self.vminfEdit.text() != '' else None
             vmax = float(self.vmaxfEdit.text()) if self.vmaxfEdit.text() != '' else None
             self.problem.filterRange(vmin, vmax)
-            replot()
+            self.replot()
         self.keepApplyBtn = QPushButton('Apply')
         self.keepApplyBtn.clicked.connect(keepApplyBtnFunc)
         self.keepApplyBtn.setEnabled(False)
@@ -557,7 +557,7 @@ class App(QMainWindow):
         def rollingBtnFunc():
             window = int(self.rollingEdit.text()) if self.rollingEdit.text() != '' else None
             self.problem.rollingMean(window=window)
-            replot()
+            self.replot()
         self.rollingBtn = QPushButton('Rolling Mean')
         self.rollingBtn.clicked.connect(rollingBtnFunc)
         self.rollingBtn.setEnabled(False)
@@ -566,7 +566,7 @@ class App(QMainWindow):
         # manual point killer selection
         def ptsKillerBtnFunc():
             self.problem.surveys[self.showParams['index']].dropSelected()
-            replot()
+            self.replot()
         self.ptsKillerBtn = QPushButton('Delete selected points')
         self.ptsKillerBtn.clicked.connect(ptsKillerBtnFunc)
         self.ptsKillerBtn.setEnabled(False)
@@ -580,7 +580,7 @@ class App(QMainWindow):
         # survey selection (useful in case of time-lapse dataset)
         def surveyComboFunc(index):
             self.showParams['index'] = index
-            replot()
+            self.replot()
         self.surveyCombo = QComboBox()
         self.surveyCombo.activated.connect(surveyComboFunc)
         self.surveyCombo.setEnabled(False)
@@ -588,7 +588,7 @@ class App(QMainWindow):
         # coil selection
         def coilComboFunc(index):
             self.showParams['coil'] = self.coilCombo.itemText(index)
-            replot()
+            self.replot()
         self.coilCombo = QComboBox()
         self.coilCombo.activated.connect(coilComboFunc)
         self.coilCombo.setEnabled(False)
@@ -626,7 +626,7 @@ class App(QMainWindow):
                 self.mapRadio.setChecked(False)
                 showMapOptions(False)
                 self.mwRaw.setCallback(self.problem.show)
-                replot()
+                self.replot()
             else:
                 self.mapRadio.setChecked(True)
         self.showRadio = QPushButton('Raw')
@@ -643,7 +643,7 @@ class App(QMainWindow):
                 if self.showParams['coil'] == 'all':
                     self.coilCombo.setCurrentIndex(0)
                     coilComboFunc(0)
-                replot()
+                self.replot()
             else:
                 self.showRadio.setChecked(True)
         self.mapRadio = QPushButton('Map')
@@ -683,7 +683,7 @@ class App(QMainWindow):
         def applyBtnFunc():
             self.showParams['vmin'] = float(self.vminEdit.text()) if self.vminEdit.text() != '' else None
             self.showParams['vmax'] = float(self.vmaxEdit.text()) if self.vmaxEdit.text() != '' else None
-            replot()
+            self.replot()
         self.applyBtn = QPushButton('Apply')
         self.applyBtn.clicked.connect(applyBtnFunc)
         self.applyBtn.setEnabled(False)
@@ -692,7 +692,7 @@ class App(QMainWindow):
         # select different colormap
         def cmapComboFunc(index):
             self.showParams['cmap'] = cmaps[index]
-            replot()
+            self.replot()
         self.cmapCombo = QComboBox()
         cmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow', 'jet']
         for cmap in cmaps:
@@ -706,7 +706,7 @@ class App(QMainWindow):
         self.contourLabel.setVisible(False)
         def contourCheckFunc(state):
             self.showParams['contour'] = state
-            replot()
+            self.replot()
         self.contourCheck = QCheckBox()
         self.contourCheck.setEnabled(False)
         self.contourCheck.clicked.connect(contourCheckFunc)
@@ -717,7 +717,7 @@ class App(QMainWindow):
         self.ptsLabel.setVisible(False)
         def ptsCheckFunc(state):
             self.showParams['pts'] = state
-            replot()
+            self.replot()
         self.ptsCheck = QCheckBox()
         self.ptsCheck.clicked.connect(ptsCheckFunc)
         self.ptsCheck.setToolTip('Show measurements points')
@@ -849,7 +849,7 @@ class App(QMainWindow):
             forwardModel = self.forwardCalibCombo.itemText(self.forwardCalibCombo.currentIndex())
             self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
                                 forwardModel=forwardModel, apply=True)
-            replot()
+            self.replot()
             self.infoDump('Calibration applied')
         self.applyCalibBtn = QPushButton('Apply Calibration')
         self.applyCalibBtn.clicked.connect(applyCalibBtnFunc)
