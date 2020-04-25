@@ -707,7 +707,7 @@ class App(QMainWindow):
             self.showParams['cmap'] = cmaps[index]
             self.replot()
         self.cmapCombo = QComboBox()
-        cmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow', 'jet']
+        cmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow', 'jet','jet_r']
         for cmap in cmaps:
             self.cmapCombo.addItem(cmap)
         self.cmapCombo.activated.connect(cmapComboFunc)
