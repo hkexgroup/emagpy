@@ -19,6 +19,7 @@ import matplotlib.tri as mtri
 # import matplotlib.path as mpath
 from scipy.optimize import minimize
 from scipy.stats import linregress, gaussian_kde
+from scipy import interpolate
 
 # for parallel computing
 from joblib import Parallel, delayed
@@ -2694,4 +2695,113 @@ class Problem(object):
         ax.set_ylabel('y [m]')
         fig.colorbar(cax, ax=ax, label='Depth [m]')
         ax.set_title('Depths[{:d}]'.format(idepth))
+
+    def calcDOI(self, conds_m, depths_m, coils, forwardModel, nlayers=50, plot=False):
+	"""calcDOI for single EC model, sensitivity cutoff at 0.3, i.e. 70% of signal comes from above the DOI
+        
+        Parameters
+        ----------
+        conds_m : array of model conductivities
+	depths_m : array of model depths
+        coils : str, Names of coils
+        forwardModel : str, forward model to use, 
+	using CS will return DOI that is independent of model, FSlin and FSeq return the same result
+            If `True` then there will be contouring.
+        nlayers : int, number of layers for finely descretised model, this is done to obtain more accurate DOI estimates
+            Minimum value for colorscale.
+        plot : bool, plot cumulative sensitivities
+   
+        """
+
+
+
+    	depths = np.append(np.linspace(0.01, np.max(depths_m)*4, nlayers-1),1000) # depth of bottom of each layer
+    	nlayers = len(depths) + 1
+
+    	depths_m_r = depths_m[::-1] # reverse model depths to place on more discritised model
+    	conds_m_r = conds_m[::-1] # reverse model conds to place on more discritised model
+    
+    	conds = np.ones(len(depths)+1) * conds_m[-1]
+
+    	for i in range(0, len(depths_m)):
+        	conds[np.where(depths < depths_m_r[i])] = conds_m_r[i+1] # replace conds on more discritised model
+        
+    	depths = np.ones((nlayers, len(depths))) * depths[None,:]
+    	conds = np.ones((nlayers, nlayers)) * conds[None,:]
+    	ix = np.arange(nlayers-1)
+    	conds[ix,ix] = conds[ix,ix] + 1 # we will disturb layer by layer by 1 mS/m
+    
+    	self.setModels([depths], [conds])
+    
+    	dfeca = self.forward(forwardModel=forwardModel, coils=coils)
+    
+    	dfeca = np.asarray(dfeca[0])[:,0:len(coils)]
+
+
+    	#data_df=np.log10(dfeca[:-1,]) - np.log10(dfeca[-1,:])
+    	#model_df=np.log10(conds[-1,:-1]+1) - np.log10(conds[-1,:-1])
+    
+    	data_df=dfeca[:-1,] - dfeca[-1,:]
+    	model_df=conds[-1,:-1]+1 - conds[-1,:-1]
+
+    	S = data_df/model_df[:,None]
+    	cumS = np.zeros(S.shape)
+
+    	for i in range(0, len(cumS[0,:])):
+        	cumS[:,i] = np.cumsum(S[:,i][::-1])[::-1]
+        
+    	cumS_norm = cumS/np.max(cumS, axis=0) #all are close to 1, but not exactly so normalise 
+        
+    	depths = depths[0,:]
+    	mdepths = np.r_[depths[0]/2, depths[:-1] + np.diff(depths)/2]   
+        
+    	DOI = np.ones(len(coils))
+    
+    	for i in range(0, len(coils)):
+        	f = interpolate.interp1d(cumS_norm[:,i], mdepths)
+        	DOI[i] = np.round(f(0.3),2)
+    
+    	if plot==True:
+        	plt.ylim(10,0)
+        	plt.xlabel('Cumulative Senstivity')
+        	plt.ylabel('Depth [m]')
+        	plt.plot(cumS_norm, mdepths)
+        	plt.legend(coils)
+        
+    	return(DOI)
+
+    def calcDOIs(self, conds=self.models, depths=self.depths, coils=self.coils, forwardModel, nlayers=50, plot=False):
+
+	"""calcDOI for multiple EC models, sensitivity cutoff at 0.3, i.e. 70% of signal comes from above the DOI
+        
+        Parameters
+        ----------
+        conds : array of model conductivities
+	depths : array of model depths
+        coils : str, Names of coils
+        forwardModel : str, forward model to use, 
+	using CS will return DOI that is independent of model, FSlin and FSeq return the same result
+            If `True` then there will be contouring.
+        nlayers : int, number of layers for finely descretised model, this is done to obtain more accurate DOI estimates
+            Minimum value for colorscale.
+        plot : bool, plot DOI of each coil along measurement transect
+   
+        """
+	
+	conds=conds[0]
+    	depths=depths[0]
+    
+    	DOIs = np.zeros((conds.shape[0], len(coils)))
+    
+    	for i in range(0, conds.shape[0]):
+        	DOIs[i,:]=k.calcDOI(conds_m=conds[i,:], depths_m=depths[i,:], coils=coils, forwardModel=forwardModel, nlayers=nlayers, plot=False)
+    
+    	if plot==True:
+            	plt.ylim(np.round(np.max(DOIs)),0)
+    		plt.xlabel('Measurement')
+    	plt.ylabel('Depth of Investigation [m]')
+    	plt.plot(DOIs,linestyle='-', marker='o')
+    	plt.legend(coils)
+    
+    	return(DOIs)
 
