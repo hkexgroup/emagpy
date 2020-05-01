@@ -299,7 +299,7 @@ class Problem(object):
     
     
         
-    def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l1',
+    def invert(self, forwardModel='CS', method='L-BFGS-B', regularization='l2',
                alpha=0.07, beta=0.0, gamma=0.0, dump=None, bnds=None,
                options={}, Lscaling=False, rep=100, noise=0.05, nsample=100, 
                annplot=False, threed=False, njobs=1):
@@ -321,6 +321,9 @@ class Problem(object):
             an artificial neural network on synthetic data and use it for inversion.
             Note that smoothing (alpha, beta, gamma) and regularization are not
             supported by ANN, MCMC, DREAM and SCUEA (but well by ROPE).
+            Another option is the use of the Gauss-Newton algorithm which can be 
+            faster in some situation. Maximum number of GN iteration can be specified as
+            options={maxiter:3}. Default is 1.
         regularization : str, optional
             Type of regularization, either l1 (blocky model) or l2 (smooth model)
         alpha : float, optional
@@ -359,21 +362,32 @@ class Problem(object):
         """
         mMinimize = ['L-BFGS-B','TNC','CG','Nelder-Mead']
         mMCMC = ['ROPE','SCEUA','DREAM', 'MCMC']
-        if (method not in mMinimize) and (method not in mMCMC) and (method != 'ANN'):
+        mOther = ['ANN','Gauss-Newton']
+        if (method not in mMinimize) and (method not in mMCMC) and (method not in mOther):
             raise ValueError('Unknow method {:s}'.format(method))
             return
         
         # check if we have initial model
         if len(self.conds0) == 0:
-            self.setInit(self.depths0)
+            self.setInit([0.5, 1.5]) # default depths
             
         # switch in case Gauss-Newton routine is selected
         if forwardModel in ['CSgn']:
             self.invertGN(alpha=alpha, alpha_ref=None, dump=dump)
             self.forwardModel = 'CS'
             return
-        self.forwardModel = forwardModel # for future RMSE or misfit computation
         
+        if method == 'Gauss-Newton':
+            if forwardModel == 'Q':
+                raise ValueError('Forward model Q can not be used with Gauss-Newton at the moment.'
+                                 'Choose CS, FSlin or FSeq instead.')
+                return
+            if regularization == 'l1':
+                print('Regularization autommatically set to L2 for Gauss-Newton')
+            if beta != 0:
+                print('No lateral smoothing possible with Gauss-Newton for now.')
+        
+        self.forwardModel = forwardModel # for future RMSE or misfit computation
         self.models = []
         self.depths = []
         self.rmses = []
@@ -716,8 +730,8 @@ class Problem(object):
                 
                 params.append((obs, pn, spn, alpha, b, g, ini0))                
             
-                # sequential
-                if (method != 'ANN') & (njobs == 1): # sequential inversion (default)
+                # sequential inversion (default)
+                if (method not in mOther) & (njobs == 1):
                     try:
                         with HiddenPrints():
                             outt = solve(*params[j])
@@ -732,11 +746,45 @@ class Problem(object):
                             out = outt
                         depth[j,vd] = out[:np.sum(vd)]
                         model[j,vc] = out[np.sum(vd):]
-                        rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, ini0)**2)/len(obs))
+                        rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, ini0)**2)/np.sum(obs**2)/len(obs))*100
                     except Exception as e:
                         print('Killed')
                         return
+                    
+                if method == 'Gauss-Newton':
+                    try:
+                        dump('\r{:d}/{:d} inverted'.format(j+1, nrows))
+                        # compute Jacobian
+                        sens = self.computeSens(forwardModel=forwardModel,
+                                                coils=None, # this trigger normal forward modelling
+                                                models=[ini0[1][None,:]], depths=[ini0[0][None,:]])
+                        sens = sens[0][:,:,0]
+                        J = sens/np.sum(sens, axis=0) # so that sum == 1
+                        J = J.T
                         
+                        # Gauss-Newton algorithm
+                        cond = np.copy(ini0[1])[:,None]
+                        app = obs.copy()
+                        # rrmse = np.sqrt(1/len(app)*np.sum(dataMisfit(cond[:,0], app, ini0)**2)/np.sum(app**2))
+                        # print('ini: RMSE: {:.5f}%'.format(rrmse), ' '.join(
+                                # ['{:.2f}'.format(a) for a in cond[:,0]]))
+                        maxiter = options['maxiter'] if 'maxiter' in options else 1
+                        for l in range(maxiter): # only one iteration as the jacobian doesn't depend on the cond
+                            d = -dataMisfit(cond.flatten(), app, ini0) # NOTE we need minus to get the right direction
+                            LHS = np.dot(J.T, J) + alpha*L
+                            RHS = np.dot(J.T, d[:,None]) - alpha*np.dot(L, cond)
+                            solution = np.linalg.solve(LHS, RHS)
+                            cond = cond + solution
+                            out = cond.flatten()
+                            # rrmse = np.sqrt(1/len(app)*np.sum(dataMisfit(out, app, ini0)**2)/np.sum(app**2))
+                            # print('{:d}: RMSE: {:.5f}%'.format(l, rrmse), ' '.join(
+                                # ['{:.2f}'.format(a) for a in cond[:,0]]))
+                        depth[j,vd] = out[:np.sum(vd)]
+                        model[j,vc] = out[np.sum(vd):]
+                        rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, ini0)**2)/np.sum(obs**2)/len(obs))*100
+                    except Exception as e:
+                        print('Killed')
+                        return
             
             # parallel computing with loky backend
             if (method != 'ANN') & (njobs != 1):
@@ -783,7 +831,7 @@ class Problem(object):
                         out = outt
                     depth[j,vd] = out[:np.sum(vd)]
                     model[j,vc] = out[np.sum(vd):]
-                    rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, params[j][-1])**2)/len(obs))
+                    rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, params[j][-1])**2)/np.sum(obs**2)/len(obs))*100
             dump('\n')
             self.models.append(model)
             self.depths.append(depth)
@@ -1002,7 +1050,7 @@ class Problem(object):
                     cond = cond + solution # it's an iterative process but it converges in one iteration as it's linear
                 out = cond.flatten()
                 model[j,:] = out
-                rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/len(app))
+                rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/np.sum(app**2)/len(app))*100
                 dump('\r{:d}/{:d} inverted'.format(j+1, apps.shape[0]))
             self.models.append(model)
             self.rmses.append(rmse)
@@ -1142,8 +1190,9 @@ class Problem(object):
             
         
         
-    def forward(self, forwardModel='CS', coils=None, noise=0.0):
-        """Forward model.
+    def forward(self, forwardModel='CS', coils=None, noise=0.0,
+                models=[], depths=[]):
+        """Compute the forward response.
         
         Parameters
         ----------
@@ -1160,7 +1209,14 @@ class Problem(object):
             The ECa values generated will be incorporated as a new Survey object.
         noise : float, optional
             Percentage of noise to add on the generated apparent conductivities.
-        
+        models : list of numpy.array of float
+            List of array of shape Nsample x Nlayer with conductiivty in mS/m. If empty,
+            `self.models` will be used.
+        depths : list of numpy.array of float
+            List of array of shape Nsample x (Nlayer - 1) with the depth (positive number)
+            of the bottom of the layer in meters relative to the surface.
+            If empty `self.depths` will be used.
+            
         Returns
         -------
         df : pandas.DataFrame
@@ -1223,28 +1279,86 @@ class Problem(object):
         def addnoise(x, level=0.05):
             return x + np.random.randn(len(x))*x*level
         
+        if len(models) == 0:
+            models = self.models
+        if len(depths) == 0:
+            depths = self.depths
         dfs = []
-        for i, model in enumerate(self.models):
-            depths = self.depths[i]
+        for model, depth in zip(models, depths):
             apps = np.zeros((model.shape[0], len(self.coils)))*np.nan
             for j in range(model.shape[0]):
                 conds = model[j,:]
-                depth = depths[j,:]
-                apps[j,:] = addnoise(fmodel(conds, depth), level=noise)
+                sdepth = depth[j,:]
+                apps[j,:] = addnoise(fmodel(conds, sdepth), level=noise)
         
             df = pd.DataFrame(apps, columns=self.coils)
             dfs.append(df)
         
         if iForward:
             self.surveys = []
-            for df in dfs:
+            for i, df in enumerate(dfs):
                 s = Survey()
                 s.readDF(df)
-                s.name = 'Model'
+                s.name = 'Model {:d}'.format(i+1)
                 self.surveys.append(s)
         
         return dfs
     
+    
+    def computeSens(self, forwardModel='CS', coils=None, models=[], depths=[]):
+        """Compute normalised local sensitivity using perturbation method.
+        
+        Parameters
+        ----------
+        forwardModel : str, optional
+            Type of forward model:
+                - CS : Cumulative sensitivity (default)
+                - FS : Full Maxwell solution with low-induction number (LIN) approximation
+                - FSeq : Full Maxwell solution without LIN approximation (see Andrade 2016)
+        coils : list of str, optional
+            If `None`, then the default attribute of the object will be used (foward
+            mode on inverted solution).
+            If specified, the coil spacing, orientation and height above the ground
+            will be set. In this case you need to assign at models and depths (full forward mode).
+            The ECa values generated will be incorporated as a new Survey object.
+        models : list of numpy.array of float
+            List of array of shape Nsample x Nlayer with conductiivty in mS/m. If empty,
+            `self.models` will be used.
+        depths : list of numpy.array of float
+            List of array of shape Nsample x (Nlayer - 1) with the depth (positive number)
+            of the bottom of the layer in meters relative to the surface.
+            If empty `self.depths` will be used.
+        
+        Returns
+        -------
+        senss : list of numpy.array of float
+            List of matrix of size Nsample x Ncoils x Nlayers containing the normalised
+            local sensitivity.
+        """
+        if len(models) == 0:
+            models = self.models
+        if len(depths) == 0:
+            depths = self.depths
+            
+        senss = []
+        for model, depth in zip(models, depths): # for each model
+            npos = model.shape[0]  
+            nlayer = depth.shape[1] + 1 # number of layer (last layer is infinite)
+            nprofile = nlayer + 1 # number of 1D profile (last profile is reference)
+            smodels = np.dstack([model]*nprofile) # Nsample x Nlayer x Nprofile
+            ix = np.arange(nlayer)
+            smodels[:,ix,ix] = smodels[:,ix,ix] + 1 # perturbation
+            sdepths = np.dstack([depth]*nprofile)
+            lmodels = [smodels[i,:,:].T for i in range(npos)]
+            ldepths = [sdepths[i,:,:].T for i in range(npos)]
+            dfs = self.forward(forwardModel=forwardModel, coils=coils,
+                               models=lmodels, depths=ldepths,
+                               noise=0.0)
+            eca = np.dstack([df.values for df in dfs]) # Nsample x Ncoils x Nprofiles
+            sens = eca[:-1,:,:]/eca[-1,:,:][None,:,:] - 1 # dividing by ref (undisturbed ECa)
+            sens = sens/np.max(sens, axis=0)[None,:,:]
+            senss.append(sens)
+        return senss
     
     
     def show(self, index=0, coil='all', ax=None, vmin=None, vmax=None, 
@@ -1806,14 +1920,14 @@ class Problem(object):
             coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
             coll.set_clim(vmin=vmin, vmax=vmax)
             ax.add_collection(coll)
-            pad = 0.1 if rmse else 0.05
+            pad = 0.15 if rmse else 0.05
             fig.colorbar(coll, label='EC [mS/m]', ax=ax, pad=pad)
         
         if rmse:
             ax2 = ax.twinx()
             xx = np.arange(len(self.rmses[index])) + 0.5
             ax2.plot(xx, self.rmses[index], 'kx-')
-            ax2.set_ylabel('RMSE')
+            ax2.set_ylabel('RRMSE [%]')
             
         if errorbar or overlay:
             vc = ~self.fixedConds
@@ -1853,7 +1967,7 @@ class Problem(object):
         ax.set_ylim([np.min(depths), np.max(depths)])
         ax.set_xlim([np.min(x), np.max(x)])
         def format_coord(i,j):
-            col=int(np.floor(i))
+            col = int(np.floor(i))
             if col < sig.shape[0]:
                 row = int(np.where(-depths[col,:] < j)[0].min())-1
                 return 'x={0:.4f}, y={1:.4f}, value={2:.4f}'.format(col, row, sig[col, row])
@@ -2222,22 +2336,22 @@ class Problem(object):
         obsECa = survey.df[cols].values
         simECa = dfsForward[index][cols].values
         #print('number of nan', np.sum(np.isnan(obsECa)), np.sum(np.isnan(simECa)))
-        rmse = np.sqrt(np.sum((obsECa.flatten() - simECa.flatten())**2)/len(obsECa.flatten()))
-        rmses = np.sqrt(np.sum((obsECa - simECa)**2, axis=0)/obsECa.shape[0])
+        rmse = np.sqrt(np.sum((obsECa.flatten() - simECa.flatten())**2)/np.sum(obsECa.flatten()**2)/len(obsECa.flatten()))*100
+        rmses = np.sqrt(np.sum((obsECa - simECa)**2, axis=0)/np.sum(obsECa**2, axis=0)/obsECa.shape[0])*100
         if vmin is None:
             vmin = np.nanpercentile(obsECa.flatten(), 5)
         if vmax is None:
             vmax = np.nanpercentile(obsECa.flatten(), 95)
         if ax is None:
             fig, ax = plt.subplots()
-        ax.set_title('RMSE: {:.3f}'.format(rmse))
+        ax.set_title('RRMSE: {:.3f} %'.format(rmse))
         ax.plot(obsECa, simECa, '.')
         ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
         ax.set_xlim([vmin, vmax])
         ax.set_ylim([vmin, vmax])
         ax.set_xlabel('Observed ECa [mS/m]')
         ax.set_ylabel('Simulated ECa [mS/m]')
-        ax.legend(['{:s} ({:.2f})'.format(c, r) for c, r in zip(cols, rmses)])
+        ax.legend(['{:s} ({:.2f} %)'.format(c, r) for c, r in zip(cols, rmses)])
     
     
     def filterRange(self, vmin=None, vmax=None):
