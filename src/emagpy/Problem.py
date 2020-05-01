@@ -2695,3 +2695,143 @@ class Problem(object):
         fig.colorbar(cax, ax=ax, label='Depth [m]')
         ax.set_title('Depths[{:d}]'.format(idepth))
 
+    def gridParamsearch(self, forwardModel, nlayers, bnds=-1, step=10, max_total_misfit=0.1):
+  	"""Get list of model bounds that fit a particular total misfit threshold.
+        
+        Parameters
+        ----------
+        forwardModel : str, forward model
+            Survey index. Default is first.
+        nlayers : int, number of layers for model. limted to 2 and 3
+            Depth index. Default is first depth.
+        step : int, number of steps to use in range
+        max_total_misfit : maximum allowable misfit for model bounds
+        bnds : specify bnds or default values will be used
+        """
+
+    	#two layers
+    	if nlayers==2:
+
+		eca_df = self.surveys[0].df.values[:,2:len(self.coils)+2].shape[0]# use data
+        
+        	if(bnds==-1):
+            		bnds=[(0.1, 3),(0, 100),(0, 100)]
+            
+            
+        	depth1=np.linspace(bnds[0][0], bnds[0][1], step)
+        	cond1=np.linspace(bnds[1][0], bnds[1][1], step)
+        	cond2=np.linspace(bnds[2][0], bnds[2][1], step)
+        
+        	models = np.ones((1, 3))
+
+        	for i0 in range(0, len(cond1)):
+            		for i1 in range(0, len(cond2)):
+                		for i2 in range(0, len(depth1)):
+                    			models=np.vstack((models, [cond1[i0], cond2[i1], depth1[i2]]))
+        	models=models[1:-1,] #remove first row
+
+        	depths=models[:,2].reshape((len(models[:,2]),1))
+        	conds=models[:,0:2]
+        	self.setModels([depths], [conds])
+        	dfeca = self.forward(forwardModel=forwardModel)
+        	eca_m =np.asarray(dfeca[0])[:,0:len(self.coils)]
+
+        	mod_list = []
+        	for i in range(0,eca_df.shape[0]):
+            		eca_d = eca_df[i,:]
+
+            		coil_mf = np.absolute(eca_m - eca_d) / eca_d
+
+            		total_mf = np.sum(coil_mf, axis=1) / len(self.coils)
+
+            		converged = (np.less(total_mf, max_total_misfit))
+
+            		total_mf = total_mf.reshape(len(total_mf),1)
+
+            		converged_models=np.hstack((models[converged,:],total_mf[converged]))
+
+            		mod_list.append(converged_models)
+
+        	bnd_list = []
+        	for i in range(0, len(mod_list)):
+            		if len(mod_list[i]) > 0:
+                		cond1_range = [(np.min(mod_list[i][:,0]), np.max(mod_list[i][:,0]))]
+                		cond2_range = [(np.min(mod_list[i][:,1]), np.max(mod_list[i][:,1]))]
+                		depth1_range = [(np.min(mod_list[i][:,2]), np.max(mod_list[i][:,2]))]
+                		bnd_list.append([depth1_range, cond1_range, cond2_range])
+            		else:
+                		bnd_list.append(bnds)
+
+        	return(bnd_list)
+    
+    
+        #three layers
+    	if nlayers==3:
+
+
+		eca_df = self.surveys[0].df.values[:,2:len(self.coils)+2].shape[0]# use data
+
+        	if(bnds==-1):
+            		bnds=[(0.1, 2),(2, 4),(0, 100),(0, 100),(0, 100)]
+
+
+        	depth1=np.linspace(bnds[0][0], bnds[0][1], step)
+        	depth2=np.linspace(bnds[1][0], bnds[1][1], step)
+        	cond1=np.linspace(bnds[2][0], bnds[2][1], step)
+        	cond2=np.linspace(bnds[3][0], bnds[3][1], step)
+        	cond3=np.linspace(bnds[4][0], bnds[4][1], step)
+
+        	models = np.ones((1, 5))
+
+        	for i0 in range(0, len(cond1)):
+            		for i1 in range(0, len(cond2)):
+                		for i2 in range(0, len(cond3)):
+                    			for i3 in range(0, len(depth1)):
+                        			for i4 in range(0, len(depth2)):
+                            				models=np.vstack((models, [cond1[i0], cond2[i1], cond2[i2], depth1[i3], depth2[i4]]))
+
+        	models=models[1:-1,] #remove first row
+
+        	depths=models[:,3:].reshape((len(models[:,2]),2))
+        	conds=models[:,0:3]
+        	self.setModels([depths], [conds])
+        	dfeca = self.forward(forwardModel=forwardModel)
+        	eca_m =np.asarray(dfeca[0])[:,0:len(self.coils)]
+
+        	mod_list = []
+
+        	for i in range(0,eca_df.shape[0]):
+            		eca_d = eca_df[i,:]
+
+            		coil_mf = np.absolute(eca_m - eca_d) / eca_d
+
+            		total_mf = np.sum(coil_mf, axis=1) / len(self.coils)
+
+            		converged = (np.less(total_mf, max_total_misfit))
+
+            		total_mf = total_mf.reshape(len(total_mf),1)
+
+            		converged_models=np.hstack((models[converged,:],total_mf[converged]))
+
+            		mod_list.append(converged_models)
+
+
+
+        	bnd_list = []
+        	for i in range(0, len(mod_list)):
+            		if len(mod_list[i]) > 0:
+                		cond1_range = list((np.min(mod_list[i][:,0]), np.max(mod_list[i][:,0])))
+                		cond2_range = list((np.min(mod_list[i][:,1]), np.max(mod_list[i][:,1])))
+                		cond3_range = list((np.min(mod_list[i][:,2]), np.max(mod_list[i][:,2])))
+                		depth1_range = list((np.min(mod_list[i][:,3]), np.max(mod_list[i][:,3])))
+                		depth2_range = list((np.min(mod_list[i][:,4]), np.max(mod_list[i][:,4])))
+                		bnd_list.append([depth1_range, depth2_range, cond1_range, cond2_range, cond3_range])
+            		else:
+                		bnd_list.append(bnds)
+
+        	return(bnd_list)
+                               
+                            
+    	else:
+        	return('Number layers > 3 takes too long, method only implemented for two and three layer models, sorry!')
+
