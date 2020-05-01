@@ -2712,7 +2712,7 @@ class Problem(object):
         #two layers
         if nlayers==2:
 
-        eca_df = self.surveys[0].df.values[:,2:len(self.coils)+2].shape[0]# use data
+            eca_df = self.surveys[0].df.values[:,2:len(self.coils)+2].shape[0]# use data
         
             if(bnds==-1):
                 bnds=[(0.1, 3),(0, 100),(0, 100)]
@@ -2754,7 +2754,7 @@ class Problem(object):
                     cond2_range = [(np.min(mod_list[i][:,1]), np.max(mod_list[i][:,1]))]
                     depth1_range = [(np.min(mod_list[i][:,2]), np.max(mod_list[i][:,2]))]
                     bnd_list.append([depth1_range, cond1_range, cond2_range])
-                 else:
+                else:
                     bnd_list.append(bnds)
 
             return(bnd_list)
@@ -2764,7 +2764,7 @@ class Problem(object):
         if nlayers==3:
 
 
-        eca_df = self.surveys[0].df.values[:,2:len(self.coils)+2].shape[0]# use data
+            eca_df = self.surveys[0].df.values[:,2:len(self.coils)+2].shape[0]# use data
 
             if(bnds==-1):
                 bnds=[(0.1, 2),(2, 4),(0, 100),(0, 100),(0, 100)]
