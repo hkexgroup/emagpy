@@ -95,6 +95,26 @@ print('\n'.join(titles))
 k.showMisfit()
 k.showOne2one()
 
+#%% testing gauss-Newton
+k = Problem()
+k.createSurvey(datadir + 'cover-crop/coverCropTransect.csv')
+k.filterRange(vmax=50)
+fig, axs = plt.subplots(3, 1)
+ax = axs[0]
+k.invert(forwardModel='CS', method='Gauss-Newton')
+k.showResults(ax=ax, rmse=True, vmin=10, vmax=30)
+ax.set_title('(a) CS with Gauss-Newton')
+
+ax = axs[1]
+k.invert(forwardModel='FSlin', method='Gauss-Newton')
+k.showResults(ax=ax, rmse=True, vmin=10, vmax=30)
+ax.set_title('(a) FSlin with Gauss-Newton')
+
+ax = axs[2]
+k.invert(forwardModel='FSeq', method='Gauss-Newton')
+k.showResults(ax=ax, rmse=True, vmin=10, vmax=30)
+ax.set_title('(a) FSeq with Gauss-Newton')
+
 
 #%% test lateral smoothing
 k = Problem()
