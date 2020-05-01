@@ -2336,8 +2336,8 @@ class Problem(object):
         obsECa = survey.df[cols].values
         simECa = dfsForward[index][cols].values
         #print('number of nan', np.sum(np.isnan(obsECa)), np.sum(np.isnan(simECa)))
-        rmse = np.sqrt(np.sum((obsECa.flatten() - simECa.flatten())**2)/np.sum(obsECa.flatten()**2)/len(obsECa.flatten()))*100
         rmses = np.sqrt(np.sum((obsECa - simECa)**2, axis=0)/np.sum(obsECa**2, axis=0)/obsECa.shape[0])*100
+        rmse = np.sum(rmses)/len(self.coils)
         if vmin is None:
             vmin = np.nanpercentile(obsECa.flatten(), 5)
         if vmax is None:
