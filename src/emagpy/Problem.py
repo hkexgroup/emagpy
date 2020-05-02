@@ -62,7 +62,7 @@ class Problem(object):
         self.annReplaced = 0 # number of measurement outliers by ANN
         self.runningUI = False # True if run in UI, just change output of parallel stuff
         self.forwardModel = None # store the forward model choosen for showMisfit and showOne2One
-        self.projection = None
+        self.projection = 'EPSG:27700' # default CRS
         
         
     def createSurvey(self, fname, freq=None, hx=None, targetProjection=None):
@@ -1464,7 +1464,7 @@ class Problem(object):
     
     
     
-    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='linear',
+    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='nearest',
                 xmin=None, xmax=None, ymin=None, ymax=None, color=True,
                 cmap='viridis', vmin=None, vmax=None, nlevel=14):
         """Save a georeferenced raster TIFF file for the specified inverted depths.

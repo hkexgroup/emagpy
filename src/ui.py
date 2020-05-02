@@ -527,7 +527,7 @@ class App(QMainWindow):
         
         self.projEdit = QLineEdit()
         self.projEdit.setPlaceholderText('Type projection CRS')
-        self.projEdit.setToolTip('Type the CRS projection and then select from the options')
+        self.projEdit.setToolTip('Type the CRS projection and then select from the options\nDefault is British National Grid / OSGB 1936')
         # self.projEdit.setValidator(QDoubleValidator())
         self.projEdit.setCompleter(self.pcsCompleter)
         # self.projEdit.setEnabled(False)
@@ -737,23 +737,11 @@ class App(QMainWindow):
         self.ptsCheck.setVisible(False)
         
         # export GIS raster layer
-        def setProjection():
-            val = self.projEdit.text()
-            try:
-                if any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
-                    epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME'] == val].values
-                elif any(self.pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
-                    epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
-                epsgVal = 'EPSG:'+str(epsg_code[0])
-                self.problem.setProjection(targetProjection=epsgVal)
-            except:
-                self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
-
-            
         def expPsMap():
             fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
-            setProjection()
-            self.problem.saveSlice(fname=fname, cmap=self.cmapCombo.currentText())
+            if fname != '':
+                self.setProjection()
+                self.problem.saveMap(fname=fname, cmap=self.cmapCombo.currentText())
             
             
         self.psMapExpBtn = QPushButton('Exp. GIS layer')
@@ -1457,8 +1445,9 @@ class App(QMainWindow):
         
         def expInvMap():
             fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
-            setProjection()
-            self.problem.saveSlice(fname=fname, islice=self.sliceCombo.currentIndex(), cmap=self.cmapInvMapCombo.currentText())
+            if fname != '':
+                self.setProjection()
+                self.problem.saveSlice(fname=fname, islice=self.sliceCombo.currentIndex(), cmap=self.cmapInvMapCombo.currentText())
             
             
         self.invMapExpBtn = QPushButton('Exp. GIS layer')
@@ -1644,9 +1633,22 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         self.setCentralWidget(self.table_widget)
         self.show()
     
+    def setProjection(self):
+        val = self.projEdit.text()
+        try:
+            if any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
+                epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME'] == val].values
+            elif any(self.pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
+                epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
+            epsgVal = 'EPSG:'+str(epsg_code[0])
+            self.problem.setProjection(targetProjection=epsgVal)
+        except:
+            self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
+    
     def projBtnFunc(self):
-        val = float(self.projEdit.text()) if self.projEdit.text() != '' else None
-        self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
+        if self.projEdit.text() != '':
+            self.setProjection()
+        self.problem.convertFromNMEA(targetProjection=self.problem.projection)
         self.replot()
 
     def replot(self):
