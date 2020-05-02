@@ -62,6 +62,7 @@ class Problem(object):
         self.annReplaced = 0 # number of measurement outliers by ANN
         self.runningUI = False # True if run in UI, just change output of parallel stuff
         self.forwardModel = None # store the forward model choosen for showMisfit and showOne2One
+        self.projection = None
         
         
     def createSurvey(self, fname, freq=None, hx=None, targetProjection=None):
@@ -1463,9 +1464,9 @@ class Problem(object):
     
     
     
-    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='nearest',
-                xmin=None, xmax=None, ymin=None, ymax=None, color=False,
-                cmap='viridis', vmin=None, vmax=None):
+    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='linear',
+                xmin=None, xmax=None, ymin=None, ymax=None, color=True,
+                cmap='viridis', vmin=None, vmax=None, nlevel=14):
         """Save a georeferenced raster TIFF file for the specified inverted depths.
         
         Parameters
@@ -1549,7 +1550,7 @@ class Problem(object):
             if vmax is None:
                 vmax = np.nanpercentile(Z.flatten(), 98)
             norm = plt.Normalize(vmin=vmin, vmax=vmax)
-            Z = plt.get_cmap(cmap)(norm(Z))
+            Z = plt.get_cmap(cmap, nlevel)(norm(Z))
             Z = 255*Z
             Z = Z.astype('uint8')
             for i in range(4):
@@ -1559,7 +1560,7 @@ class Problem(object):
                            driver='GTiff',
                            height=Z.shape[0],
                            width=Z.shape[1], count=4, dtype=Z.dtype,
-                           crs='epsg:27700', transform=tt) as dst:
+                           crs=self.projection, transform=tt) as dst:
                 for i in range(4):
                     dst.write(Z[:,:,i], i+1)
         else:
@@ -1567,7 +1568,7 @@ class Problem(object):
                                driver='GTiff',
                                height=Z.shape[0],
                                width=Z.shape[1], count=1, dtype=Z.dtype,
-                               crs='epsg:27700', transform=tt) as dst:
+                               crs=self.projection, transform=tt) as dst:
                 dst.write(Z, 1)
         
     
@@ -1764,6 +1765,7 @@ class Problem(object):
             Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
             for the British Grid.
         """
+        self.projection = targetProjection
         for survey in self.surveys:
             survey.projection = targetProjection
         
@@ -1909,7 +1911,7 @@ class Problem(object):
             yc = np.r_[np.zeros(nsample), centroid[:,1], -np.ones(nsample)*maxDepth]
             zc = np.c_[sig[:,0], sig, sig[:,-1]]
             if vmax > vmin:
-                levels = np.linspace(vmin, vmax, 7)
+                levels = np.linspace(vmin, vmax, 14)
             else:
                 levels = None
             # cax = ax.tricontourf(xc, yc, zc.flatten('F'),
@@ -2644,7 +2646,7 @@ class Problem(object):
             ax.set_xlim([np.nanmin(x), np.nanmax(x)])
             ax.set_ylim([np.nanmin(y), np.nanmax(y)])
         else:
-            levels = np.linspace(vmin, vmax, 7)
+            levels = np.linspace(vmin, vmax, 14)
             cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
             if pts:
                 ax.plot(x, y, 'k+')

@@ -515,7 +515,7 @@ class App(QMainWindow):
 
         
         # projection (only if GPS data are available)
-        self.projLabel = QLabel('EPSG:')
+        self.projLabel = QLabel('Map CRS:')
         self.projLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         
         ### Preparing the ~5000 projections:
@@ -704,12 +704,12 @@ class App(QMainWindow):
         
         # select different colormap
         def cmapComboFunc(index):
-            self.showParams['cmap'] = cmaps[index]
+            self.showParams['cmap'] = psMapCmaps[index]
             self.replot()
         self.cmapCombo = QComboBox()
-        cmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow', 'jet','jet_r']
-        for cmap in cmaps:
-            self.cmapCombo.addItem(cmap)
+        psMapCmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow', 'jet','jet_r']
+
+        self.cmapCombo.addItems(psMapCmaps)
         self.cmapCombo.activated.connect(cmapComboFunc)
         self.cmapCombo.setEnabled(False)
         self.cmapCombo.setVisible(False)
@@ -739,21 +739,21 @@ class App(QMainWindow):
         # export GIS raster layer
         def setProjection():
             val = self.projEdit.text()
-            try:
-                if any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
-                    epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME'] == val].values
-                elif any(self.pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
-                    epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
-                epsgVal = 'EPSG:'+str(epsg_code[0])
-                self.problem.setProjection(targetProjection=epsgVal)
-            except:
-                self.errorDump('CRS projection is not correctly defined')
+            # try:
+            if any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
+                epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME'] == val].values
+            elif any(self.pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
+                epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
+            epsgVal = 'EPSG:'+str(epsg_code[0])
+            self.problem.setProjection(targetProjection=epsgVal)
+            # except:
+            #     self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
 
             
         def expPsMap():
             fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
             setProjection()
-            self.problem.saveMap(fname=fname)
+            self.problem.saveSlice(fname=fname, cmap=self.cmapCombo.currentText())
             
             
         self.psMapExpBtn = QPushButton('Exp. GIS layer')
@@ -1356,9 +1356,8 @@ class App(QMainWindow):
             showInvParams['cmap'] = self.cmapInvCombo.itemText(index)
             self.mwInv.replot(**showInvParams)
         self.cmapInvCombo = QComboBox()
-        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
-        for cmap in cmaps:
-            self.cmapInvCombo.addItem(cmap)
+        invCmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
+        self.cmapInvCombo.addItems(invCmaps)
         self.cmapInvCombo.activated.connect(cmapInvComboFunc)
         
         def surveyInvComboFunc(index):
@@ -1407,9 +1406,8 @@ class App(QMainWindow):
             showInvMapParams['cmap'] = self.cmapInvMapCombo.itemText(index)
             self.mwInvMap.replot(**showInvMapParams)
         self.cmapInvMapCombo = QComboBox()
-        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
-        for cmap in cmaps:
-            self.cmapInvMapCombo.addItem(cmap)
+        invMapCmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
+        self.cmapInvMapCombo.addItems(invMapCmaps)
         self.cmapInvMapCombo.activated.connect(cmapInvMapComboFunc)
         
         def surveyInvMapComboFunc(index):
@@ -1456,6 +1454,17 @@ class App(QMainWindow):
         self.saveInvMapDataBtn = QPushButton('Save Results')
         self.saveInvMapDataBtn.clicked.connect(saveInvMapDataBtnFunc)
         
+        
+        def expInvMap():
+            fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
+            setProjection()
+            self.problem.saveSlice(fname=fname, islice=self.sliceCombo.currentIndex(), cmap=self.cmapInvMapCombo.currentText())
+            
+            
+        self.invMapExpBtn = QPushButton('Exp. GIS layer')
+        self.invMapExpBtn.setToolTip('Export a georeferenced TIFF file to directly be imported in GIS software.\n'
+                                     'Choose the correct EPSG CRS projection in the "Importing" tab!')
+        self.invMapExpBtn.clicked.connect(expInvMap)
         
         
         self.graphTabs = QTabWidget()
@@ -1536,6 +1545,7 @@ class App(QMainWindow):
         mapOptionsLayout.addWidget(self.contourInvMapCheck)
         mapOptionsLayout.addWidget(self.cmapInvMapCombo)
         mapOptionsLayout.addWidget(self.saveInvMapDataBtn)
+        mapOptionsLayout.addWidget(self.invMapExpBtn)
         mapLayout.addLayout(mapOptionsLayout)
         mapLayout.addWidget(self.mwInvMap)
         self.mapTab.setLayout(mapLayout)
