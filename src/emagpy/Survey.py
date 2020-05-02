@@ -613,7 +613,7 @@ class Survey(object):
                            driver='GTiff',
                            height=Z.shape[0],
                            width=Z.shape[1], count=4, dtype=Z.dtype,
-                            crs=self.projection, transform=tt) as dst:
+                           crs=self.projection, transform=tt) as dst:
                 for i in range(4):
                     dst.write(Z[:,:,i], i+1)
         else:

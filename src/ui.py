@@ -739,15 +739,15 @@ class App(QMainWindow):
         # export GIS raster layer
         def setProjection():
             val = self.projEdit.text()
-            # try:
-            if any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
-                epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME'] == val].values
-            elif any(self.pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
-                epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
-            epsgVal = 'EPSG:'+str(epsg_code[0])
-            self.problem.setProjection(targetProjection=epsgVal)
-            # except:
-            #     self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
+            try:
+                if any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
+                    epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME'] == val].values
+                elif any(self.pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
+                    epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
+                epsgVal = 'EPSG:'+str(epsg_code[0])
+                self.problem.setProjection(targetProjection=epsgVal)
+            except:
+                self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
 
             
         def expPsMap():
