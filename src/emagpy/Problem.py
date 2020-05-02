@@ -1755,7 +1755,18 @@ class Problem(object):
         for survey in self.surveys:
             survey.convertFromNMEA(targetProjection=targetProjection)
     
-    
+    def setProjection(self, targetProjection='EPSG:27700'):
+        """Set surveys projection to the targetProjection.
+        
+        Parameters
+        ----------
+        targetProjection : str, optional
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            for the British Grid.
+        """
+        for survey in self.surveys:
+            survey.projection = targetProjection
+        
 
     def showProfile(self, index=0, ipos=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, errorbar=False):

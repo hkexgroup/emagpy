@@ -519,9 +519,9 @@ class App(QMainWindow):
         self.projLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         
         ### Preparing the ~5000 projections:
-        pcs = pd.read_csv(resource_path('emagpy/pcs.csv'))
-        pcs_names = pcs['COORD_REF_SYS_NAME'].tolist()
-        pcs_names.extend(pcs['COORD_REF_SYS_NAME_rev'].tolist())
+        self.pcs = pd.read_csv(resource_path('emagpy/pcs.csv'))
+        pcs_names = self.pcs['COORD_REF_SYS_NAME'].tolist()
+        pcs_names.extend(self.pcs['COORD_REF_SYS_NAME_rev'].tolist())
         self.pcsCompleter = QCompleter(pcs_names)
         self.pcsCompleter.setCaseSensitivity(Qt.CaseInsensitive)
         
@@ -739,21 +739,21 @@ class App(QMainWindow):
         # export GIS raster layer
         def setProjection():
             val = self.projEdit.text()
-            if any(pcs['COORD_REF_SYS_NAME'] == val) is True or any(pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
-                epsg_code = pcs['COORD_REF_SYS_CODE'][pcs['COORD_REF_SYS_NAME'] == val].values
-                epsgVal = 'EPSG:'+str(epsg_code)
-                self.problem.projection = epsgVal
-            else:
+            try:
+                if any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
+                    epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME'] == val].values
+                elif any(self.pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
+                    epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
+                epsgVal = 'EPSG:'+str(epsg_code[0])
+                self.problem.setProjection(targetProjection=epsgVal)
+            except:
                 self.errorDump('CRS projection is not correctly defined')
-            
-            
+
             
         def expPsMap():
             fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
-            print('fname:', fname)
             setProjection()
             self.problem.saveMap(fname=fname)
-            
             
             
         self.psMapExpBtn = QPushButton('Exp. GIS layer')
@@ -761,8 +761,6 @@ class App(QMainWindow):
                                     'Choose the correct EPSG CRS projection!')
         self.psMapExpBtn.setVisible(False)
         self.psMapExpBtn.clicked.connect(expPsMap)
-        
-
 
         # display it
         self.mwRaw = MatplotlibWidget()
