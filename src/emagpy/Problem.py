@@ -1464,7 +1464,7 @@ class Problem(object):
     
     
     
-    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='nearest',
+    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='linear',
                 xmin=None, xmax=None, ymin=None, ymax=None, color=True,
                 cmap='viridis', vmin=None, vmax=None, nlevel=14):
         """Save a georeferenced raster TIFF file for the specified inverted depths.
