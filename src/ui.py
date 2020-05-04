@@ -533,6 +533,7 @@ class App(QMainWindow):
         # self.projEdit.setEnabled(False)
 
         self.projBtn = QPushButton('Convert NMEA')
+        self.projBtn.setToolTip('Convert NMEA string coordinates to EPSG coordinates - select a CRS first')
         self.projBtn.clicked.connect(self.projBtnFunc)
         self.projBtn.setEnabled(False)
         
@@ -1646,10 +1647,13 @@ PLoS ONE, <strong>10</strong>,12 (2015)
             self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
     
     def projBtnFunc(self):
-        if self.projEdit.text() != '':
-            self.setProjection()
-        self.problem.convertFromNMEA(targetProjection=self.problem.projection)
-        self.replot()
+        try:
+            if self.projEdit.text() != '':
+                self.setProjection()
+            self.problem.convertFromNMEA(targetProjection=self.problem.projection)
+            self.replot()
+        except Exception as e:
+            self.errorDump(e)
 
     def replot(self):
         index = self.showParams['index']
@@ -1709,9 +1713,13 @@ PLoS ONE, <strong>10</strong>,12 (2015)
 
         # enable widgets
         if 'Latitude' in survey.df.columns:
-            self.projBtn.setEnabled(True)
-            self.projEdit.setEnabled(True)
-            self.projBtnFunc() # automatically convert NMEA string
+            try:
+                float(survey.df['Latitude'][0]) # coordinates are not string
+            except: # coordinates are string
+                self.problem.projection = 'EPSG:27700' # a default CRS if user hasn't defined anything
+                self.projBtnFunc() # automatically convert NMEA string
+                self.projBtn.setEnabled(True)
+            # self.projEdit.setEnabled(True)
         self.keepApplyBtn.setEnabled(True)
         self.rollingBtn.setEnabled(True)
         self.ptsKillerBtn.setEnabled(True)

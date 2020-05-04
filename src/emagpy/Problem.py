@@ -62,7 +62,7 @@ class Problem(object):
         self.annReplaced = 0 # number of measurement outliers by ANN
         self.runningUI = False # True if run in UI, just change output of parallel stuff
         self.forwardModel = None # store the forward model choosen for showMisfit and showOne2One
-        self.projection = 'EPSG:27700' # default CRS
+        self.projection = None
         
         
     def createSurvey(self, fname, freq=None, hx=None, targetProjection=None):
@@ -81,6 +81,9 @@ class Problem(object):
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         """
         # create Survey object
+        if self.projection is not None:
+            targetProjection = self.projection
+            
         survey = Survey(fname, freq=freq, hx=hx, targetProjection=targetProjection)
         
         # remove NaN from survey
@@ -126,6 +129,8 @@ class Problem(object):
                 # this filter out hidden file as well
             else:
                 raise ValueError('dirname should be a directory path or a list of filenames')
+        if self.projection is not None:
+            targetProjection = self.projection
         for fname in fnames:
             self.createSurvey(fname, targetProjection=targetProjection)
             
@@ -153,6 +158,8 @@ class Problem(object):
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         """
         # import all surveys
+        if self.projection is not None:
+            targetProjection = self.projection
         surveys = []
         for fname in fnames:
             surveys.append(Survey(fname, targetProjection=targetProjection))
@@ -213,6 +220,8 @@ class Problem(object):
             a conversion first is done using `self.convertFromNMEA()` before
             being regrid using nearest neightbours.
         """
+        if self.projection is not None:
+            targetProjection = self.projection
         survey = Survey()
         survey.importGF(fnameLo, fnameHi, device, hx, targetProjection)
         self.coils = survey.coils
@@ -1753,6 +1762,8 @@ class Problem(object):
             Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
             for the British Grid.
         """
+        if self.projection is not None:
+            targetProjection = self.projection
         for survey in self.surveys:
             survey.convertFromNMEA(targetProjection=targetProjection)
     
