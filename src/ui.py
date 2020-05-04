@@ -1614,7 +1614,7 @@ PLoS ONE, <strong>10</strong>,12 (2015)
 </ul>
 </p>
 <p><strong>EMagPy's core developers: Guillaume Blanchy and Paul McLachlan.<strong></p>
-<p>Contributors: Jimmy Boyd</p>
+<p>Contributors: Jimmy Boyd, Sina Saneiyan</p>
 '''.format(EMagPy_version))
 #<p><b>Citing ResIPy</b>:<br>Blanchy G., Saneiyan S., Boyd J., McLachlan P. and Binley A. 2020.<br>“ResIPy, an Intuitive Open Source Software for Complex Geoelectrical Inversion/Modeling.”<br>Computers & Geosciences, February, 104423. <a href="https://doi.org/10.1016/j.cageo.2020.104423">https://doi.org/10.1016/j.cageo.2020.104423</a>.</p>
 
