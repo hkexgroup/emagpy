@@ -515,24 +515,25 @@ class App(QMainWindow):
 
         
         # projection (only if GPS data are available)
-        self.projLabel = QLabel('EPSG:')
+        self.projLabel = QLabel('Map CRS:')
         self.projLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         
         ### Preparing the ~5000 projections:
-        pcs = pd.read_csv(resource_path('emagpy/pcs.csv'))
-        pcs_names = pcs['COORD_REF_SYS_NAME'].tolist()
-        pcs_names.extend(pcs['COORD_REF_SYS_NAME_rev'].tolist())
+        self.pcs = pd.read_csv(resource_path('emagpy/pcs.csv'))
+        pcs_names = self.pcs['COORD_REF_SYS_NAME'].tolist()
+        pcs_names.extend(self.pcs['COORD_REF_SYS_NAME_rev'].tolist())
         self.pcsCompleter = QCompleter(pcs_names)
         self.pcsCompleter.setCaseSensitivity(Qt.CaseInsensitive)
         
         self.projEdit = QLineEdit()
         self.projEdit.setPlaceholderText('Type projection CRS')
-        self.projEdit.setToolTip('Type the CRS projection and then select from the options')
+        self.projEdit.setToolTip('Type the CRS projection and then select from the options\nDefault is British National Grid / OSGB 1936')
         # self.projEdit.setValidator(QDoubleValidator())
         self.projEdit.setCompleter(self.pcsCompleter)
         # self.projEdit.setEnabled(False)
 
         self.projBtn = QPushButton('Convert NMEA')
+        self.projBtn.setToolTip('Convert NMEA string coordinates to EPSG coordinates - select a CRS first')
         self.projBtn.clicked.connect(self.projBtnFunc)
         self.projBtn.setEnabled(False)
         
@@ -704,12 +705,12 @@ class App(QMainWindow):
         
         # select different colormap
         def cmapComboFunc(index):
-            self.showParams['cmap'] = cmaps[index]
+            self.showParams['cmap'] = psMapCmaps[index]
             self.replot()
         self.cmapCombo = QComboBox()
-        cmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow', 'jet','jet_r']
-        for cmap in cmaps:
-            self.cmapCombo.addItem(cmap)
+        psMapCmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow', 'jet','jet_r']
+
+        self.cmapCombo.addItems(psMapCmaps)
         self.cmapCombo.activated.connect(cmapComboFunc)
         self.cmapCombo.setEnabled(False)
         self.cmapCombo.setVisible(False)
@@ -737,23 +738,11 @@ class App(QMainWindow):
         self.ptsCheck.setVisible(False)
         
         # export GIS raster layer
-        def setProjection():
-            val = self.projEdit.text()
-            if any(pcs['COORD_REF_SYS_NAME'] == val) is True or any(pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
-                epsg_code = pcs['COORD_REF_SYS_CODE'][pcs['COORD_REF_SYS_NAME'] == val].values
-                epsgVal = 'EPSG:'+str(epsg_code)
-                self.problem.projection = epsgVal
-            else:
-                self.errorDump('CRS projection is not correctly defined')
-            
-            
-            
         def expPsMap():
             fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
-            print('fname:', fname)
-            setProjection()
-            self.problem.saveMap(fname=fname)
-            
+            if fname != '':
+                self.setProjection()
+                self.problem.saveMap(fname=fname, cmap=self.cmapCombo.currentText())
             
             
         self.psMapExpBtn = QPushButton('Exp. GIS layer')
@@ -761,8 +750,6 @@ class App(QMainWindow):
                                     'Choose the correct EPSG CRS projection!')
         self.psMapExpBtn.setVisible(False)
         self.psMapExpBtn.clicked.connect(expPsMap)
-        
-
 
         # display it
         self.mwRaw = MatplotlibWidget()
@@ -1358,9 +1345,8 @@ class App(QMainWindow):
             showInvParams['cmap'] = self.cmapInvCombo.itemText(index)
             self.mwInv.replot(**showInvParams)
         self.cmapInvCombo = QComboBox()
-        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
-        for cmap in cmaps:
-            self.cmapInvCombo.addItem(cmap)
+        invCmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
+        self.cmapInvCombo.addItems(invCmaps)
         self.cmapInvCombo.activated.connect(cmapInvComboFunc)
         
         def surveyInvComboFunc(index):
@@ -1409,9 +1395,8 @@ class App(QMainWindow):
             showInvMapParams['cmap'] = self.cmapInvMapCombo.itemText(index)
             self.mwInvMap.replot(**showInvMapParams)
         self.cmapInvMapCombo = QComboBox()
-        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
-        for cmap in cmaps:
-            self.cmapInvMapCombo.addItem(cmap)
+        invMapCmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
+        self.cmapInvMapCombo.addItems(invMapCmaps)
         self.cmapInvMapCombo.activated.connect(cmapInvMapComboFunc)
         
         def surveyInvMapComboFunc(index):
@@ -1458,6 +1443,18 @@ class App(QMainWindow):
         self.saveInvMapDataBtn = QPushButton('Save Results')
         self.saveInvMapDataBtn.clicked.connect(saveInvMapDataBtnFunc)
         
+        
+        def expInvMap():
+            fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
+            if fname != '':
+                self.setProjection()
+                self.problem.saveSlice(fname=fname, islice=self.sliceCombo.currentIndex(), cmap=self.cmapInvMapCombo.currentText())
+            
+            
+        self.invMapExpBtn = QPushButton('Exp. GIS layer')
+        self.invMapExpBtn.setToolTip('Export a georeferenced TIFF file to directly be imported in GIS software.\n'
+                                     'Choose the correct EPSG CRS projection in the "Importing" tab!')
+        self.invMapExpBtn.clicked.connect(expInvMap)
         
         
         self.graphTabs = QTabWidget()
@@ -1538,6 +1535,7 @@ class App(QMainWindow):
         mapOptionsLayout.addWidget(self.contourInvMapCheck)
         mapOptionsLayout.addWidget(self.cmapInvMapCombo)
         mapOptionsLayout.addWidget(self.saveInvMapDataBtn)
+        mapOptionsLayout.addWidget(self.invMapExpBtn)
         mapLayout.addLayout(mapOptionsLayout)
         mapLayout.addWidget(self.mwInvMap)
         self.mapTab.setLayout(mapLayout)
@@ -1616,7 +1614,7 @@ PLoS ONE, <strong>10</strong>,12 (2015)
 </ul>
 </p>
 <p><strong>EMagPy's core developers: Guillaume Blanchy and Paul McLachlan.<strong></p>
-<p>Contributors: Jimmy Boyd</p>
+<p>Contributors: Jimmy Boyd, Sina Saneiyan</p>
 '''.format(EMagPy_version))
 #<p><b>Citing ResIPy</b>:<br>Blanchy G., Saneiyan S., Boyd J., McLachlan P. and Binley A. 2020.<br>“ResIPy, an Intuitive Open Source Software for Complex Geoelectrical Inversion/Modeling.”<br>Computers & Geosciences, February, 104423. <a href="https://doi.org/10.1016/j.cageo.2020.104423">https://doi.org/10.1016/j.cageo.2020.104423</a>.</p>
 
@@ -1636,10 +1634,26 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         self.setCentralWidget(self.table_widget)
         self.show()
     
+    def setProjection(self):
+        val = self.projEdit.text()
+        try:
+            if any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
+                epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME'] == val].values
+            elif any(self.pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
+                epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
+            epsgVal = 'EPSG:'+str(epsg_code[0])
+            self.problem.setProjection(targetProjection=epsgVal)
+        except:
+            self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
+    
     def projBtnFunc(self):
-        val = float(self.projEdit.text()) if self.projEdit.text() != '' else None
-        self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
-        self.replot()
+        try:
+            if self.projEdit.text() != '':
+                self.setProjection()
+            self.problem.convertFromNMEA(targetProjection=self.problem.projection)
+            self.replot()
+        except Exception as e:
+            self.errorDump(e)
 
     def replot(self):
         index = self.showParams['index']
@@ -1699,9 +1713,13 @@ PLoS ONE, <strong>10</strong>,12 (2015)
 
         # enable widgets
         if 'Latitude' in survey.df.columns:
-            self.projBtn.setEnabled(True)
-            self.projEdit.setEnabled(True)
-            self.projBtnFunc() # automatically convert NMEA string
+            try:
+                float(survey.df['Latitude'][0]) # coordinates are not string
+            except: # coordinates are string
+                self.problem.projection = 'EPSG:27700' # a default CRS if user hasn't defined anything
+                self.projBtnFunc() # automatically convert NMEA string
+                self.projBtn.setEnabled(True)
+            # self.projEdit.setEnabled(True)
         self.keepApplyBtn.setEnabled(True)
         self.rollingBtn.setEnabled(True)
         self.ptsKillerBtn.setEnabled(True)

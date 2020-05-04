@@ -62,6 +62,7 @@ class Problem(object):
         self.annReplaced = 0 # number of measurement outliers by ANN
         self.runningUI = False # True if run in UI, just change output of parallel stuff
         self.forwardModel = None # store the forward model choosen for showMisfit and showOne2One
+        self.projection = None
         
         
     def createSurvey(self, fname, freq=None, hx=None, targetProjection=None):
@@ -80,6 +81,9 @@ class Problem(object):
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         """
         # create Survey object
+        if self.projection is not None:
+            targetProjection = self.projection
+            
         survey = Survey(fname, freq=freq, hx=hx, targetProjection=targetProjection)
         
         # remove NaN from survey
@@ -125,6 +129,8 @@ class Problem(object):
                 # this filter out hidden file as well
             else:
                 raise ValueError('dirname should be a directory path or a list of filenames')
+        if self.projection is not None:
+            targetProjection = self.projection
         for fname in fnames:
             self.createSurvey(fname, targetProjection=targetProjection)
             
@@ -152,6 +158,8 @@ class Problem(object):
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         """
         # import all surveys
+        if self.projection is not None:
+            targetProjection = self.projection
         surveys = []
         for fname in fnames:
             surveys.append(Survey(fname, targetProjection=targetProjection))
@@ -212,6 +220,8 @@ class Problem(object):
             a conversion first is done using `self.convertFromNMEA()` before
             being regrid using nearest neightbours.
         """
+        if self.projection is not None:
+            targetProjection = self.projection
         survey = Survey()
         survey.importGF(fnameLo, fnameHi, device, hx, targetProjection)
         self.coils = survey.coils
@@ -1463,9 +1473,9 @@ class Problem(object):
     
     
     
-    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='nearest',
-                xmin=None, xmax=None, ymin=None, ymax=None, color=False,
-                cmap='viridis', vmin=None, vmax=None):
+    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='linear',
+                xmin=None, xmax=None, ymin=None, ymax=None, color=True,
+                cmap='viridis', vmin=None, vmax=None, nlevel=14):
         """Save a georeferenced raster TIFF file for the specified inverted depths.
         
         Parameters
@@ -1549,7 +1559,7 @@ class Problem(object):
             if vmax is None:
                 vmax = np.nanpercentile(Z.flatten(), 98)
             norm = plt.Normalize(vmin=vmin, vmax=vmax)
-            Z = plt.get_cmap(cmap)(norm(Z))
+            Z = plt.get_cmap(cmap, nlevel)(norm(Z))
             Z = 255*Z
             Z = Z.astype('uint8')
             for i in range(4):
@@ -1559,7 +1569,7 @@ class Problem(object):
                            driver='GTiff',
                            height=Z.shape[0],
                            width=Z.shape[1], count=4, dtype=Z.dtype,
-                           crs='epsg:27700', transform=tt) as dst:
+                           crs=self.projection, transform=tt) as dst:
                 for i in range(4):
                     dst.write(Z[:,:,i], i+1)
         else:
@@ -1567,7 +1577,7 @@ class Problem(object):
                                driver='GTiff',
                                height=Z.shape[0],
                                width=Z.shape[1], count=1, dtype=Z.dtype,
-                               crs='epsg:27700', transform=tt) as dst:
+                               crs=self.projection, transform=tt) as dst:
                 dst.write(Z, 1)
         
     
@@ -1752,10 +1762,24 @@ class Problem(object):
             Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
             for the British Grid.
         """
+        if self.projection is not None:
+            targetProjection = self.projection
         for survey in self.surveys:
             survey.convertFromNMEA(targetProjection=targetProjection)
     
-    
+    def setProjection(self, targetProjection='EPSG:27700'):
+        """Set surveys projection to the targetProjection.
+        
+        Parameters
+        ----------
+        targetProjection : str, optional
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            for the British Grid.
+        """
+        self.projection = targetProjection
+        for survey in self.surveys:
+            survey.projection = targetProjection
+        
 
     def showProfile(self, index=0, ipos=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, errorbar=False):
@@ -1898,7 +1922,7 @@ class Problem(object):
             yc = np.r_[np.zeros(nsample), centroid[:,1], -np.ones(nsample)*maxDepth]
             zc = np.c_[sig[:,0], sig, sig[:,-1]]
             if vmax > vmin:
-                levels = np.linspace(vmin, vmax, 7)
+                levels = np.linspace(vmin, vmax, 14)
             else:
                 levels = None
             # cax = ax.tricontourf(xc, yc, zc.flatten('F'),
@@ -2633,7 +2657,7 @@ class Problem(object):
             ax.set_xlim([np.nanmin(x), np.nanmax(x)])
             ax.set_ylim([np.nanmin(y), np.nanmax(y)])
         else:
-            levels = np.linspace(vmin, vmax, 7)
+            levels = np.linspace(vmin, vmax, 14)
             cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
             if pts:
                 ax.plot(x, y, 'k+')
