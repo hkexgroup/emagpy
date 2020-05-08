@@ -1336,7 +1336,6 @@ class Problem(object):
             List of matrix of size Nsample x Ncoils x Nlayers containing the normalised
             local sensitivity.
         """
-
         if len(models) == 0:
             models = self.models
         if len(depths) == 0:
@@ -1357,9 +1356,12 @@ class Problem(object):
                                models=lmodels, depths=ldepths,
                                noise=0.0)
             eca = np.dstack([df.values for df in dfs]) # Nsample x Ncoils x Nprofiles
-            sens = eca[:-1,:,:]-eca[-1,:,:][None,:,:] # subtract 'perturbed' eca values by non 'perturbed' eca values
+            sens = eca[:-1,:,:]-eca[-1,:,:][None,:,:]# dividing by ref (undisturbed ECa)
+            
             senss.append(sens)
         return senss
+    
+
     
     
     
