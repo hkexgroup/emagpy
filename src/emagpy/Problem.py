@@ -1356,10 +1356,11 @@ class Problem(object):
                                models=lmodels, depths=ldepths,
                                noise=0.0)
             eca = np.dstack([df.values for df in dfs]) # Nsample x Ncoils x Nprofiles
-            sens = eca[:-1,:,:]/eca[-1,:,:][None,:,:] - 1 # dividing by ref (undisturbed ECa)
-            sens = sens/np.max(sens, axis=0)[None,:,:]
+            
+            sens = eca[:-1,:,:]-eca[-1,:,:][None,:,:] # subtract 'perturbed' eca values by non 'perturbed' eca values
             senss.append(sens)
         return senss
+    
     
     
     def show(self, index=0, coil='all', ax=None, vmin=None, vmax=None, 
