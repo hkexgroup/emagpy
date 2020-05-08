@@ -2771,39 +2771,3 @@ class Problem(object):
             plt.legend(coils)
         
         return(DOI)
-
-    def calcDOIs(self, conds=self.models, depths=self.depths, coils=self.coils, forwardModel, nlayers=50, plot=False):
-
-	"""calcDOI for multiple EC models, sensitivity cutoff at 0.3, i.e. 70% of signal comes from above the DOI
-        
-        Parameters
-        ----------
-        conds : array of model conductivities
-	depths : array of model depths
-        coils : str, Names of coils
-        forwardModel : str, forward model to use, 
-	using CS will return DOI that is independent of model, FSlin and FSeq return the same result
-            If `True` then there will be contouring.
-        nlayers : int, number of layers for finely descretised model, this is done to obtain more accurate DOI estimates
-            Minimum value for colorscale.
-        plot : bool, plot DOI of each coil along measurement transect
-   
-        """
-	
-        conds=conds[0]
-        depths=depths[0]
-    
-        DOIs = np.zeros((conds.shape[0], len(coils)))
-    
-        for i in range(0, conds.shape[0]):
-            DOIs[i,:]=k.calcDOI(conds_m=conds[i,:], depths_m=depths[i,:], coils=coils, forwardModel=forwardModel, nlayers=nlayers, plot=False)
-    
-        if plot==True:
-            plt.ylim(np.round(np.max(DOIs)),0)
-    	    plt.xlabel('Measurement')
-    	    plt.ylabel('Depth of Investigation [m]')
-    	    plt.plot(DOIs,linestyle='-', marker='o')
-    	    plt.legend(coils)
-    
-        return(DOIs)
-
