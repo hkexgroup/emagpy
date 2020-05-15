@@ -1372,7 +1372,7 @@ class Problem(object):
     
     
     def show(self, index=0, coil='all', ax=None, vmin=None, vmax=None, 
-             dist=False):
+             dist=True):
         """Show the raw data of the survey.
         
         Parameters
@@ -1830,7 +1830,7 @@ class Problem(object):
 
     
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
-                    maxDepth=None, padding=1, cmap='viridis_r', dist=False,
+                    maxDepth=None, padding=1, cmap='viridis_r', dist=True,
                     contour=False, rmse=False, errorbar=False, overlay=False,
                     elev=False):
         """Show inverted model.
