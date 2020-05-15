@@ -1069,8 +1069,47 @@ class App(QMainWindow):
                         fixedConds[i] = True
                 return fixedConds
             
+        self.icustomModel = False
         
-        self.modelLabel = QLabel('Bottom depth and starting conductivity of each layer.')
+        def importModelBtnFunc():
+            self._dialog = QFileDialog()
+            fname, _ = self._dialog.getOpenFileName(settingsTab, 'Select data file', self.datadir, '*.csv')
+            if fname != '':
+                # try:
+                self.problem.importModel(fname)
+                nlayer = self.problem.models[0].shape[1]
+                self.modelTable.setTable([-1]*(nlayer-1),[-1]*nlayer)
+                self.createModelBtn.setEnabled(False)
+                self.addRowBtn.setEnabled(False)
+                self.delRowBtn.setEnabled(False)
+                self.nLayerEdit.setEnabled(False)
+                self.startingEdit.setEnabled(False)
+                self.thicknessEdit.setEnabled(False)
+                self.icustomModel = True
+                self.importModelBtn.setText(os.path.basename(fname))
+                self.infoDump('Model successfully set.')
+                # except Exception as e:
+                #     print(e)
+                #     self.errorDump('Error in reading file. Please check format.')
+        self.importModelBtn = QPushButton('Import Model')
+        self.importModelBtn.clicked.connect(importModelBtnFunc)
+        self.importModelBtn.setToolTip('File needs to be .csv with layer1, layer2, depth1, ... columns.\n'
+                                   'layerX contains EC in mS/m and depthX contains depth of the bottom\n'
+                                   'of the layer in meters (positively defined)')
+        
+        def clearModelBtnFunc():
+            self.createModelBtn.setEnabled(True)
+            self.addRowBtn.setEnabled(True)
+            self.delRowBtn.setEnabled(True)
+            self.nLayerEdit.setEnabled(True)
+            self.startingEdit.setEnabled(True)
+            self.thicknessEdit.setEnabled(True)
+            self.icustomModel = False
+            self.importModelBtn.setText('Import Model')
+        self.clearModelBtn = QPushButton('Clear Model')
+        self.clearModelBtn.clicked.connect(clearModelBtnFunc)
+        
+        self.modelLabel = QLabel('Bottom depth and starting EC of each layer.')
         
         def addRowBtnFunc():
             self.modelTable.addRow()
@@ -1123,6 +1162,10 @@ class App(QMainWindow):
         settingsLayout = QHBoxLayout()
         
         invStartLayout = QVBoxLayout()
+        importLayout = QHBoxLayout()
+        importLayout.addWidget(self.importModelBtn)
+        importLayout.addWidget(self.clearModelBtn)
+        invStartLayout.addLayout(importLayout)
         invStartLayout.addWidget(self.modelLabel)
         invBtnLayout = QHBoxLayout()
         invBtnLayout.addWidget(self.addRowBtn)
@@ -1288,6 +1331,9 @@ class App(QMainWindow):
 
             # collect parameters
             depths0, conds0, fixedDepths, fixedConds = self.modelTable.getTable()
+            if self.icustomModel:
+                depths0 = self.problem.depths[0]
+                conds0 = self.problem.models[0]
             self.problem.setInit(depths0, conds0, fixedDepths, fixedConds)
             regularization = self.lCombo.itemText(self.lCombo.currentIndex())
             alpha = float(self.alphaEdit.text()) if self.alphaEdit.text() != '' else 0.07
@@ -1295,14 +1341,20 @@ class App(QMainWindow):
             method = self.methodCombo.itemText(self.methodCombo.currentIndex())
             beta = float(self.betaEdit.text()) if self.betaEdit.text() != '' else 0.0
             gamma = float(self.gammaEdit.text()) if self.gammaEdit.text() != '' else 0.0
-            depths = np.r_[[0], depths0, [-np.inf]]
             nit = int(self.nitEdit.text()) if self.nitEdit.text() != '' else 15
             nsample = int(self.annSampleEdit.text()) if self.annSampleEdit.text() != '' else 100
             noise = float(self.annNoiseEdit.text()) if self.annNoiseEdit.text() != '' else 0
             njobs = -1 if self.parallelCheck.isChecked() else 1
+            if self.icustomModel:
+                depths = np.arange(depths0.shape[1]+2)
+            else:
+                depths = np.r_[[0], depths0, [-np.inf]]
             self.sliceCombo.clear()
             for i in range(len(depths)-1):
-                self.sliceCombo.addItem('{:.2f}m - {:.2f}m'.format(depths[i], depths[i+1]))
+                if self.icustomModel | (np.sum(~fixedConds) > 0):
+                    self.sliceCombo.addItem('Layer {:d}'.format(i+1))
+                else:
+                    self.sliceCombo.addItem('{:.2f}m - {:.2f}m'.format(depths[i], depths[i+1]))
             self.sliceCombo.activated.connect(sliceComboFunc)
             
             # invert
