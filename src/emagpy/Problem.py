@@ -19,6 +19,7 @@ import matplotlib.tri as mtri
 # import matplotlib.path as mpath
 from scipy.optimize import minimize
 from scipy.stats import linregress, gaussian_kde
+from scipy import interpolate
 
 # for parallel computing
 from joblib import Parallel, delayed
@@ -1365,10 +1366,13 @@ class Problem(object):
                                models=lmodels, depths=ldepths,
                                noise=0.0)
             eca = np.dstack([df.values for df in dfs]) # Nsample x Ncoils x Nprofiles
-            sens = eca[:-1,:,:]/eca[-1,:,:][None,:,:] - 1 # dividing by ref (undisturbed ECa)
-            sens = sens/np.max(sens, axis=0)[None,:,:]
+            sens = eca[:-1,:,:]-eca[-1,:,:][None,:,:]# dividing by ref (undisturbed ECa)
+            
             senss.append(sens)
         return senss
+    
+
+    
     
     
     def show(self, index=0, coil='all', ax=None, vmin=None, vmax=None, 
@@ -2618,14 +2622,16 @@ class Problem(object):
     
     def showSlice(self, index=0, islice=0, contour=False, vmin=None, vmax=None,
                   cmap='viridis_r', ax=None, pts=False):
-        """Show depth slice.
+        """Show depth slice of EC (if islice > 0) and depth (if islice < 0).
         
         Parameters
         ----------
         index : int, optional
             Survey index. Default is first.
         islice : int, optional
-            Depth index. Default is first depth.
+            Layer index (if islice > 0). Default is first layer. If islice < 0,
+            the depths will be display instead (e.g. islice = -1 will display
+            the depth of the bottom of the first layer).
         contour : bool, optional
             If `True` then there will be contouring.
         vmin : float, optional
@@ -2639,7 +2645,15 @@ class Problem(object):
         pts : boolean, optional
             If `True` (default) the data points will be plotted over the contour.
         """
-        z = self.models[index][:,islice]
+        if islice >= 0:
+            z = self.models[index][:,islice]
+            label = 'EC [mS/m]'
+            title = 'Layer {:d}'
+        else:
+            islice = np.abs(islice) - 1
+            z = self.depth[index][:,islice]
+            label = 'Depth [m]'
+            title = 'Bottom depth of layer {:d}'
         x = self.surveys[index].df['x'].values
         y = self.surveys[index].df['y'].values
         if ax is None:
@@ -2654,8 +2668,8 @@ class Problem(object):
             if contour is True:
                 print('All points on a line, can not contour this.')
             cax = ax.scatter(x, y, c=z, cmap=cmap, vmin=vmin, vmax=vmax)
-            ax.set_xlim([np.nanmin(x), np.nanmax(x)])
-            ax.set_ylim([np.nanmin(y), np.nanmax(y)])
+            # ax.set_xlim([np.nanmin(x), np.nanmax(x)])
+            # ax.set_ylim([np.nanmin(y), np.nanmax(y)])
         else:
             levels = np.linspace(vmin, vmax, 14)
             cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
@@ -2663,10 +2677,10 @@ class Problem(object):
                 ax.plot(x, y, 'k+')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
-        fig.colorbar(cax, ax=ax, label='EC [mS/m]')
+        fig.colorbar(cax, ax=ax, label=label)
         # depths = np.r_[[0], self.depths0, [-np.inf]]
         # ax.set_title('{:.2f}m - {:.2f}m'.format(depths[islice], depths[islice+1]))
-        ax.set_title('Layer {:d}'.format(islice+1))
+        ax.set_title(title.format(islice+1))
         
         
     def showDepths(self, index=0, idepth=0, contour=False, vmin=None, vmax=None,
@@ -2719,3 +2733,77 @@ class Problem(object):
         fig.colorbar(cax, ax=ax, label='Depth [m]')
         ax.set_title('Depths[{:d}]'.format(idepth))
 
+
+
+    def calcDOI(self, conds_m, depths_m, coils, forwardModel, nlayers=50, plot=False):
+        """calcDOI for single EC model, sensitivity cutoff at 0.3, i.e. 70% of signal comes from above the DOI
+        
+        Parameters
+        ----------
+        conds_m : array of model conductivities
+	depths_m : array of model depths
+        coils : str, Names of coils
+        forwardModel : str, forward model to use, 
+	using CS will return DOI that is independent of model, FSlin and FSeq return the same result
+            If `True` then there will be contouring.
+        nlayers : int, number of layers for finely descretised model, this is done to obtain more accurate DOI estimates
+            Minimum value for colorscale.
+        plot : bool, plot cumulative sensitivities
+   
+        """
+
+
+
+        depths = np.append(np.linspace(0.01, np.max(depths_m)*4, nlayers-1),1000) # depth of bottom of each layer
+        nlayers = len(depths) + 1
+
+        depths_m_r = depths_m[::-1] # reverse model depths to place on more discritised model
+        conds_m_r = conds_m[::-1] # reverse model conds to place on more discritised model
+        conds = np.ones(len(depths)+1) * conds_m[-1]
+
+        for i in range(0, len(depths_m)):
+           	conds[np.where(depths < depths_m_r[i])] = conds_m_r[i+1] # replace conds on more discritised model
+        
+        depths = np.ones((nlayers, len(depths))) * depths[None,:]
+        conds = np.ones((nlayers, nlayers)) * conds[None,:]
+        ix = np.arange(nlayers-1)
+        conds[ix,ix] = conds[ix,ix] + 1 # we will disturb layer by layer by 1 mS/m
+    
+        self.setModels([depths], [conds])
+    
+        dfeca = self.forward(forwardModel=forwardModel, coils=coils)
+    
+        dfeca = np.asarray(dfeca[0])[:,0:len(coils)]
+
+
+    	#data_df=np.log10(dfeca[:-1,]) - np.log10(dfeca[-1,:])
+    	#model_df=np.log10(conds[-1,:-1]+1) - np.log10(conds[-1,:-1])
+    
+        data_df=dfeca[:-1,] - dfeca[-1,:]
+        model_df=conds[-1,:-1]+1 - conds[-1,:-1]
+
+        S = data_df/model_df[:,None]
+        cumS = np.zeros(S.shape)
+
+        for i in range(0, len(cumS[0,:])):
+            cumS[:,i] = np.cumsum(S[:,i][::-1])[::-1]
+        
+        cumS_norm = cumS/np.max(cumS, axis=0) #all are close to 1, but not exactly so normalise 
+        
+        depths = depths[0,:]
+        mdepths = np.r_[depths[0]/2, depths[:-1] + np.diff(depths)/2]   
+        
+        DOI = np.ones(len(coils))
+    
+        for i in range(0, len(coils)):
+            f = interpolate.interp1d(cumS_norm[:,i], mdepths)
+            DOI[i] = np.round(f(0.3),2)
+    
+        if plot==True:
+            plt.ylim(10,0)
+            plt.xlabel('Cumulative Senstivity')
+            plt.ylabel('Depth [m]')
+            plt.plot(cumS_norm, mdepths)
+            plt.legend(coils)
+        
+        return(DOI)
