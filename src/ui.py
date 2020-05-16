@@ -586,6 +586,25 @@ class App(QMainWindow):
         self.ptsKillerBtn.setEnabled(False)
         self.ptsKillerBtn.setAutoDefault(True)
         
+        def gridBtnFunc():
+            nx = int(self.gridx.text())
+            ny = int(self.gridy.text())
+            self.problem.gridData(nx=nx, ny=ny)
+            self.replot()
+        self.gridBtn = QPushButton('Grid Data')
+        self.gridBtn.setEnabled(False)
+        self.gridBtn.clicked.connect(gridBtnFunc)
+        
+        self.gridxLabel = QLabel('nx:')
+        self.gridx = QLineEdit('100')
+        self.gridx.setValidator(QIntValidator())
+        self.gridx.setToolTip('Grid size in X direction.')
+        
+        self.gridyLabel = QLabel('ny:')
+        self.gridy = QLineEdit('100')
+        self.gridy.setValidator(QIntValidator())
+        self.gridy.setToolTip('Grid size in Y direction.')
+        
         
         # display options
         self.displayLabel = QLabel('Display Options |')
@@ -781,6 +800,11 @@ class App(QMainWindow):
         filtLayout.addWidget(self.rollingEdit)
         filtLayout.addWidget(self.rollingBtn)
         filtLayout.addWidget(self.ptsKillerBtn)
+        filtLayout.addWidget(self.gridBtn)
+        filtLayout.addWidget(self.gridxLabel)
+        filtLayout.addWidget(self.gridx)
+        filtLayout.addWidget(self.gridyLabel)
+        filtLayout.addWidget(self.gridy)
     
         midLayout = QHBoxLayout()
         midLayout.addWidget(self.displayLabel)
@@ -1775,6 +1799,7 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         self.keepApplyBtn.setEnabled(True)
         self.rollingBtn.setEnabled(True)
         self.ptsKillerBtn.setEnabled(True)
+        self.gridBtn.setEnabled(True)
         self.coilCombo.setEnabled(True)
         self.surveyCombo.setEnabled(True)
         self.showRadio.setEnabled(True)
