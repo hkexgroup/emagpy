@@ -2622,14 +2622,16 @@ class Problem(object):
     
     def showSlice(self, index=0, islice=0, contour=False, vmin=None, vmax=None,
                   cmap='viridis_r', ax=None, pts=False):
-        """Show depth slice.
+        """Show depth slice of EC (if islice > 0) and depth (if islice < 0).
         
         Parameters
         ----------
         index : int, optional
             Survey index. Default is first.
         islice : int, optional
-            Depth index. Default is first depth.
+            Layer index (if islice > 0). Default is first layer. If islice < 0,
+            the depths will be display instead (e.g. islice = -1 will display
+            the depth of the bottom of the first layer).
         contour : bool, optional
             If `True` then there will be contouring.
         vmin : float, optional
@@ -2643,7 +2645,15 @@ class Problem(object):
         pts : boolean, optional
             If `True` (default) the data points will be plotted over the contour.
         """
-        z = self.models[index][:,islice]
+        if islice >= 0:
+            z = self.models[index][:,islice]
+            label = 'EC [mS/m]'
+            title = 'Layer {:d}'
+        else:
+            islice = np.abs(islice) - 1
+            z = self.depth[index][:,islice]
+            label = 'Depth [m]'
+            title = 'Bottom depth of layer {:d}'
         x = self.surveys[index].df['x'].values
         y = self.surveys[index].df['y'].values
         if ax is None:
@@ -2658,8 +2668,8 @@ class Problem(object):
             if contour is True:
                 print('All points on a line, can not contour this.')
             cax = ax.scatter(x, y, c=z, cmap=cmap, vmin=vmin, vmax=vmax)
-            ax.set_xlim([np.nanmin(x), np.nanmax(x)])
-            ax.set_ylim([np.nanmin(y), np.nanmax(y)])
+            # ax.set_xlim([np.nanmin(x), np.nanmax(x)])
+            # ax.set_ylim([np.nanmin(y), np.nanmax(y)])
         else:
             levels = np.linspace(vmin, vmax, 14)
             cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
@@ -2667,10 +2677,10 @@ class Problem(object):
                 ax.plot(x, y, 'k+')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
-        fig.colorbar(cax, ax=ax, label='EC [mS/m]')
+        fig.colorbar(cax, ax=ax, label=label)
         # depths = np.r_[[0], self.depths0, [-np.inf]]
         # ax.set_title('{:.2f}m - {:.2f}m'.format(depths[islice], depths[islice+1]))
-        ax.set_title('Layer {:d}'.format(islice+1))
+        ax.set_title(title.format(islice+1))
         
         
     def showDepths(self, index=0, idepth=0, contour=False, vmin=None, vmax=None,
@@ -2722,6 +2732,8 @@ class Problem(object):
         ax.set_ylabel('y [m]')
         fig.colorbar(cax, ax=ax, label='Depth [m]')
         ax.set_title('Depths[{:d}]'.format(idepth))
+
+
 
     def calcDOI(self, conds_m, depths_m, coils, forwardModel, nlayers=50, plot=False):
         """calcDOI for single EC model, sensitivity cutoff at 0.3, i.e. 70% of signal comes from above the DOI
