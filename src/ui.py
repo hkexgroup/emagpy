@@ -831,32 +831,6 @@ class App(QMainWindow):
         
         importTab.setLayout(importLayout)
         
-
-#        #%% filtering data
-#        filterTab = QTabWidget()
-#        self.tabs.addTab(filterTab, 'Filtering')
-#
-#        '''TODO add filtering tab ?
-#        - add filtering tab with vmin/vmax filtering
-#        - pointsKiller
-#        - regridding of spatial data
-#        - rolling mean
-#        - how replace point by :
-#        
-#        '''        
-#        
-#        
-#        
-#        # graph
-#        mwFiltered = MatplotlibWidget()
-#        
-#        
-#        
-#        # layout
-#        filterLayout = QVBoxLayout()
-#        
-#        filterTab.setLayout(filterLayout)
-#        
         
         
         #%% calibration
