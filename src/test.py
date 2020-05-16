@@ -119,7 +119,7 @@ ax.set_title('(a) FSeq with Gauss-Newton')
 #%% test lateral smoothing
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
-k.surveys[0].df = k.surveys[0].df[:20]
+k.surveys[0].df = k.surveys[0].df[:10]
 k.setInit(depths0=[0.5], fixedDepths=[False])
 k.invert(forwardModel='CS', method='SCEUA', alpha=0.07, beta=0.1, rep=300)
 k.showResults(errorbar=True)
@@ -128,13 +128,13 @@ k.showResults(errorbar=True)
 #%% from background survey (time-lapse)
 k = Problem()
 k.createTimeLapseSurvey(datadir + 'timelapse-wheat')
-k.setInit(depths0=[0.5], fixedDepths=[False])
 ss = []
 for s in k.surveys[:2]:
     s.df = s.df[:20]
     ss.append(s)
 k.surveys = ss
 k.trimSurveys()
+k.setInit(depths0=[0.5], fixedDepths=[False])
 k.invert(method='ROPE', alpha=0.1, gamma=0.5)
 fig, axs = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(8,3))
 k.showResults(index=0, rmse=True, ax=axs[0])
