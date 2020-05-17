@@ -1239,9 +1239,6 @@ class App(QMainWindow):
                 self.parallelCheck.setEnabled(True)
                 self.nitEdit.setEnabled(True)
                 
-                
-            
-                
         self.methodCombo = QComboBox()
         self.methodCombo.setToolTip('''Choice of solver:
         L-BFGS-B : minimize, fast and flexible
