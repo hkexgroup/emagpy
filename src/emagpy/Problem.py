@@ -324,7 +324,6 @@ class Problem(object):
                 - CS : Cumulative sensitivity (default)
                 - FSlin : Full Maxwell solution with low-induction number (LIN) approximation
                 - FSeq : Full Maxwell solution without LIN approximation (see Andrade et al., 2016)
-                - CSgn : Cumulative sensitivity with jacobian matrix (using Gauss-Newton)
         method : str, optional
             Name of the optimization method either L-BFGS-B, TNC, CG or Nelder-Mead
             to be passed to `scipy.optimize.minmize()` or ROPE, SCEUA, DREAM, MCMC for

@@ -1199,13 +1199,11 @@ class App(QMainWindow):
             else:
                 [o.setEnabled(True) for o in objs]
         self.forwardCombo = QComboBox()
-        forwardModels = ['CS', 'CS (fast)', 'FSlin', 'FSeq', 'Q']
+        forwardModels = ['CS', 'FSlin', 'FSeq', 'Q']
         for forwardModel in forwardModels:
             self.forwardCombo.addItem(forwardModel)
         self.forwardCombo.currentIndexChanged.connect(forwardComboFunc)
         self.forwardCombo.setToolTip('''Choice of forward model:
-        CS fast : Cumulative Sensitivity with
-        Gauss-Newton solver (faster).
         CS : Cumulative Sensitivity with minimize solver
         FS : Full solution with LIN conversion
         FSandrade : Full solution without LIN conversion''')
@@ -1218,7 +1216,7 @@ class App(QMainWindow):
                     self.parallelCheck]
             objs2 = [self.annSampleLabel, self.annSampleEdit,
                      self.annNoiseLabel, self.annNoiseEdit]
-            if index == 8: #ANN
+            if self.methodCombo.currentText() == 'ANN':
                 [o.setVisible(False) for o in objs1]
                 [o.setVisible(True) for o in objs2]
             else:
@@ -1230,11 +1228,24 @@ class App(QMainWindow):
                 else:
                     self.gammaLabel.setVisible(False)
                     self.gammaEdit.setVisible(False)
+            if self.methodCombo.currentText() == 'Gauss-Newton':
+                self.betaEdit.setEnabled(False)
+                self.lCombo.setEnabled(False)
+                self.parallelCheck.setEnabled(False)
+                self.nitEdit.setEnabled(False)
+            else:
+                self.betaEdit.setEnabled(True)
+                self.lCombo.setEnabled(True)
+                self.parallelCheck.setEnabled(True)
+                self.nitEdit.setEnabled(True)
+                
+                
             
                 
         self.methodCombo = QComboBox()
         self.methodCombo.setToolTip('''Choice of solver:
-        L-BFGS-B : minimize, faster
+        L-BFGS-B : minimize, fast and flexible
+        Gauss-Newton : fast, no support for variable depth
         CG : Congugate Gradient, fast
         TNC : Truncated Newton, robust
         Nelder-Mead : more robust
@@ -1245,7 +1256,7 @@ class App(QMainWindow):
         ANN : Artificial Neural Network''')
         mMinimize = ['L-BFGS-B', 'CG', 'TNC', 'Nelder-Mead']
         mMCMC = ['ROPE', 'SCEUA', 'DREAM', 'MCMC']
-        methods = mMinimize + mMCMC + ['ANN']
+        methods = mMinimize + ['Gauss-Newton'] + mMCMC + ['ANN']
         for method in methods:
             self.methodCombo.addItem(method)
         self.methodCombo.currentIndexChanged.connect(methodComboFunc)
