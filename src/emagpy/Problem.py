@@ -63,7 +63,8 @@ class Problem(object):
         self.annReplaced = 0 # number of measurement outliers by ANN
         self.runningUI = False # True if run in UI, just change output of parallel stuff
         self.forwardModel = None # store the forward model choosen for showMisfit and showOne2One
-        self.projection = None
+        self.projection = None # string of projection as EPSG
+        self.dois = [] # list of array of DOI computed from ('computeDOI()')
         
         
     def createSurvey(self, fname, freq=None, hx=None, targetProjection=None):
@@ -1366,14 +1367,13 @@ class Problem(object):
                                models=lmodels, depths=ldepths,
                                noise=0.0)
             eca = np.dstack([df.values for df in dfs]) # Nsample x Ncoils x Nprofiles
-            sens = eca[:-1,:,:]-eca[-1,:,:][None,:,:]# dividing by ref (undisturbed ECa)
-            
+            # sens = eca[:-1,:,:] / eca[-1,:,:][None,:,:] - 1 # dividing by ref (undisturbed ECa)
+            sens = eca[:-1,:,:] - eca[-1,:,:][None,:,:] # subtracting the ref ECa (slighly better up to 1e-16)
+            sens = sens/np.max(sens, axis=0)[None,:,:] # normalising
             senss.append(sens)
         return senss
     
 
-    
-    
     
     def show(self, index=0, coil='all', ax=None, vmin=None, vmax=None, 
              dist=True):
@@ -1836,7 +1836,7 @@ class Problem(object):
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, padding=1, cmap='viridis_r', dist=True,
                     contour=False, rmse=False, errorbar=False, overlay=False,
-                    elev=False):
+                    elev=False, doi=False):
         """Show inverted model.
         
         Parameters
@@ -1872,6 +1872,10 @@ class Problem(object):
         elev : bool, optional
             If `True`, each inverted profile will be adjusted according to
             elevation.
+        doi : bool, optional
+            If `True` and `computeDOI()` was called, the estimated DOI from 
+            above which 70% of the deeper coil configuration is coming from will
+            be plotted on top of the graph as a red dotted line.
         """
         try:
             sig = self.models[index]
@@ -1897,6 +1901,9 @@ class Problem(object):
         depths = -np.c_[depths, np.ones(depths.shape[0])*maxDepth]
         if elev:
             depths = depths + self.surveys[index].df['elevation'].values[:,None]
+        if dist:
+            if len(self.surveys) == 0:
+                dist = False # no survey to take position from
         
         # vertices
         nlayer = sig.shape[1]
@@ -1984,6 +1991,10 @@ class Problem(object):
             else:
                 coll = PolyCollection(coordinates, array=zu.flatten('F'), cmap=acmap)
                 ax.add_collection(coll)
+        if doi:
+            if len(self.dois) > 0:
+                dois = -self.dois[index]
+                ax.step(x, np.r_[dois, dois[-1]], 'r:', where='post')
                 
         if dist:
             ax.set_xlabel('Distance [m]')
@@ -2735,75 +2746,61 @@ class Problem(object):
 
 
 
-    def calcDOI(self, conds_m, depths_m, coils, forwardModel, nlayers=50, plot=False):
-        """calcDOI for single EC model, sensitivity cutoff at 0.3, i.e. 70% of signal comes from above the DOI
+    def computeDOI(self, conds=None, depths=None, nlayers=50):
+        """Compute a depth of investigation (DOI) for each 1D EC model.
+        Sensitivity cutoff at 0.3, i.e. 70% of signal comes from above the DOI.
         
         Parameters
         ----------
-        conds_m : array of model conductivities
-	depths_m : array of model depths
-        coils : str, Names of coils
-        forwardModel : str, forward model to use, 
-	using CS will return DOI that is independent of model, FSlin and FSeq return the same result
-            If `True` then there will be contouring.
-        nlayers : int, number of layers for finely descretised model, this is done to obtain more accurate DOI estimates
-            Minimum value for colorscale.
-        plot : bool, plot cumulative sensitivities
-   
+        conds : numpy.array, optional
+            Array of model conductivities.
+    	depths : numpy.array, optional
+            Array of model depths.
+        nlayers : int, optional
+            Number of layers for finely descretised model, this is done to obtain
+            more accurate DOI estimates. Default to 20.
         """
-
-
-
-        depths = np.append(np.linspace(0.01, np.max(depths_m)*4, nlayers-1),1000) # depth of bottom of each layer
-        nlayers = len(depths) + 1
-
-        depths_m_r = depths_m[::-1] # reverse model depths to place on more discritised model
-        conds_m_r = conds_m[::-1] # reverse model conds to place on more discritised model
-        conds = np.ones(len(depths)+1) * conds_m[-1]
-
-        for i in range(0, len(depths_m)):
-           	conds[np.where(depths < depths_m_r[i])] = conds_m_r[i+1] # replace conds on more discritised model
+        # initial argument check
+        ilocal = False
+        if conds is None:
+            conds = self.models.copy()
+            ilocal = True
+        else:
+            conds = [conds]
+        if depths is None:
+            depths = self.depths.copy()
+        else:
+            depths = [depths]
         
-        depths = np.ones((nlayers, len(depths))) * depths[None,:]
-        conds = np.ones((nlayers, nlayers)) * conds[None,:]
-        ix = np.arange(nlayers-1)
-        conds[ix,ix] = conds[ix,ix] + 1 # we will disturb layer by layer by 1 mS/m
-    
-        self.setModels([depths], [conds])
-    
-        dfeca = self.forward(forwardModel=forwardModel, coils=coils)
-    
-        dfeca = np.asarray(dfeca[0])[:,0:len(coils)]
-
-
-    	#data_df=np.log10(dfeca[:-1,]) - np.log10(dfeca[-1,:])
-    	#model_df=np.log10(conds[-1,:-1]+1) - np.log10(conds[-1,:-1])
-    
-        data_df=dfeca[:-1,] - dfeca[-1,:]
-        model_df=conds[-1,:-1]+1 - conds[-1,:-1]
-
-        S = data_df/model_df[:,None]
-        cumS = np.zeros(S.shape)
-
-        for i in range(0, len(cumS[0,:])):
-            cumS[:,i] = np.cumsum(S[:,i][::-1])[::-1]
+        dois = []
+        d = np.linspace(0, np.max(depths[0]), nlayers)[1:]
+        ddiff = np.diff(d, axis=0)/2
+        dm = mdepths = np.r_[d[0]/2, d[1:] + ddiff, d[-1] + ddiff[-1]]
+        print('\rComputing DOI {:d}/{:d} done'.format(0, len(depths)), end='')
+        for i in range(len(depths)): # for each survey
+            # discretize
+            n = depths[i].shape[0]
+            depth2 = np.ones((n, len(d)))*d[None,:] # depth of bottom of each layer
+            mdepths = np.c_[depths[i][:,0][:,None]/2,
+                            depths[i][:,1:] + np.diff(depths[i], axis=1)/2,
+                            np.ones((n, 1))*(1+np.max(depths[0]))]
+            # interpolate
+            conds2 = np.array([np.interp(dm, mdepths[j,:], conds[i][j,:]) for j in range(n)])
         
-        cumS_norm = cumS/np.max(cumS, axis=0) #all are close to 1, but not exactly so normalise 
+            sens = self.computeSens(forwardModel=self.forwardModel, coils=None,
+                                    models=[conds2], depths=[depth2])
+            # NOTE coils need to be None to tell self.forward() that we
+            # are not creating a new survey
+            S = sens[0] # Nsample x Ncoils x Nprofiles
+            S2 = S[::-1,:,:]
+            cumS = np.cumsum(S2, axis=0)[::-1,:,:]
+            cumS = cumS/np.max(cumS, axis=0) # normalize so that top is 1
+            imin = np.argmin(np.abs(cumS - 0.3), axis=0) # depth closes to 70% cumulative sensitivity
+            imax = np.max(imin, axis=0) # deeper depth amongst coil config
+            doi = dm[imax]
+            dois.append(doi)
+            print('\rComputing DOI {:d}/{:d} done'.format(i+1, len(depths)), end='')
+        print('')
+
+        self.dois = dois
         
-        depths = depths[0,:]
-        mdepths = np.r_[depths[0]/2, depths[:-1] + np.diff(depths)/2]   
-        
-        DOI = np.ones(len(coils))
-    
-        for i in range(0, len(coils)):
-            f = interpolate.interp1d(cumS_norm[:,i], mdepths)
-            DOI[i] = np.round(f(0.3),2)
-    
-        if plot==True:
-            plt.ylim(10,0)
-            plt.xlabel('Cumulative Senstivity')
-            plt.ylabel('Depth [m]')
-            plt.plot(cumS_norm, mdepths)
-            plt.legend(coils)
-        
-        return(DOI)
