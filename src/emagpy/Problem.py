@@ -2696,18 +2696,23 @@ class Problem(object):
         ax.set_title('Depths[{:d}]'.format(idepth))
 
 
-    def gridParamSearch(self, nlayers, forwardModel, step=10, fixedParam=None, bnds=None, top_per=5):
-        """Get list of model bounds that fit a particular total misfit threshold.
+    def gridParamSearch(self, nlayers, forwardModel, step=10, fixedParam=None, bnds=None, topPer=5, regularization='l2'):
+        """Using a grid based parameter search method this returns a list of best models for a specified number of layers, the minimum and maximum parameter bounds for the the top x percentage of models is also returned. This method can be used to 'invert' data or provide initial model parameter and parameter bounds for McMC methods.
         
         Parameters
         ----------
-        forwardModel : str, forward model
-            Survey index. Default is first.
-        nlayers : int, number of layers for model. limted to 2 and 3
-            Depth index. Default is first depth.
-        step : int, number of steps to use in range
-        max_total_misfit : maximum allowable misfit for model bounds
-        bnds : specify bnds or default values will be used
+        forwardModel : str, 
+            forward model
+        nlayers : int, 
+            number of layers for model. Depth index. Default is first depth.
+        step : int, 
+            number of steps to use for each range
+        fixedParam : list of int and None,
+            array of whether parameters out to be fixed in grid parameter search or not
+        bnds : list of float, optional
+            If specified, will create bounds for the inversion parameters
+        topPer : int, 
+            Top X percentage of models to be used for model boundaries
         """
 
         eca_df=self.surveys[0].df.values[:,2:len(self.coils)+2]
@@ -2769,10 +2774,14 @@ class Problem(object):
         for i in range(0,eca_df.shape[0]):
         
             eca_d = eca_df[i,:]
-            coil_mf = np.absolute(eca_m - eca_d[None,:]) / eca_d[None,:]
+            if regularization=='l1':
+            	coil_mf = np.absolute(eca_m - eca_d[None,:]) / eca_d[None,:]
+            if regularization=='l2':
+            	coil_mf = ((eca_m - eca_d[None,:])/ eca_d[None,:])**2
+            
             total_mf = np.sum(coil_mf, axis=1) / len(self.coils)
         
-            best_mf=np.argsort(total_mf)[0:round(len(total_mf)/(100/top_per))]
+            best_mf=np.argsort(total_mf)[0:round(len(total_mf)/(100/topPer))]
             total_mf = total_mf.reshape(len(total_mf),1)
             best_models=np.hstack((mod_params[best_mf,:],total_mf[best_mf]))
             mod_list.append(best_models)
