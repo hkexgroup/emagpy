@@ -1194,12 +1194,13 @@ class App(QMainWindow):
         def forwardComboFunc(index):
             objs = [self.methodCombo, self.betaEdit, self.gammaEdit, self.lCombo,
                     self.nitEdit, self.parallelCheck]
-            if index == 1: #GN inversion
-                [o.setEnabled(False) for o in objs]
-            else:
-                [o.setEnabled(True) for o in objs]
+            #hashed below is redundant, GN method is now avaliable to all forward model methods
+            #if index == 1: #GN inversion
+            #    [o.setEnabled(False) for o in objs]
+            #else:
+            #    [o.setEnabled(True) for o in objs]
         self.forwardCombo = QComboBox()
-        forwardModels = ['CS', 'FSlin', 'FSeq', 'Q']
+        forwardModels = ['CS','FSlin', 'FSeq', 'Q']
         for forwardModel in forwardModels:
             self.forwardCombo.addItem(forwardModel)
         self.forwardCombo.currentIndexChanged.connect(forwardComboFunc)
