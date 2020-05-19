@@ -1204,9 +1204,10 @@ class App(QMainWindow):
             self.forwardCombo.addItem(forwardModel)
         self.forwardCombo.currentIndexChanged.connect(forwardComboFunc)
         self.forwardCombo.setToolTip('''Choice of forward model:
-        CS : Cumulative Sensitivity with minimize solver
-        FS : Full solution with LIN conversion
-        FSandrade : Full solution without LIN conversion''')
+        CS : Cumulative Sensitivity Function
+        FSlin : Full solution with LIN conversion
+        FSeq : Full solution with equivalent homogenous conductivity conversion
+        Q : Full solution without use of ECa values''')
 
         def methodComboFunc(index):
             objs1 = [self.alphaLabel, self.alphaEdit,
