@@ -2434,72 +2434,77 @@ class Problem(object):
         ax.set_xlabel(r'Model Misfit ||L$\sigma$||$^2$')
         ax.set_ylabel(r'Data Misfit ||$\sigma_a - f(\sigma)$||$^2$')
 
-    def resModtoEC(self, fnameECa, fnameresmod, nbins=None, bin_int=2):
+
+
+    def resModtoEC(self, fnameECa, fnameresmod, binInt=None, nbins=None):
+
         """Convert mesh data to dfec array to be used in calibrate.
         Parameters
         ----------
         fnameECa : str
             Path of the .csv file with the ECa data collected on the calibration points.
-        fnameEC : str
-            Path of the .dat file woth the restivity model.
+        fnameresmod : str
+            Path of the .dat file with the restivity model.
         nbins : int, optional
-            Number of bins to average the resistivity model over
+            Number of bins to average the resistivity model over.
         bin_int : int, optional
-            Bin interval in metres, over which to average resistivity model
+            Bin interval in metres, over which to average resistivity model.
   
-       """
-
-        fnameECa='/home/pmclachlan/emagpy/src/examples/boxford-calib/eca_calibration.csv'
-        fnameresmod='/home/pmclachlan/emagpy/src/examples/boxford-calib/f001_res.dat'
+        """
+     
+        eca=pd.read_csv(fnameECa).values
     
-        dfeca=pd.read_csv(fnameECa).values
-    
-        resmod=pd.read_table(fnameresmod,sep='   ',header=None)
+        resmod=pd.read_table(fnameresmod,sep='\s+',header=None)
         resmod=resmod.to_numpy()
     
-        min_xpos=np.min(dfeca[:,0])
-        max_xpos=np.max(dfeca[:,0])
+        min_xpos=np.min(eca[:,0])
+        max_xpos=np.max(eca[:,0])
     
         resmod=resmod[np.where((resmod[:,0] >= min_xpos) & (resmod[:,0] <= max_xpos)),:][0]
     
         mid_depths=-np.unique(resmod[:,1])
-        depths=(mid_depths[::-1][:-1]+mid_depths[::-1][1:])/2
+        
         nlayers=len(mid_depths)
 
         resmod=resmod[np.where((resmod[:,0] >= min_xpos) & (resmod[:,0] <= max_xpos)),:][0]
 
         if nbins==None:
-            nbins=int(round((max_xpos - min_xpos)/bin_int))
+            if binInt==None:
+                nbins=int(eca.shape[0]-1)
+            else:
+                nbins=int(round((max_xpos - min_xpos)/binInt))
+         
+        print(nbins)
+        bins=np.linspace(min_xpos, max_xpos, nbins+1)
+        bin_id=np.digitize(np.unique(resmod[:,0]), bins+1)
     
-        bins=np.linspace(min_xpos, max_xpos, nbins)
-        bin_id=np.digitize(np.unique(resmod[:,0]), bins)
-    
-        dfec=np.ones((len(mid_depths), nbins-1))
+        ec=np.ones((len(mid_depths), nbins))
 
         mid_depths_r=mid_depths[::-1]
+        
     
         for i in range(0, len(mid_depths)):
-            for j in range(0, nbins-1):
-                dfec[i,j]=1000/10**np.mean(resmod[np.where(resmod[:,1]==-mid_depths_r[i])[0],:][bin_id==j+1,3])
+            for j in range(0, nbins):
+                ec[i,j]=1000/np.mean(resmod[np.where(resmod[:,1]==-mid_depths_r[i])[0],:][bin_id==j+1,2])
             
-        dfec=dfec.T
-        depths=np.append(-depths, -mid_depths[0])
+        ec=ec.T
         
-        bin_id=np.digitize(np.unique(dfeca[:,0]), bins)
+
+        bin_id=np.digitize(np.unique(eca[:,0]), bins)
         
+        depths =  (mid_depths_r[1:] + mid_depths_r[:-1])/2
         
-        dfeca2=[]
-        for i in range(0, nbins-1):
+        eca2=[]
+        for i in range(0, nbins):
             if len(np.where(bin_id==i+1)) > 0:
-                dfeca2.append(np.sum(dfeca[bin_id==i+1,:],axis=0)/dfeca[bin_id==i+1,:].shape[0])
-        dfeca2=np.asarray(dfeca2)
-        dfeca2=dfeca2[~np.isnan(dfeca2).any(axis=1)]
-        
-        return dfec, depths, dfeca2
+                eca2.append(np.sum(eca[bin_id==i+1, :],axis=0)/eca[bin_id==i+1,:].shape[0])
+        eca2=np.asarray(eca2)
+        eca2=eca2[~np.isnan(eca2).any(axis=1)]
+        return ec, depths, eca2[:, 1:]
 
 
 
-    def calibrate(self, fnameECa, fnameEC=None, fnameresmod=None, forwardModel='CS', ax=None, apply=False, dump=None):
+    def calibrate(self, fnameECa, fnameEC=None, fnameresmod=None, forwardModel='CS', ax=None, apply=False, dump=None, nbins=None, binInt=None):
         """Calibrate ECa with given EC profile.
         
         Parameters
@@ -2510,8 +2515,10 @@ class Problem(object):
             Path of the .csv file with the EC profile data. One row per location
             corresponding to the rows of fnameECa. The header should be the
             corresponding depths in meters positive downards.
+        fnameresmod : str
+            File name of resmod, R2 format e.g. f001_mod.dat.
         forwardModel : str, optional
-            Forward model to use. Either CS (default), FS or FSeq.
+            Forward model to use. Either CS (default), FSlin or FSeq.
         ax : matplotlib.Axes
             If specified the graph will be plotted against this axis.
         apply : bool, optional
@@ -2531,18 +2538,20 @@ class Problem(object):
             except:
                 print('Frequency not found, revert to CS')
                 forwardModel = 'CS' # doesn't need frequency
-        if type(fnameresmod)==str:
-            dfec, depths, dfeca=self.resModtoEC(fnameECa, fnameresmod, nbins=None, bin_int=1)
-            depths=dfec[0,:]
-            dfec=dfec[1:,:]
-        
-        else:    
+        if fnameresmod is not None:
+            ec, depths, eca=self.resModtoEC(fnameECa=fnameECa, fnameresmod=fnameresmod, nbins=nbins, binInt=binInt)
+            depths = depths
+            dfec = pd.DataFrame(ec)
+            dfeca = pd.DataFrame(eca)
+            dfeca.columns = list(survey.df.loc[:, survey.coils])
+            survey.df = dfeca
+
+        if fnameEC is not None:  
             dfec = pd.read_csv(fnameEC)
             depths = np.abs(dfec.columns.values.astype(float)) # those are the depths of at mid layer
             depths = depths[:-1] + np.diff(depths) # those are depths of the bottom of the layer
+            
         if survey.df.shape[0] != dfec.shape[0]:
-            print(dfec.shape)
-            print(survey.df.shape)
             raise ValueError('input ECa and inputEC should have the same number of rows so the measurements can be paired.')
        
         
