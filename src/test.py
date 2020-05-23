@@ -19,7 +19,7 @@ k.importGF(datadir + 'cover-crop/coverCropLo.dat',
 k.importGF(datadir + 'cover-crop/coverCropLo.dat')
 k.importGF(datadir + 'cover-crop/coverCropHi.dat')
 k.importGF(datadir + 'cover-crop/coverCropLo.dat',
-           datadir + 'cover-crop/coverCropHi.dat', device='CMD Explorer')
+           datadir + 'cover-crop/coverCropHi.dat', device='CMD Explorer', calib='F-0m')
 
 # filtering
 k.filterRange(vmin=0, vmax=25)
