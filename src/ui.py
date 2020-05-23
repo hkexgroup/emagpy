@@ -878,7 +878,6 @@ class App(QMainWindow):
             if fname != '':
                 self.fnameresmod = fname
                 self.fnameEC = None
-
                 self.ertImportBtn.setText(os.path.basename(fname))
         self.ertImportBtn = QPushButton('Import ERT Model')
         self.ertImportBtn.clicked.connect(ertImportBtnFunc)
