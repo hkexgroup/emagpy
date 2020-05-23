@@ -1987,8 +1987,7 @@ class Problem(object):
         
         if rmse:
             ax2 = ax.twinx()
-            xx = np.arange(len(self.rmses[index])) + 0.5
-            ax2.plot(xx, self.rmses[index], 'kx-')
+            ax2.plot(x[:-1] + np.diff(x)/2, self.rmses[index], 'kx-')
             ax2.set_ylabel('RRMSE [%]')
             
         if errorbar or overlay:
