@@ -2436,7 +2436,7 @@ class Problem(object):
 
 
 
-    def resModtoEC(self, fnameECa, fnameresmod, binInt=None, nbins=None):
+    def resModtoEC(self, fnameECa, fnameresmod, binInt=None, nbins=None, meshType='quad'):
 
         """Convert mesh data to dfec array to be used in calibrate.
         Parameters
@@ -2456,6 +2456,37 @@ class Problem(object):
     
         resmod=pd.read_table(fnameresmod,sep='\s+',header=None)
         resmod=resmod.to_numpy()
+
+        # check if mesh is triangular or quadrilateral, meshes with topography may be read wrong
+        if(len(np.unique(resmod[:,0]))*len(np.unique(resmod[:,1])))==len(resmod[:,1]):
+            meshType='quad'
+            print('Mesh is quadrilateral.')
+        else:
+            meshType='tri'
+            print('Mesh is triangular, it will be regridded.')
+
+        if(meshType=='tri'):
+            resmod=pd.read_table(fnameresmod,sep='\s+',header=None)
+            resmod=np.asarray(resmod)
+            x = resmod[:,0]
+            y = resmod[:,1]
+            z = resmod[:,2]
+            np.min(y)- np.max(y)
+            xi = np.arange(np.min(x), np.max(x), 0.25)
+            yi = np.linspace(np.min(y), np.max(y), 15)
+            xi,yi = np.meshgrid(xi,yi)
+            zi = griddata((x,y),z,(xi,yi),method='linear')
+
+            x=np.unique(xi)
+            y=np.unique(yi)
+
+            resmodxy=np.array(np.meshgrid(x,y)).T.reshape(-1,2)
+            
+            z=zi.T.flatten()
+            resmod=np.concatenate((resmodxy, z[:,None]), axis=1)
+
+            resmod=resmod[~np.isnan(resmod[:,2]),:]
+             
     
         min_xpos=np.min(eca[:,0])
         max_xpos=np.max(eca[:,0])
@@ -2473,8 +2504,7 @@ class Problem(object):
                 nbins=int(eca.shape[0]-1)
             else:
                 nbins=int(round((max_xpos - min_xpos)/binInt))
-         
-        print(nbins)
+        
         bins=np.linspace(min_xpos, max_xpos, nbins+1)
         bin_id=np.digitize(np.unique(resmod[:,0]), bins+1)
     
@@ -2485,7 +2515,7 @@ class Problem(object):
     
         for i in range(0, len(mid_depths)):
             for j in range(0, nbins):
-                ec[i,j]=1000/np.mean(resmod[np.where(resmod[:,1]==-mid_depths_r[i])[0],:][bin_id==j+1,2])
+                ec[i,j]=1000/10**np.mean(np.log10(resmod[np.where(resmod[:,1]==-mid_depths_r[i])[0],:][bin_id==j+1,2]))
             
         ec=ec.T
         
@@ -2504,7 +2534,7 @@ class Problem(object):
 
 
 
-    def calibrate(self, fnameECa, fnameEC=None, fnameresmod=None, forwardModel='CS', ax=None, apply=False, dump=None, nbins=None, binInt=None):
+    def calibrate(self, fnameECa, fnameEC=None, fnameresmod=None, forwardModel='CS', ax=None, apply=False, dump=None, nbins=None, binInt=None,  meshType='quad'):
         """Calibrate ECa with given EC profile.
         
         Parameters
@@ -2539,7 +2569,7 @@ class Problem(object):
                 print('Frequency not found, revert to CS')
                 forwardModel = 'CS' # doesn't need frequency
         if fnameresmod is not None:
-            ec, depths, eca=self.resModtoEC(fnameECa=fnameECa, fnameresmod=fnameresmod, nbins=nbins, binInt=binInt)
+            ec, depths, eca=self.resModtoEC(fnameECa=fnameECa, fnameresmod=fnameresmod, nbins=nbins, binInt=binInt,  meshType=meshType)
             depths = depths
             dfec = pd.DataFrame(ec)
             dfeca = pd.DataFrame(eca)
