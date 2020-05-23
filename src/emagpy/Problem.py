@@ -202,7 +202,7 @@ class Problem(object):
         
     
     def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer',
-                 hx=0, targetProjection=None):
+                 hx=0, calib=None, targetProjection=None):
         """Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
@@ -215,8 +215,13 @@ class Problem(object):
         device : str, optional
             Type of device. Default is Mini-Explorer.
         hx : float, optional
-            Height of the device above the ground in meters according to the
-            calibration use (e.g. `F-Ground` -> 0 m, `F-1m` -> 1 m).
+            Height of the device above the ground in meters. Note that this is
+            different from the 'calib' used. Data can be collected at 1 m (hx=1)
+            but using the 'F-0m' calibration.
+        calib : str, optional
+            Calibration used. Either 'F-0m' or 'F-1m'. If specified, the 
+            `gfCorrection()` function will be called and ECa values will be
+            converted to LIN ECa (this is recommended for inversion).
         targetProjection : str, optional
             If both Lo and Hi dataframe contains 'Latitude' with NMEA values
             a conversion first is done using `self.convertFromNMEA()` before
@@ -225,13 +230,36 @@ class Problem(object):
         if self.projection is not None:
             targetProjection = self.projection
         survey = Survey()
-        survey.importGF(fnameLo, fnameHi, device, hx, targetProjection)
+        survey.importGF(fnameLo, fnameHi, device, hx, calib, targetProjection)
         self.coils = survey.coils
         self.freqs = survey.freqs
         self.cspacing = survey.cspacing
         self.cpos = survey.cpos
         self.hx = survey.hx
         self.surveys.append(survey)
+        
+    
+    def gfCorrection(self, calib):
+        """Apply a correction to convert the calibrated ECa taking using F-0m or
+        F-1m on CMD Explorer and Mini-Explorer to LIN ECa.
+        
+        GF instruments directly map the quadrature values measured to ECa using
+        a linear calibration. This allows to have ECa values representative of
+        the ground EC even when the device is operated at 1 m above the ground
+        for instance. However, this calibration gets in the way when modelling
+        the EM response based on physical equations for the inversion. Hence,
+        we recommend to apply a correction and convert back the 'calibrated ECa' 
+        to LIN ECa. This function contains the retro-engineered coefficients
+        of the GF calibration. The ECa values are first uncalibrated back to 
+        quadrature values and then converted back to ECa using the LIN approximation.
+        
+        Parameters
+        ----------
+        calib : str
+            Name of the calibration used. Either 'F-0m' of 'F-1m'.
+        """
+        for s in self.surveys:
+            s.gfCorrection(calib)
         
         
     def _matchSurveys(self):

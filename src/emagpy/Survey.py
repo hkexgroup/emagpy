@@ -58,7 +58,7 @@ def idw(xnew, ynew, xknown, yknown, zknown, n=1):
     return znew
 
 
-def convertFromCoord(df, targetProjection='EPSG:27700'):
+def convertFromCoord(df, targetProjection=None):
     """Convert coordinates string (NMEA or DMS) to selected CRS projection.
     
     Parameters
@@ -68,7 +68,7 @@ def convertFromCoord(df, targetProjection='EPSG:27700'):
         string.
     targetProjection : str, optional
         Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
-        for the British Grid.
+        for the British Grid. If None, only WGS84 decimal degree will be returned.
     """
     import pyproj
     
@@ -117,11 +117,14 @@ def convertFromCoord(df, targetProjection='EPSG:27700'):
     df['lat'] = gps2deg(df['Latitude'].values)
     df['lon'] = gps2deg(df['Longitude'].values)
     
-    wgs84 = pyproj.Proj("EPSG:4326") # LatLon with WGS84 datum used by GPS units and Google Earth
-    osgb36 = pyproj.Proj(targetProjection) # UK Ordnance Survey, 1936 datum
-    
-    df['x'], df['y'] = pyproj.transform(wgs84, osgb36, 
-                          df['lat'].values, df['lon'].values)
+    if targetProjection is not None:
+        wgs84 = pyproj.Proj("EPSG:4326") # LatLon with WGS84 datum used by GPS units and Google Earth
+        targetCRS = pyproj.Proj(targetProjection) # target EPSG
+        df['x'], df['y'] = pyproj.transform(wgs84, targetCRS, 
+                              df['lat'].values, df['lon'].values)
+    else:
+        df['x'] = df['lon']
+        df['y'] = df['lat']
 
     return df
     
@@ -794,14 +797,27 @@ class Survey(object):
 
 
     
-    def gfCorrection(self):
+    def gfCorrection(self, calib):
         """Converting GF calibrated ECa to LIN ECa.
+        
+        GF instruments directly map the quadrature values measured to ECa using
+        a linear calibration. This allows to have ECa values representative of
+        the ground EC even when the device is operated at 1 m above the ground
+        for instance. However, this calibration gets in the way when modelling
+        the EM response based on physical equations for the inversion. Hence,
+        we recommend to apply a correction and convert back the 'calibrated ECa' 
+        to LIN ECa. This function contains the retro-engineered coefficients
+        of the GF calibration. The ECa values are first uncalibrated back to 
+        quadrature values and then converted back to ECa using the LIN approximation.
+        
+        Parameters
+        ----------
+        calib : str
+            Name of the calibration used. Either 'F-0m' of 'F-1m'.
         """
         df = self.df.copy()
-        hx = self.hx[0]
         coils = ['{:s}{:.2f}'.format(a.upper(),b) for a,b in zip(self.cpos, self.cspacing)]
-        print('Transformation to LIN ECa at F-{:.0f}m calibration'.format(hx))
-        if hx == 0:
+        if calib == 'F-0m':
             gfcoefs = {'HCP1.48': 24.87076856,
                        'HCP2.82': 7.34836983,
                        'HCP4.49': 3.18322873,
@@ -817,7 +833,7 @@ class Survey(object):
             for i, coil in enumerate(coils):
                 qvalues = 0+df[self.coils[i]].values/gfcoefs[coil]*1e-3j
                 df.loc[:, self.coils[i]] = Q2eca(qvalues, self.cspacing[i], f=self.freqs[i])*1000 # mS/m
-        if hx == 1:
+        if calib == 'F-1m':
             gfcoefs = {'HCP1.48': 43.714823,
                        'HCP2.82': 9.22334343,
                        'HCP4.49': 3.51201955,
@@ -831,11 +847,12 @@ class Survey(object):
                 qvalues = 0+df[self.coils[i]].values/gfcoefs[coil]*1e-3j # in part per thousand
                 df.loc[:, self.coils[i]] = Q2eca(qvalues, self.cspacing[i], f=self.freqs[i])*1000
         self.df = df
+        print('gfCorrection: {:s} calibrated ECa converted to LIN ECa'.format(calib))
     
     
     
     def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer',
-                 hx=0, targetProjection='EPSG:27700'):
+                 hx=0, calib=None, targetProjection=None):
         """Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
@@ -848,12 +865,18 @@ class Survey(object):
         device : str, optional
             Type of device. Default is Mini-Explorer.
         hx : float, optional
-            Height of the device above the ground in meters according to the
-            calibration use (e.g. `F-Ground` -> 0 m, `F-1m` -> 1 m).
+            Height of the device above the ground in meters. Note that this is
+            different from the 'calib' used. Data can be collected at 1 m (hx=1)
+            but using the 'F-0m' calibration.
+        calib : str, optional
+            Calibration used. Either 'F-0m' or 'F-1m'. If specified, the 
+            `gfCorrection()` function will be called and ECa values will be
+            converted to LIN ECa (this is recommended for inversion).
         targetProjection : str, optional
             If both Lo and Hi dataframe contains 'Latitude' with NMEA values
             a conversion first is done using `self.convertFromNMEA()` before
-            being regrid using nearest neightbours.
+            being regrid using nearest neightbours. If not supplied, regridding
+            is done using WGS84 latitude and longitude.
         """
         if fnameLo is None and fnameHi is None:
             raise ValueError('You must specify at least one of fnameLo or fnameHi.')
@@ -953,9 +976,11 @@ class Survey(object):
             self.cpos = [a['orientation'] for a in coilInfo]
             self.hx = np.repeat([hx], len(self.coils))*0 # as we corrected it before
             self.df = df
-            self.sensor = device
-            self.gfCorrection() # convert calibrated ECa to LIN ECa
-            
+            self.sensor = device 
+            if calib is not None:
+                self.gfCorrection(calib=calib)
+            else:
+                print('You might need to apply the GF correction (Problem.gfCorrection()) if you wish to invert the data.')
             
             
     ### jamyd91 contribution edited by jkl ### 

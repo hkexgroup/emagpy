@@ -464,12 +464,14 @@ class App(QMainWindow):
         
         
         # import data
+        self.mergedCheck = QCheckBox('Merge surveys')
+        self.mergedCheck.setToolTip('Check to merge all files in a single survey.')
+        
         def importBtnFunc():
             self._dialog = QFileDialog()
             fnames, _ = self._dialog.getOpenFileNames(importTab, 'Select data file(s)', self.datadir, '*.csv *.CSV')
             if len(fnames) > 0:
-                self.processFname(fnames)
-                    
+                self.processFname(fnames, merged=self.mergedCheck.isChecked())
         self.importBtn = QPushButton('Import Dataset(s)')
         self.importBtn.setAutoDefault(True)
         self.importBtn.setStyleSheet('background-color:orange')
@@ -482,6 +484,7 @@ class App(QMainWindow):
                 self.importGFLo.setText(os.path.basename(fname))
         self.importGFLo = QPushButton('Select Lo')
         self.importGFLo.clicked.connect(importGFLoFunc)
+        
         def importGFHiFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)
             if fname != '':
@@ -489,9 +492,13 @@ class App(QMainWindow):
                 self.importGFHi.setText(os.path.basename(fname))
         self.importGFHi = QPushButton('Select Hi')
         self.importGFHi.clicked.connect(importGFHiFunc)
-        self.hxLabel = QLabel('Height above the ground [m]:')
+        
+        self.hxLabel = QLabel('Height [m]:')
+        
         self.hxEdit = QLineEdit('0')
         self.hxEdit.setValidator(QDoubleValidator())
+        self.hxEdit.setToolTip('Height above the ground [m]')
+        
         def importGFApplyFunc():
             hx = float(self.hxEdit.text()) if self.hxEdit.text() != '' else 0
             device = self.sensorCombo.itemText(self.sensorCombo.currentIndex())
@@ -502,10 +509,27 @@ class App(QMainWindow):
         self.importGFApply.setStyleSheet('background-color: orange')
         self.importGFApply.clicked.connect(importGFApplyFunc)
         
+        self.gfCalibCombo = QComboBox()
+        self.gfCalibCombo.addItem('F-0m')
+        self.gfCalibCombo.addItem('F-1m')
+        self.gfCalibCombo.setToolTip('Select calibration used.')
+        self.gfCalibCombo.setVisible(False)
+        
+        def gfCorrectionBtnFunc():
+            self.problem.gfCorrection(calib=self.gfCalibCombo.currentText())
+            self.replot()
+        self.gfCorrectionBtn = QPushButton('Convert to LIN ECa')
+        self.gfCorrectionBtn.clicked.connect(gfCorrectionBtnFunc)
+        self.gfCorrectionBtn.setToolTip('GF Instruments output calibrated ECa values.'
+                                        'However, LIN ECa values are need for inversion.'
+                                        'This convert the calibrated ECa to LIN ECa, '
+                                        'usually making them smaller.')
+        self.gfCorrectionBtn.setVisible(False)
         
         def showGF(arg):
-            visibles = np.array([True, False, False, False, False, False])
-            objs = [self.importBtn, self.importGFLo, self.importGFHi,
+            visibles = np.array([True, True, False, False, False, False, False, False, False])
+            objs = [self.importBtn, self.mergedCheck, self.importGFLo, self.importGFHi,
+                    self.gfCalibCombo, self.gfCorrectionBtn,
                     self.hxLabel, self.hxEdit, self.importGFApply]
             if arg is True:
                 [o.setVisible(v) for o,v in zip(objs, ~visibles)]
@@ -778,13 +802,16 @@ class App(QMainWindow):
         importLayout = QVBoxLayout()
         
         topLayout = QHBoxLayout()
-        topLayout.addWidget(self.sensorCombo, 15)
-        topLayout.addWidget(self.importBtn, 15)
+        topLayout.addWidget(self.sensorCombo, 10)
+        topLayout.addWidget(self.mergedCheck, 5)
+        topLayout.addWidget(self.importBtn, 10)
         topLayout.addWidget(self.importGFLo, 10)
         topLayout.addWidget(self.importGFHi, 10)
-        topLayout.addWidget(self.hxLabel, 10)
-        topLayout.addWidget(self.hxEdit, 10)
+        topLayout.addWidget(self.hxLabel, 5)
+        topLayout.addWidget(self.hxEdit, 5)
         topLayout.addWidget(self.importGFApply, 10)
+        topLayout.addWidget(self.gfCalibCombo, 5)
+        topLayout.addWidget(self.gfCorrectionBtn, 10)
         topLayout.addWidget(self.projLabel, 5)
         topLayout.addWidget(self.projEdit, 10)
         topLayout.addWidget(self.projBtn, 10)
@@ -1729,7 +1756,7 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         else:
             self.mwRaw.replot(index=index, coil=coil, vmin=vmin, vmax=vmax)
                 
-    def processFname(self, fnames):
+    def processFname(self, fnames, merged=False):
         self.problem.surveys = [] # empty the list of current survey
         if len(fnames) == 1:
             fname = fnames[0]
@@ -1740,10 +1767,22 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         else:
             self.importBtn.setText(os.path.basename(fnames[0]) + ' .. '
                                    + os.path.basename(fnames[-1]))
-            self.gammaEdit.setVisible(True)
-            self.gammaLabel.setVisible(True)
-            self.problem.createTimeLapseSurvey(fnames)
-        self.infoDump('Files well imported')
+            if merged:
+                self.problem.createMergedSurvey(fnames)
+            else:
+                self.gammaEdit.setVisible(True)
+                self.gammaLabel.setVisible(True)
+                self.problem.createTimeLapseSurvey(fnames)
+        # check if coils configuration seem to match GF instruments
+        coils = ['{:s}{:.2f}'.format(a.upper(), b) for a, b in zip(self.problem.cpos, self.problem.cspacing)]
+        if np.sum(np.in1d(coils, ['VCP0.32', 'HCP0.32', 'VCP1.48', 'HCP1.48'])) > 0:
+            self.gfCorrectionBtn.setVisible(True)
+            self.gfCalibCombo.setVisible(True)
+            self.infoDump('Files well imported. GF instrument suspected. Check if you need to apply the GF correction.')
+        else:
+            self.gfCorrectionBtn.setVisible(False)
+            self.gfCalibCombo.setVisible(False)
+            self.infoDump('Files well imported')
         self.setupUI()
         
     def setupUI(self):
