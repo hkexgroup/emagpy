@@ -2945,4 +2945,108 @@ class Problem(object):
         print('')
 
         self.dois = dois
+
+def gridParamSearch(forwardModel, nlayers=2, step=20, maxMisfit=0.1):
+        """Using a grid based parameter search method this returns a list of best models for a specified number of layers, the minimum and maximum parameter bounds for the the top x percentage of models is also returned. This method can be used to 'invert' data or provide initial model parameter and parameter bounds for McMC methods.
+        
+        Parameters
+        ----------
+        forwardModel : str, 
+            forward model
+        nlayers : int, 
+            number of layers for model. Depth index. Default is first depth.
+        step : int, 
+            number of steps to use for each range
+        fixedParam : list of int and None,
+            array of whether parameters out to be fixed in grid parameter search or not
+        bnds : list of float, optional
+            If specified, will create bounds for the inversion parameters
+        maxMisfit : int, 
+            Maximum allowable misfit
+        """
+
+        dfeca = self.surveys[0].df.loc[:, self.coils]
+        
+        eca = np.asarray(dfeca)
+    
+        fixedParam = None
+        bnds = None
+
+        nparams = 2 * nlayers - 1   
+        ndepths = nparams - nlayers
+
+        if type(fixedParam) == list and len(fixedParam[0]) < nlayers + ndepths:
+            print('Number of fixed params should match number of parameters')
+        
+        if type(bnds) == list and len(bnds) < nlayers + ndepths:
+            print('Length of bnds should match number of parameters')
+
+        if bnds==None:
+            bnds=[]
+            for i in range(0, ndepths):
+                bnds.append(((0.1 + i, 1 + i)))
+            for i in range(0, nlayers):
+                bnds.append(((1, 100)))
+
+        paramRange=[]
+        if  type(fixedParam) == list:
+            for i in range(0, len(fixedParam[0])):
+                if type(fixedParam[0][i]) == float:
+                    paramRange.append(((fixedParam[0][i], fixedParam[0][i])))
+                else:
+                    paramRange.append(((bnds[i][0], bnds[i][1])))
+        else:
+            paramRange=bnds
+
+        params=[]
+        for i in range(0, nparams):
+            if paramRange[i][0]==paramRange[i][1]:
+                params.append(paramRange[i][0])
+            else:
+                params.append((np.linspace(paramRange[i][0], paramRange[i][1], step)))
+
+ 
+        modParams = np.array(np.meshgrid(*params)).T.reshape(-1,nparams)
+    
+        print('Will compute', len(modParams), 'forward models')      
+    
+        depths=modParams[:,0:ndepths].reshape((len(modParams[:,0]),ndepths))
+    
+        conds=modParams[:,ndepths:ndepths+nlayers]
+    
+        eca_m=np.asarray(self.forward(depths=[depths], models=[conds])[0])
+
+        bestMod = []
+        modList = []
+        paramMin= []
+        paramMax = []
+
+        for i in range(0,eca.shape[0]):
+        
+            eca_d = eca[i,:]
+            if regularization=='l1':
+                coilMisfits = np.absolute(eca_m - eca_d[None,:]) / eca_d[None,:]
+            if regularization=='l2':
+                coilMisfits = ((eca_m - eca_d[None,:])/ eca_d[None,:])**2
+            
+            totalMisfit = np.sum(coilMisfits, axis=1) / len(self.coils)
+        
+            converged=np.where(totalMisfit < misfitMax)
+            
+            convergedModels=np.hstack((modParams[converged,:][0],totalMisfit[converged][:,None]))
+            
+            if len(convergedModels) > 0:
+                modList.append(convergedModels)
+                paramMin.append(np.amin(convergedModels[:,:-1],axis=0))                 
+                paramMax.append(np.amax(convergedModels[:,:-1],axis=0))
+            
+            else: 
+                paramMin.append(np.amin(paramRange, axis=1))                 
+                paramMax.append(np.amax(paramRange, axis=1))
+            
+            bestMod.append(np.append(modParams[np.where(totalMisfit == np.min(totalMisfit))[0][0],:],np.min(totalMisfit)))
+    
+    return bestMod, paramMin, paramMax    
+        
+
         
