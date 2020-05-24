@@ -2881,8 +2881,6 @@ class Problem(object):
         fig.colorbar(cax, ax=ax, label='Depth [m]')
         ax.set_title('Depths[{:d}]'.format(idepth))
 
-
-
     def computeDOI(self, conds=None, depths=None, nlayers=50):
         """Compute a depth of investigation (DOI) for each 1D EC model.
         Sensitivity cutoff at 0.3, i.e. 70% of signal comes from above the DOI.
@@ -2946,7 +2944,7 @@ class Problem(object):
 
         self.dois = dois
 
-def gridParamSearch(forwardModel, nlayers=2, step=20, maxMisfit=0.1):
+    def gridParamSearch(self, forwardModel, nlayers=2, step=25, misfitMax=0.1, regularization='l1'):
         """Using a grid based parameter search method this returns a list of best models for a specified number of layers, the minimum and maximum parameter bounds for the the top x percentage of models is also returned. This method can be used to 'invert' data or provide initial model parameter and parameter bounds for McMC methods.
         
         Parameters
@@ -3046,7 +3044,7 @@ def gridParamSearch(forwardModel, nlayers=2, step=20, maxMisfit=0.1):
             
             bestMod.append(np.append(modParams[np.where(totalMisfit == np.min(totalMisfit))[0][0],:],np.min(totalMisfit)))
     
-    return bestMod, paramMin, paramMax    
+        return bestMod, paramMin, paramMax    
         
 
         
