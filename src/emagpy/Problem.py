@@ -547,7 +547,7 @@ class Problem(object):
             else:
                 fixedParams = None
                 nlayers = 2
-            
+
             bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax = self.gridParamSearch(forwardModel=fmodel, bnds=bnds, regularization=regularization, fixedParams=fixedParams)
 
             self.models.append(bestConds)
@@ -3024,9 +3024,8 @@ class Problem(object):
         paramsRange=[]
         if  type(fixedParams) == list:
             for i in range(0, len(fixedParams)):
-                dump(type(fixedParams[0][i]))
-                if type(fixedParams[0][i]) == float:
-                    paramsRange.append(((fixedParams[0][i], fixedParams[0][i])))
+                if type(fixedParams[i]) == float:
+                    paramsRange.append(((fixedParams[i], fixedParams[i])))
                 else:
                     paramsRange.append(((bnds[i][0], bnds[i][1])))
         else:
