@@ -524,8 +524,31 @@ class Problem(object):
                 dump('WARNING: Gridded Parameter Search does not accept any smoothing parameters.\n')
             
             dump('Inverting data using Gridded Parameter Search\n')
+
+            if len(self.conds0) > 0:
+
+                fixedParamsD = []
+                for i in range(0, len(self.depths0[0][0])):
+                    if self.fixedDepths[i] == True:
+                        fixedParamsD.append(self.depths0[0][0][i])
+                    else:
+                        fixedParamsD.append(None)
+        
+                fixedParamsC = []
+                for i in range(0, len(self.conds0[0][0])):
+                    if self.fixedConds[i] == True:
+                        fixedParamsC.append(self.conds0[0][0][i])
+                    else:
+                        fixedParamsC.append(None)
+
+                fixedParams = fixedParamsD + fixedParamsC
+                nlayers = len(fixedParamsC)
             
-            bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax = self.gridParamSearch(fmodel)
+            else:
+                fixedParams = None
+                nlayers = 2
+            
+            bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax = self.gridParamSearch(forwardModel=fmodel, bnds=bnds, regularization=regularization, fixedParams=fixedParams)
 
             self.models.append(bestConds)
             self.depths.append(bestDepths)
@@ -2959,7 +2982,7 @@ class Problem(object):
 
         self.dois = dois
 
-    def gridParamSearch(self, forwardModel, nlayers=2, step=25, misfitMax=0.1, regularization='l1', fixedParam=None, bnds=None):
+    def gridParamSearch(self, forwardModel, nlayers=2, step=25, misfitMax=0.1, regularization='l1', fixedParams=None, bnds=None):
         """Using a grid based parameter search method this returns a list of best models for a specified number of layers, the minimum and maximum parameter bounds for the the top x percentage of models is also returned. This method can be used to 'invert' data or provide initial model parameter and parameter bounds for McMC methods.
         
         Parameters
@@ -2985,7 +3008,7 @@ class Problem(object):
         nparams = 2 * nlayers - 1   
         ndepths = nparams - nlayers
 
-        if type(fixedParam) == list and len(fixedParam[0]) < nlayers + ndepths:
+        if type(fixedParams) == list and len(fixedParams) < nlayers + ndepths:
             print('Number of fixed params should match number of parameters')
         
         if type(bnds) == list and len(bnds) < nlayers + ndepths:
@@ -2998,22 +3021,24 @@ class Problem(object):
             for i in range(0, nlayers):
                 bnds.append(((1, 100)))
 
-        paramRange=[]
-        if  type(fixedParam) == list:
-            for i in range(0, len(fixedParam[0])):
-                if type(fixedParam[0][i]) == float:
-                    paramRange.append(((fixedParam[0][i], fixedParam[0][i])))
+        paramsRange=[]
+        if  type(fixedParams) == list:
+            for i in range(0, len(fixedParams)):
+                dump(type(fixedParams[0][i]))
+                if type(fixedParams[0][i]) == float:
+                    paramsRange.append(((fixedParams[0][i], fixedParams[0][i])))
                 else:
-                    paramRange.append(((bnds[i][0], bnds[i][1])))
+                    paramsRange.append(((bnds[i][0], bnds[i][1])))
         else:
-            paramRange=bnds
+            paramsRange=bnds
 
         params=[]
         for i in range(0, nparams):
-            if paramRange[i][0]==paramRange[i][1]:
-                params.append(paramRange[i][0])
+            
+            if paramsRange[i][0]==paramsRange[i][1]:
+                params.append(paramsRange[i][0])
             else:
-                params.append((np.linspace(paramRange[i][0], paramRange[i][1], step)))
+                params.append((np.linspace(paramsRange[i][0], paramsRange[i][1], step)))
 
  
         modParams = np.array(np.meshgrid(*params)).T.reshape(-1,nparams)
@@ -3053,9 +3078,9 @@ class Problem(object):
                 paramSd.append(np.std(convergedModels[:,:-1],axis=0))
             
             else: 
-                paramMin.append(np.amin(paramRange, axis=1))                 
-                paramMax.append(np.amax(paramRange, axis=1))
-                paramSd.append(np.std(paramRange,axis=0))
+                paramMin.append(np.amin(paramsRange, axis=1))                 
+                paramMax.append(np.amax(paramsRange, axis=1))
+                paramSd.append(np.std(paramsRange,axis=0))
 
             
             bestMod.append(np.append(modParams[np.where(totalMisfit == np.min(totalMisfit))[0][0],:],np.min(totalMisfit)))
