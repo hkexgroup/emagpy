@@ -401,9 +401,9 @@ class Problem(object):
         """
         mMinimize = ['L-BFGS-B','TNC','CG','Nelder-Mead']
         mMCMC = ['ROPE','SCEUA','DREAM', 'MCMC']
-        mOther = ['ANN','Gauss-Newton']
+        mOther = ['ANN','Gauss-Newton','GPS']
         if (method not in mMinimize) and (method not in mMCMC) and (method not in mOther):
-            raise ValueError('Unknow method {:s}'.format(method))
+            raise ValueError('Unknown method {:s}'.format(method))
             return
         
         # check if we have initial model
@@ -516,6 +516,21 @@ class Problem(object):
             bounds = list(tuple(zip(bot[np.r_[vd, vc]], top[np.r_[vd, vc]])))
         # if bounds is not None:
             # dump('bounds = ' + str(bounds) + '\n')
+
+
+        # gridded parameter search as an inversion method
+        if method == 'GPS':
+            if alpha !=0 or gamma != 0 or beta != 0:
+                dump('WARNING: Gridded Parameter Search does not accept any smoothing parameters.\n')
+            
+            dump('Inverting data using Gridded Parameter Search\n')
+            
+            bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax = self.gridParamSearch(fmodel)
+
+            self.models.append(bestConds)
+            self.depths.append(bestDepths)
+            self.rmses.append(bestMisfits)
+            self.pstds.append(paramSd)
 
         # build ANN network
         if method == 'ANN': # pragma: no cover
@@ -2944,7 +2959,7 @@ class Problem(object):
 
         self.dois = dois
 
-    def gridParamSearch(self, forwardModel, nlayers=2, step=25, misfitMax=0.1, regularization='l1'):
+    def gridParamSearch(self, forwardModel, nlayers=2, step=25, misfitMax=0.1, regularization='l1', fixedParam=None, bnds=None):
         """Using a grid based parameter search method this returns a list of best models for a specified number of layers, the minimum and maximum parameter bounds for the the top x percentage of models is also returned. This method can be used to 'invert' data or provide initial model parameter and parameter bounds for McMC methods.
         
         Parameters
@@ -2966,9 +2981,6 @@ class Problem(object):
         dfeca = self.surveys[0].df.loc[:, self.coils]
         
         eca = np.asarray(dfeca)
-    
-        fixedParam = None
-        bnds = None
 
         nparams = 2 * nlayers - 1   
         ndepths = nparams - nlayers
@@ -3018,6 +3030,7 @@ class Problem(object):
         modList = []
         paramMin= []
         paramMax = []
+        paramSd = []
 
         for i in range(0,eca.shape[0]):
         
@@ -3037,14 +3050,19 @@ class Problem(object):
                 modList.append(convergedModels)
                 paramMin.append(np.amin(convergedModels[:,:-1],axis=0))                 
                 paramMax.append(np.amax(convergedModels[:,:-1],axis=0))
+                paramSd.append(np.std(convergedModels[:,:-1],axis=0))
             
             else: 
                 paramMin.append(np.amin(paramRange, axis=1))                 
                 paramMax.append(np.amax(paramRange, axis=1))
+                paramSd.append(np.std(paramRange,axis=0))
+
             
             bestMod.append(np.append(modParams[np.where(totalMisfit == np.min(totalMisfit))[0][0],:],np.min(totalMisfit)))
+            
+            bestDepths=np.asarray(bestMod)[:,0:ndepths]
+            bestConds=np.asarray(bestMod)[:,ndepths:nparams]
+            bestMisfits=np.asarray(bestMod)[:,-1]
     
-        return bestMod, paramMin, paramMax    
-        
-
+        return bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax    
         
