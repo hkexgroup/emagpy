@@ -19,6 +19,7 @@ import matplotlib.tri as mtri
 # import matplotlib.path as mpath
 from scipy.optimize import minimize
 from scipy.stats import linregress, gaussian_kde
+from scipy import interpolate
 
 # for parallel computing
 from joblib import Parallel, delayed
@@ -62,6 +63,8 @@ class Problem(object):
         self.annReplaced = 0 # number of measurement outliers by ANN
         self.runningUI = False # True if run in UI, just change output of parallel stuff
         self.forwardModel = None # store the forward model choosen for showMisfit and showOne2One
+        self.projection = None # string of projection as EPSG
+        self.dois = [] # list of array of DOI computed from ('computeDOI()')
         
         
     def createSurvey(self, fname, freq=None, hx=None, targetProjection=None):
@@ -80,6 +83,9 @@ class Problem(object):
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         """
         # create Survey object
+        if self.projection is not None:
+            targetProjection = self.projection
+            
         survey = Survey(fname, freq=freq, hx=hx, targetProjection=targetProjection)
         
         # remove NaN from survey
@@ -125,6 +131,8 @@ class Problem(object):
                 # this filter out hidden file as well
             else:
                 raise ValueError('dirname should be a directory path or a list of filenames')
+        if self.projection is not None:
+            targetProjection = self.projection
         for fname in fnames:
             self.createSurvey(fname, targetProjection=targetProjection)
             
@@ -152,6 +160,8 @@ class Problem(object):
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         """
         # import all surveys
+        if self.projection is not None:
+            targetProjection = self.projection
         surveys = []
         for fname in fnames:
             surveys.append(Survey(fname, targetProjection=targetProjection))
@@ -192,7 +202,7 @@ class Problem(object):
         
     
     def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer',
-                 hx=0, targetProjection=None):
+                 hx=0, calib=None, targetProjection=None):
         """Import GF instrument data with Lo and Hi file mode. If spatial data
         a regridding will be performed to match the data.
         
@@ -205,21 +215,51 @@ class Problem(object):
         device : str, optional
             Type of device. Default is Mini-Explorer.
         hx : float, optional
-            Height of the device above the ground in meters according to the
-            calibration use (e.g. `F-Ground` -> 0 m, `F-1m` -> 1 m).
+            Height of the device above the ground in meters. Note that this is
+            different from the 'calib' used. Data can be collected at 1 m (hx=1)
+            but using the 'F-0m' calibration.
+        calib : str, optional
+            Calibration used. Either 'F-0m' or 'F-1m'. If specified, the 
+            `gfCorrection()` function will be called and ECa values will be
+            converted to LIN ECa (this is recommended for inversion).
         targetProjection : str, optional
             If both Lo and Hi dataframe contains 'Latitude' with NMEA values
             a conversion first is done using `self.convertFromNMEA()` before
             being regrid using nearest neightbours.
         """
+        if self.projection is not None:
+            targetProjection = self.projection
         survey = Survey()
-        survey.importGF(fnameLo, fnameHi, device, hx, targetProjection)
+        survey.importGF(fnameLo, fnameHi, device, hx, calib, targetProjection)
         self.coils = survey.coils
         self.freqs = survey.freqs
         self.cspacing = survey.cspacing
         self.cpos = survey.cpos
         self.hx = survey.hx
         self.surveys.append(survey)
+        
+    
+    def gfCorrection(self, calib):
+        """Apply a correction to convert the calibrated ECa taking using F-0m or
+        F-1m on CMD Explorer and Mini-Explorer to LIN ECa.
+        
+        GF instruments directly map the quadrature values measured to ECa using
+        a linear calibration. This allows to have ECa values representative of
+        the ground EC even when the device is operated at 1 m above the ground
+        for instance. However, this calibration gets in the way when modelling
+        the EM response based on physical equations for the inversion. Hence,
+        we recommend to apply a correction and convert back the 'calibrated ECa' 
+        to LIN ECa. This function contains the retro-engineered coefficients
+        of the GF calibration. The ECa values are first uncalibrated back to 
+        quadrature values and then converted back to ECa using the LIN approximation.
+        
+        Parameters
+        ----------
+        calib : str
+            Name of the calibration used. Either 'F-0m' of 'F-1m'.
+        """
+        for s in self.surveys:
+            s.gfCorrection(calib)
         
         
     def _matchSurveys(self):
@@ -312,7 +352,6 @@ class Problem(object):
                 - CS : Cumulative sensitivity (default)
                 - FSlin : Full Maxwell solution with low-induction number (LIN) approximation
                 - FSeq : Full Maxwell solution without LIN approximation (see Andrade et al., 2016)
-                - CSgn : Cumulative sensitivity with jacobian matrix (using Gauss-Newton)
         method : str, optional
             Name of the optimization method either L-BFGS-B, TNC, CG or Nelder-Mead
             to be passed to `scipy.optimize.minmize()` or ROPE, SCEUA, DREAM, MCMC for
@@ -1355,14 +1394,16 @@ class Problem(object):
                                models=lmodels, depths=ldepths,
                                noise=0.0)
             eca = np.dstack([df.values for df in dfs]) # Nsample x Ncoils x Nprofiles
-            sens = eca[:-1,:,:]/eca[-1,:,:][None,:,:] - 1 # dividing by ref (undisturbed ECa)
-            sens = sens/np.max(sens, axis=0)[None,:,:]
+            # sens = eca[:-1,:,:] / eca[-1,:,:][None,:,:] - 1 # dividing by ref (undisturbed ECa)
+            sens = eca[:-1,:,:] - eca[-1,:,:][None,:,:] # subtracting the ref ECa (slighly better up to 1e-16)
+            sens = sens/np.max(sens, axis=0)[None,:,:] # normalising
             senss.append(sens)
         return senss
     
+
     
     def show(self, index=0, coil='all', ax=None, vmin=None, vmax=None, 
-             dist=False):
+             dist=True):
         """Show the raw data of the survey.
         
         Parameters
@@ -1463,9 +1504,9 @@ class Problem(object):
     
     
     
-    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='nearest',
-                xmin=None, xmax=None, ymin=None, ymax=None, color=False,
-                cmap='viridis', vmin=None, vmax=None):
+    def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='linear',
+                xmin=None, xmax=None, ymin=None, ymax=None, color=True,
+                cmap='viridis', vmin=None, vmax=None, nlevel=14):
         """Save a georeferenced raster TIFF file for the specified inverted depths.
         
         Parameters
@@ -1549,7 +1590,7 @@ class Problem(object):
             if vmax is None:
                 vmax = np.nanpercentile(Z.flatten(), 98)
             norm = plt.Normalize(vmin=vmin, vmax=vmax)
-            Z = plt.get_cmap(cmap)(norm(Z))
+            Z = plt.get_cmap(cmap, nlevel)(norm(Z))
             Z = 255*Z
             Z = Z.astype('uint8')
             for i in range(4):
@@ -1559,7 +1600,7 @@ class Problem(object):
                            driver='GTiff',
                            height=Z.shape[0],
                            width=Z.shape[1], count=4, dtype=Z.dtype,
-                           crs='epsg:27700', transform=tt) as dst:
+                           crs=self.projection, transform=tt) as dst:
                 for i in range(4):
                     dst.write(Z[:,:,i], i+1)
         else:
@@ -1567,7 +1608,7 @@ class Problem(object):
                                driver='GTiff',
                                height=Z.shape[0],
                                width=Z.shape[1], count=1, dtype=Z.dtype,
-                               crs='epsg:27700', transform=tt) as dst:
+                               crs=self.projection, transform=tt) as dst:
                 dst.write(Z, 1)
         
     
@@ -1752,10 +1793,24 @@ class Problem(object):
             Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
             for the British Grid.
         """
+        if self.projection is not None:
+            targetProjection = self.projection
         for survey in self.surveys:
             survey.convertFromNMEA(targetProjection=targetProjection)
     
-    
+    def setProjection(self, targetProjection='EPSG:27700'):
+        """Set surveys projection to the targetProjection.
+        
+        Parameters
+        ----------
+        targetProjection : str, optional
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            for the British Grid.
+        """
+        self.projection = targetProjection
+        for survey in self.surveys:
+            survey.projection = targetProjection
+        
 
     def showProfile(self, index=0, ipos=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, errorbar=False):
@@ -1806,9 +1861,9 @@ class Problem(object):
 
     
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
-                    maxDepth=None, padding=1, cmap='viridis_r', dist=False,
+                    maxDepth=None, padding=1, cmap='viridis_r', dist=True,
                     contour=False, rmse=False, errorbar=False, overlay=False,
-                    elev=False):
+                    elev=False, doi=False):
         """Show inverted model.
         
         Parameters
@@ -1844,6 +1899,10 @@ class Problem(object):
         elev : bool, optional
             If `True`, each inverted profile will be adjusted according to
             elevation.
+        doi : bool, optional
+            If `True` and `computeDOI()` was called, the estimated DOI from 
+            above which 70% of the deeper coil configuration is coming from will
+            be plotted on top of the graph as a red dotted line.
         """
         try:
             sig = self.models[index]
@@ -1869,6 +1928,9 @@ class Problem(object):
         depths = -np.c_[depths, np.ones(depths.shape[0])*maxDepth]
         if elev:
             depths = depths + self.surveys[index].df['elevation'].values[:,None]
+        if dist:
+            if len(self.surveys) == 0:
+                dist = False # no survey to take position from
         
         # vertices
         nlayer = sig.shape[1]
@@ -1898,7 +1960,7 @@ class Problem(object):
             yc = np.r_[np.zeros(nsample), centroid[:,1], -np.ones(nsample)*maxDepth]
             zc = np.c_[sig[:,0], sig, sig[:,-1]]
             if vmax > vmin:
-                levels = np.linspace(vmin, vmax, 7)
+                levels = np.linspace(vmin, vmax, 14)
             else:
                 levels = None
             # cax = ax.tricontourf(xc, yc, zc.flatten('F'),
@@ -1925,8 +1987,7 @@ class Problem(object):
         
         if rmse:
             ax2 = ax.twinx()
-            xx = np.arange(len(self.rmses[index])) + 0.5
-            ax2.plot(xx, self.rmses[index], 'kx-')
+            ax2.plot(x[:-1] + np.diff(x)/2, self.rmses[index], 'kx-')
             ax2.set_ylabel('RRMSE [%]')
             
         if errorbar or overlay:
@@ -1956,6 +2017,10 @@ class Problem(object):
             else:
                 coll = PolyCollection(coordinates, array=zu.flatten('F'), cmap=acmap)
                 ax.add_collection(coll)
+        if doi:
+            if len(self.dois) > 0:
+                dois = -self.dois[index]
+                ax.step(x, np.r_[dois, dois[-1]], 'r:', where='post')
                 
         if dist:
             ax.set_xlabel('Distance [m]')
@@ -2336,8 +2401,8 @@ class Problem(object):
         obsECa = survey.df[cols].values
         simECa = dfsForward[index][cols].values
         #print('number of nan', np.sum(np.isnan(obsECa)), np.sum(np.isnan(simECa)))
-        rmse = np.sqrt(np.sum((obsECa.flatten() - simECa.flatten())**2)/np.sum(obsECa.flatten()**2)/len(obsECa.flatten()))*100
         rmses = np.sqrt(np.sum((obsECa - simECa)**2, axis=0)/np.sum(obsECa**2, axis=0)/obsECa.shape[0])*100
+        rmse = np.sum(rmses)/len(self.coils)
         if vmin is None:
             vmin = np.nanpercentile(obsECa.flatten(), 5)
         if vmax is None:
@@ -2705,14 +2770,16 @@ class Problem(object):
     
     def showSlice(self, index=0, islice=0, contour=False, vmin=None, vmax=None,
                   cmap='viridis_r', ax=None, pts=False):
-        """Show depth slice.
+        """Show depth slice of EC (if islice > 0) and depth (if islice < 0).
         
         Parameters
         ----------
         index : int, optional
             Survey index. Default is first.
         islice : int, optional
-            Depth index. Default is first depth.
+            Layer index (if islice > 0). Default is first layer. If islice < 0,
+            the depths will be display instead (e.g. islice = -1 will display
+            the depth of the bottom of the first layer).
         contour : bool, optional
             If `True` then there will be contouring.
         vmin : float, optional
@@ -2726,7 +2793,15 @@ class Problem(object):
         pts : boolean, optional
             If `True` (default) the data points will be plotted over the contour.
         """
-        z = self.models[index][:,islice]
+        if islice >= 0:
+            z = self.models[index][:,islice]
+            label = 'EC [mS/m]'
+            title = 'Layer {:d}'
+        else:
+            islice = np.abs(islice) - 1
+            z = self.depth[index][:,islice]
+            label = 'Depth [m]'
+            title = 'Bottom depth of layer {:d}'
         x = self.surveys[index].df['x'].values
         y = self.surveys[index].df['y'].values
         if ax is None:
@@ -2741,19 +2816,19 @@ class Problem(object):
             if contour is True:
                 print('All points on a line, can not contour this.')
             cax = ax.scatter(x, y, c=z, cmap=cmap, vmin=vmin, vmax=vmax)
-            ax.set_xlim([np.nanmin(x), np.nanmax(x)])
-            ax.set_ylim([np.nanmin(y), np.nanmax(y)])
+            # ax.set_xlim([np.nanmin(x), np.nanmax(x)])
+            # ax.set_ylim([np.nanmin(y), np.nanmax(y)])
         else:
-            levels = np.linspace(vmin, vmax, 7)
+            levels = np.linspace(vmin, vmax, 14)
             cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
             if pts:
                 ax.plot(x, y, 'k+')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
-        fig.colorbar(cax, ax=ax, label='EC [mS/m]')
+        fig.colorbar(cax, ax=ax, label=label)
         # depths = np.r_[[0], self.depths0, [-np.inf]]
         # ax.set_title('{:.2f}m - {:.2f}m'.format(depths[islice], depths[islice+1]))
-        ax.set_title('Layer {:d}'.format(islice+1))
+        ax.set_title(title.format(islice+1))
         
         
     def showDepths(self, index=0, idepth=0, contour=False, vmin=None, vmax=None,
@@ -2807,8 +2882,10 @@ class Problem(object):
         ax.set_title('Depths[{:d}]'.format(idepth))
 
 
-    def gridParamSearch(self, nlayers, forwardModel, step=10, fixedParam=None, bnds=None, topPer=5, regularization='l2'):
-        """Using a grid based parameter search method this returns a list of best models for a specified number of layers, the minimum and maximum parameter bounds for the the top x percentage of models is also returned. This method can be used to 'invert' data or provide initial model parameter and parameter bounds for McMC methods.
+
+    def computeDOI(self, conds=None, depths=None, nlayers=50):
+        """Compute a depth of investigation (DOI) for each 1D EC model.
+        Sensitivity cutoff at 0.3, i.e. 70% of signal comes from above the DOI.
         
         Parameters
         ----------
@@ -2825,80 +2902,47 @@ class Problem(object):
         topPer : int, 
             Top X percentage of models to be used for model boundaries
         """
-
-        eca_df=self.surveys[0].df.values[:,2:len(self.coils)+2]
-    
-        fixedParam=None
-        bnds=None
-
-        nparams = 2 * nlayers - 1   
-        ndepths = nparams - nlayers
-
-        if type(fixedParam)==list and len(fixedParam[0]) < nlayers+ndepths:
-            print('Number of fixed params should match number of parameters')
-        
-        if type(bnds)==list and len(bnds) < nlayers+ndepths:
-            print('Length of bnds should match number of parameters')
-        
-
-
-        if bnds==None:
-            bnds=[]
-            for i in range(0, ndepths):
-                bnds.append(((0.1+i, 1+i)))
-            for i in range(0, nlayers):
-                bnds.append(((1, 100)))
-
-        paramRange=[]
-        if  type(fixedParam) == list:
-            for i in range(0, len(fixedParam[0])):
-                if type(fixedParam[0][i])==float:
-                    paramRange.append(((fixedParam[0][i], fixedParam[0][i])))
-                else:
-                    paramRange.append(((bnds[i][0], bnds[i][1])))
+        # initial argument check
+        ilocal = False
+        if conds is None:
+            conds = self.models.copy()
+            ilocal = True
         else:
-            paramRange=bnds
-
-        params=[]
-        for i in range(0, nparams):
-            if paramRange[i][0]==paramRange[i][1]:
-                params.append(paramRange[i][0])
-            else:
-                params.append((np.linspace(paramRange[i][0], paramRange[i][1], step)))
-
- 
-        mod_params = np.array(np.meshgrid(*params)).T.reshape(-1,nparams)
-    
-        print('Will compute', len(mod_params), 'forward models')      
-    
-        depths=mod_params[:,0:ndepths].reshape((len(mod_params[:,0]),ndepths))
-    
-        conds=mod_params[:,ndepths:ndepths+nlayers]
-    
-        eca_m=np.asarray(self.forward(depths=[depths], models=[conds])[0])
-
-        best_mod = []
-        mod_list = []
-        param_min= []
-        param_max = []
-
-        for i in range(0,eca_df.shape[0]):
+            conds = [conds]
+        if depths is None:
+            depths = self.depths.copy()
+        else:
+            depths = [depths]
         
-            eca_d = eca_df[i,:]
-            if regularization=='l1':
-            	coil_mf = np.absolute(eca_m - eca_d[None,:]) / eca_d[None,:]
-            if regularization=='l2':
-            	coil_mf = ((eca_m - eca_d[None,:])/ eca_d[None,:])**2
-            
-            total_mf = np.sum(coil_mf, axis=1) / len(self.coils)
+        dois = []
+        d = np.linspace(0, np.max(depths[0]), nlayers)[1:]
+        ddiff = np.diff(d, axis=0)/2
+        dm = mdepths = np.r_[d[0]/2, d[1:] + ddiff, d[-1] + ddiff[-1]]
+        print('\rComputing DOI {:d}/{:d} done'.format(0, len(depths)), end='')
+        for i in range(len(depths)): # for each survey
+            # discretize
+            n = depths[i].shape[0]
+            depth2 = np.ones((n, len(d)))*d[None,:] # depth of bottom of each layer
+            mdepths = np.c_[depths[i][:,0][:,None]/2,
+                            depths[i][:,1:] + np.diff(depths[i], axis=1)/2,
+                            np.ones((n, 1))*(1+np.max(depths[0]))]
+            # interpolate
+            conds2 = np.array([np.interp(dm, mdepths[j,:], conds[i][j,:]) for j in range(n)])
         
-            best_mf=np.argsort(total_mf)[0:round(len(total_mf)/(100/topPer))]
-            total_mf = total_mf.reshape(len(total_mf),1)
-            best_models=np.hstack((mod_params[best_mf,:],total_mf[best_mf]))
-            mod_list.append(best_models)
-            best_mod.append(np.append(mod_params[np.where(total_mf == np.min(total_mf))[0][0],:],np.min(total_mf)))
+            sens = self.computeSens(forwardModel=self.forwardModel, coils=None,
+                                    models=[conds2], depths=[depth2])
+            # NOTE coils need to be None to tell self.forward() that we
+            # are not creating a new survey
+            S = sens[0] # Nsample x Ncoils x Nprofiles
+            S2 = S[::-1,:,:]
+            cumS = np.cumsum(S2, axis=0)[::-1,:,:]
+            cumS = cumS/np.max(cumS, axis=0) # normalize so that top is 1
+            imin = np.argmin(np.abs(cumS - 0.3), axis=0) # depth closes to 70% cumulative sensitivity
+            imax = np.max(imin, axis=0) # deeper depth amongst coil config
+            doi = dm[imax]
+            dois.append(doi)
+            print('\rComputing DOI {:d}/{:d} done'.format(i+1, len(depths)), end='')
+        print('')
+
+        self.dois = dois
         
-            param_min.append(np.amin(mod_list[i][:,:-1],axis=0))                 
-            param_max.append(np.amax(mod_list[i][:,:-1],axis=0))
-    
-        return best_mod, param_min, param_max    

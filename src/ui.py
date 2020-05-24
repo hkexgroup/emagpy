@@ -464,12 +464,14 @@ class App(QMainWindow):
         
         
         # import data
+        self.mergedCheck = QCheckBox('Merge surveys')
+        self.mergedCheck.setToolTip('Check to merge all files in a single survey.')
+        
         def importBtnFunc():
             self._dialog = QFileDialog()
             fnames, _ = self._dialog.getOpenFileNames(importTab, 'Select data file(s)', self.datadir, '*.csv *.CSV')
             if len(fnames) > 0:
-                self.processFname(fnames)
-                    
+                self.processFname(fnames, merged=self.mergedCheck.isChecked())
         self.importBtn = QPushButton('Import Dataset(s)')
         self.importBtn.setAutoDefault(True)
         self.importBtn.setStyleSheet('background-color:orange')
@@ -482,6 +484,7 @@ class App(QMainWindow):
                 self.importGFLo.setText(os.path.basename(fname))
         self.importGFLo = QPushButton('Select Lo')
         self.importGFLo.clicked.connect(importGFLoFunc)
+        
         def importGFHiFunc():
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)
             if fname != '':
@@ -489,9 +492,13 @@ class App(QMainWindow):
                 self.importGFHi.setText(os.path.basename(fname))
         self.importGFHi = QPushButton('Select Hi')
         self.importGFHi.clicked.connect(importGFHiFunc)
-        self.hxLabel = QLabel('Height above the ground [m]:')
+        
+        self.hxLabel = QLabel('Height [m]:')
+        
         self.hxEdit = QLineEdit('0')
         self.hxEdit.setValidator(QDoubleValidator())
+        self.hxEdit.setToolTip('Height above the ground [m]')
+        
         def importGFApplyFunc():
             hx = float(self.hxEdit.text()) if self.hxEdit.text() != '' else 0
             device = self.sensorCombo.itemText(self.sensorCombo.currentIndex())
@@ -502,10 +509,27 @@ class App(QMainWindow):
         self.importGFApply.setStyleSheet('background-color: orange')
         self.importGFApply.clicked.connect(importGFApplyFunc)
         
+        self.gfCalibCombo = QComboBox()
+        self.gfCalibCombo.addItem('F-0m')
+        self.gfCalibCombo.addItem('F-1m')
+        self.gfCalibCombo.setToolTip('Select calibration used.')
+        self.gfCalibCombo.setVisible(False)
+        
+        def gfCorrectionBtnFunc():
+            self.problem.gfCorrection(calib=self.gfCalibCombo.currentText())
+            self.replot()
+        self.gfCorrectionBtn = QPushButton('Convert to LIN ECa')
+        self.gfCorrectionBtn.clicked.connect(gfCorrectionBtnFunc)
+        self.gfCorrectionBtn.setToolTip('GF Instruments output calibrated ECa values.'
+                                        'However, LIN ECa values are need for inversion.'
+                                        'This convert the calibrated ECa to LIN ECa, '
+                                        'usually making them smaller.')
+        self.gfCorrectionBtn.setVisible(False)
         
         def showGF(arg):
-            visibles = np.array([True, False, False, False, False, False])
-            objs = [self.importBtn, self.importGFLo, self.importGFHi,
+            visibles = np.array([True, True, False, False, False, False, False, False, False])
+            objs = [self.importBtn, self.mergedCheck, self.importGFLo, self.importGFHi,
+                    self.gfCalibCombo, self.gfCorrectionBtn,
                     self.hxLabel, self.hxEdit, self.importGFApply]
             if arg is True:
                 [o.setVisible(v) for o,v in zip(objs, ~visibles)]
@@ -515,24 +539,25 @@ class App(QMainWindow):
 
         
         # projection (only if GPS data are available)
-        self.projLabel = QLabel('EPSG:')
+        self.projLabel = QLabel('Map CRS:')
         self.projLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         
         ### Preparing the ~5000 projections:
-        pcs = pd.read_csv(resource_path('emagpy/pcs.csv'))
-        pcs_names = pcs['COORD_REF_SYS_NAME'].tolist()
-        pcs_names.extend(pcs['COORD_REF_SYS_NAME_rev'].tolist())
+        self.pcs = pd.read_csv(resource_path('emagpy/pcs.csv'))
+        pcs_names = self.pcs['COORD_REF_SYS_NAME'].tolist()
+        pcs_names.extend(self.pcs['COORD_REF_SYS_NAME_rev'].tolist())
         self.pcsCompleter = QCompleter(pcs_names)
         self.pcsCompleter.setCaseSensitivity(Qt.CaseInsensitive)
         
         self.projEdit = QLineEdit()
         self.projEdit.setPlaceholderText('Type projection CRS')
-        self.projEdit.setToolTip('Type the CRS projection and then select from the options')
+        self.projEdit.setToolTip('Type the CRS projection and then select from the options\nDefault is British National Grid / OSGB 1936')
         # self.projEdit.setValidator(QDoubleValidator())
         self.projEdit.setCompleter(self.pcsCompleter)
         # self.projEdit.setEnabled(False)
 
         self.projBtn = QPushButton('Convert NMEA')
+        self.projBtn.setToolTip('Convert NMEA string coordinates to EPSG coordinates - select a CRS first')
         self.projBtn.clicked.connect(self.projBtnFunc)
         self.projBtn.setEnabled(False)
         
@@ -584,6 +609,25 @@ class App(QMainWindow):
         self.ptsKillerBtn.clicked.connect(ptsKillerBtnFunc)
         self.ptsKillerBtn.setEnabled(False)
         self.ptsKillerBtn.setAutoDefault(True)
+        
+        def gridBtnFunc():
+            nx = int(self.gridx.text())
+            ny = int(self.gridy.text())
+            self.problem.gridData(nx=nx, ny=ny)
+            self.replot()
+        self.gridBtn = QPushButton('Grid Data')
+        self.gridBtn.setEnabled(False)
+        self.gridBtn.clicked.connect(gridBtnFunc)
+        
+        self.gridxLabel = QLabel('nx:')
+        self.gridx = QLineEdit('100')
+        self.gridx.setValidator(QIntValidator())
+        self.gridx.setToolTip('Grid size in X direction.')
+        
+        self.gridyLabel = QLabel('ny:')
+        self.gridy = QLineEdit('100')
+        self.gridy.setValidator(QIntValidator())
+        self.gridy.setToolTip('Grid size in Y direction.')
         
         
         # display options
@@ -704,12 +748,12 @@ class App(QMainWindow):
         
         # select different colormap
         def cmapComboFunc(index):
-            self.showParams['cmap'] = cmaps[index]
+            self.showParams['cmap'] = psMapCmaps[index]
             self.replot()
         self.cmapCombo = QComboBox()
-        cmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow', 'jet','jet_r']
-        for cmap in cmaps:
-            self.cmapCombo.addItem(cmap)
+        psMapCmaps = ['viridis', 'viridis_r', 'seismic', 'rainbow', 'jet','jet_r']
+
+        self.cmapCombo.addItems(psMapCmaps)
         self.cmapCombo.activated.connect(cmapComboFunc)
         self.cmapCombo.setEnabled(False)
         self.cmapCombo.setVisible(False)
@@ -737,23 +781,11 @@ class App(QMainWindow):
         self.ptsCheck.setVisible(False)
         
         # export GIS raster layer
-        def setProjection():
-            val = self.projEdit.text()
-            if any(pcs['COORD_REF_SYS_NAME'] == val) is True or any(pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
-                epsg_code = pcs['COORD_REF_SYS_CODE'][pcs['COORD_REF_SYS_NAME'] == val].values
-                epsgVal = 'EPSG:'+str(epsg_code)
-                self.problem.projection = epsgVal
-            else:
-                self.errorDump('CRS projection is not correctly defined')
-            
-            
-            
         def expPsMap():
             fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
-            print('fname:', fname)
-            setProjection()
-            self.problem.saveMap(fname=fname)
-            
+            if fname != '':
+                self.setProjection()
+                self.problem.saveMap(fname=fname, cmap=self.cmapCombo.currentText())
             
             
         self.psMapExpBtn = QPushButton('Exp. GIS layer')
@@ -761,8 +793,6 @@ class App(QMainWindow):
                                     'Choose the correct EPSG CRS projection!')
         self.psMapExpBtn.setVisible(False)
         self.psMapExpBtn.clicked.connect(expPsMap)
-        
-
 
         # display it
         self.mwRaw = MatplotlibWidget()
@@ -772,13 +802,16 @@ class App(QMainWindow):
         importLayout = QVBoxLayout()
         
         topLayout = QHBoxLayout()
-        topLayout.addWidget(self.sensorCombo, 15)
-        topLayout.addWidget(self.importBtn, 15)
+        topLayout.addWidget(self.sensorCombo, 10)
+        topLayout.addWidget(self.mergedCheck, 5)
+        topLayout.addWidget(self.importBtn, 10)
         topLayout.addWidget(self.importGFLo, 10)
         topLayout.addWidget(self.importGFHi, 10)
-        topLayout.addWidget(self.hxLabel, 10)
-        topLayout.addWidget(self.hxEdit, 10)
+        topLayout.addWidget(self.hxLabel, 5)
+        topLayout.addWidget(self.hxEdit, 5)
         topLayout.addWidget(self.importGFApply, 10)
+        topLayout.addWidget(self.gfCalibCombo, 5)
+        topLayout.addWidget(self.gfCorrectionBtn, 10)
         topLayout.addWidget(self.projLabel, 5)
         topLayout.addWidget(self.projEdit, 10)
         topLayout.addWidget(self.projBtn, 10)
@@ -794,6 +827,11 @@ class App(QMainWindow):
         filtLayout.addWidget(self.rollingEdit)
         filtLayout.addWidget(self.rollingBtn)
         filtLayout.addWidget(self.ptsKillerBtn)
+        filtLayout.addWidget(self.gridBtn)
+        filtLayout.addWidget(self.gridxLabel)
+        filtLayout.addWidget(self.gridx)
+        filtLayout.addWidget(self.gridyLabel)
+        filtLayout.addWidget(self.gridy)
     
         midLayout = QHBoxLayout()
         midLayout.addWidget(self.displayLabel)
@@ -820,32 +858,6 @@ class App(QMainWindow):
         
         importTab.setLayout(importLayout)
         
-
-#        #%% filtering data
-#        filterTab = QTabWidget()
-#        self.tabs.addTab(filterTab, 'Filtering')
-#
-#        '''TODO add filtering tab ?
-#        - add filtering tab with vmin/vmax filtering
-#        - pointsKiller
-#        - regridding of spatial data
-#        - rolling mean
-#        - how replace point by :
-#        
-#        '''        
-#        
-#        
-#        
-#        # graph
-#        mwFiltered = MatplotlibWidget()
-#        
-#        
-#        
-#        # layout
-#        filterLayout = QVBoxLayout()
-#        
-#        filterTab.setLayout(filterLayout)
-#        
         
         
         #%% calibration
@@ -1095,8 +1107,47 @@ class App(QMainWindow):
                         fixedConds[i] = True
                 return fixedConds
             
+        self.icustomModel = False
         
-        self.modelLabel = QLabel('Bottom depth and starting conductivity of each layer.')
+        def importModelBtnFunc():
+            self._dialog = QFileDialog()
+            fname, _ = self._dialog.getOpenFileName(settingsTab, 'Select data file', self.datadir, '*.csv')
+            if fname != '':
+                # try:
+                self.problem.importModel(fname)
+                nlayer = self.problem.models[0].shape[1]
+                self.modelTable.setTable([-1]*(nlayer-1),[-1]*nlayer)
+                self.createModelBtn.setEnabled(False)
+                self.addRowBtn.setEnabled(False)
+                self.delRowBtn.setEnabled(False)
+                self.nLayerEdit.setEnabled(False)
+                self.startingEdit.setEnabled(False)
+                self.thicknessEdit.setEnabled(False)
+                self.icustomModel = True
+                self.importModelBtn.setText(os.path.basename(fname))
+                self.infoDump('Model successfully set.')
+                # except Exception as e:
+                #     print(e)
+                #     self.errorDump('Error in reading file. Please check format.')
+        self.importModelBtn = QPushButton('Import Model')
+        self.importModelBtn.clicked.connect(importModelBtnFunc)
+        self.importModelBtn.setToolTip('File needs to be .csv with layer1, layer2, depth1, ... columns.\n'
+                                   'layerX contains EC in mS/m and depthX contains depth of the bottom\n'
+                                   'of the layer in meters (positively defined)')
+        
+        def clearModelBtnFunc():
+            self.createModelBtn.setEnabled(True)
+            self.addRowBtn.setEnabled(True)
+            self.delRowBtn.setEnabled(True)
+            self.nLayerEdit.setEnabled(True)
+            self.startingEdit.setEnabled(True)
+            self.thicknessEdit.setEnabled(True)
+            self.icustomModel = False
+            self.importModelBtn.setText('Import Model')
+        self.clearModelBtn = QPushButton('Clear Model')
+        self.clearModelBtn.clicked.connect(clearModelBtnFunc)
+        
+        self.modelLabel = QLabel('Bottom depth and starting EC of each layer.')
         
         def addRowBtnFunc():
             self.modelTable.addRow()
@@ -1149,6 +1200,10 @@ class App(QMainWindow):
         settingsLayout = QHBoxLayout()
         
         invStartLayout = QVBoxLayout()
+        importLayout = QHBoxLayout()
+        importLayout.addWidget(self.importModelBtn)
+        importLayout.addWidget(self.clearModelBtn)
+        invStartLayout.addLayout(importLayout)
         invStartLayout.addWidget(self.modelLabel)
         invBtnLayout = QHBoxLayout()
         invBtnLayout.addWidget(self.addRowBtn)
@@ -1179,21 +1234,21 @@ class App(QMainWindow):
         def forwardComboFunc(index):
             objs = [self.methodCombo, self.betaEdit, self.gammaEdit, self.lCombo,
                     self.nitEdit, self.parallelCheck]
-            if index == 1: #GN inversion
-                [o.setEnabled(False) for o in objs]
-            else:
-                [o.setEnabled(True) for o in objs]
+            #hashed below is redundant, GN method is now avaliable to all forward model methods
+            #if index == 1: #GN inversion
+            #    [o.setEnabled(False) for o in objs]
+            #else:
+            #    [o.setEnabled(True) for o in objs]
         self.forwardCombo = QComboBox()
-        forwardModels = ['CS', 'CS (fast)', 'FSlin', 'FSeq', 'Q']
+        forwardModels = ['CS','FSlin', 'FSeq', 'Q']
         for forwardModel in forwardModels:
             self.forwardCombo.addItem(forwardModel)
         self.forwardCombo.currentIndexChanged.connect(forwardComboFunc)
         self.forwardCombo.setToolTip('''Choice of forward model:
-        CS fast : Cumulative Sensitivity with
-        Gauss-Newton solver (faster).
-        CS : Cumulative Sensitivity with minimize solver
-        FS : Full solution with LIN conversion
-        FSandrade : Full solution without LIN conversion''')
+        CS : Cumulative Sensitivity Function
+        FSlin : Full solution with LIN conversion
+        FSeq : Full solution with equivalent homogenous conductivity conversion
+        Q : Full solution without use of ECa values''')
 
         def methodComboFunc(index):
             objs1 = [self.alphaLabel, self.alphaEdit,
@@ -1203,7 +1258,7 @@ class App(QMainWindow):
                     self.parallelCheck]
             objs2 = [self.annSampleLabel, self.annSampleEdit,
                      self.annNoiseLabel, self.annNoiseEdit]
-            if index == 8: #ANN
+            if self.methodCombo.currentText() == 'ANN':
                 [o.setVisible(False) for o in objs1]
                 [o.setVisible(True) for o in objs2]
             else:
@@ -1215,11 +1270,21 @@ class App(QMainWindow):
                 else:
                     self.gammaLabel.setVisible(False)
                     self.gammaEdit.setVisible(False)
-            
+            if self.methodCombo.currentText() == 'Gauss-Newton':
+                self.betaEdit.setEnabled(False)
+                self.lCombo.setEnabled(False)
+                self.parallelCheck.setEnabled(False)
+                self.nitEdit.setEnabled(False)
+            else:
+                self.betaEdit.setEnabled(True)
+                self.lCombo.setEnabled(True)
+                self.parallelCheck.setEnabled(True)
+                self.nitEdit.setEnabled(True)
                 
         self.methodCombo = QComboBox()
         self.methodCombo.setToolTip('''Choice of solver:
-        L-BFGS-B : minimize, faster
+        L-BFGS-B : minimize, fast and flexible
+        Gauss-Newton : fast, no support for variable depth
         CG : Congugate Gradient, fast
         TNC : Truncated Newton, robust
         Nelder-Mead : more robust
@@ -1230,7 +1295,7 @@ class App(QMainWindow):
         ANN : Artificial Neural Network''')
         mMinimize = ['L-BFGS-B', 'CG', 'TNC', 'Nelder-Mead']
         mMCMC = ['ROPE', 'SCEUA', 'DREAM', 'MCMC']
-        methods = mMinimize + mMCMC + ['ANN']
+        methods = mMinimize + ['Gauss-Newton'] + mMCMC + ['ANN']
         for method in methods:
             self.methodCombo.addItem(method)
         self.methodCombo.currentIndexChanged.connect(methodComboFunc)
@@ -1314,6 +1379,9 @@ class App(QMainWindow):
 
             # collect parameters
             depths0, conds0, fixedDepths, fixedConds = self.modelTable.getTable()
+            if self.icustomModel:
+                depths0 = self.problem.depths[0]
+                conds0 = self.problem.models[0]
             self.problem.setInit(depths0, conds0, fixedDepths, fixedConds)
             regularization = self.lCombo.itemText(self.lCombo.currentIndex())
             alpha = float(self.alphaEdit.text()) if self.alphaEdit.text() != '' else 0.07
@@ -1321,14 +1389,20 @@ class App(QMainWindow):
             method = self.methodCombo.itemText(self.methodCombo.currentIndex())
             beta = float(self.betaEdit.text()) if self.betaEdit.text() != '' else 0.0
             gamma = float(self.gammaEdit.text()) if self.gammaEdit.text() != '' else 0.0
-            depths = np.r_[[0], depths0, [-np.inf]]
             nit = int(self.nitEdit.text()) if self.nitEdit.text() != '' else 15
             nsample = int(self.annSampleEdit.text()) if self.annSampleEdit.text() != '' else 100
             noise = float(self.annNoiseEdit.text()) if self.annNoiseEdit.text() != '' else 0
             njobs = -1 if self.parallelCheck.isChecked() else 1
+            if self.icustomModel:
+                depths = np.arange(depths0.shape[1]+2)
+            else:
+                depths = np.r_[[0], depths0, [-np.inf]]
             self.sliceCombo.clear()
             for i in range(len(depths)-1):
-                self.sliceCombo.addItem('{:.2f}m - {:.2f}m'.format(depths[i], depths[i+1]))
+                if self.icustomModel | (np.sum(~fixedConds) > 0):
+                    self.sliceCombo.addItem('Layer {:d}'.format(i+1))
+                else:
+                    self.sliceCombo.addItem('{:.2f}m - {:.2f}m'.format(depths[i], depths[i+1]))
             self.sliceCombo.activated.connect(sliceComboFunc)
             
             # invert
@@ -1371,9 +1445,8 @@ class App(QMainWindow):
             showInvParams['cmap'] = self.cmapInvCombo.itemText(index)
             self.mwInv.replot(**showInvParams)
         self.cmapInvCombo = QComboBox()
-        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
-        for cmap in cmaps:
-            self.cmapInvCombo.addItem(cmap)
+        invCmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
+        self.cmapInvCombo.addItems(invCmaps)
         self.cmapInvCombo.activated.connect(cmapInvComboFunc)
         
         def surveyInvComboFunc(index):
@@ -1422,9 +1495,8 @@ class App(QMainWindow):
             showInvMapParams['cmap'] = self.cmapInvMapCombo.itemText(index)
             self.mwInvMap.replot(**showInvMapParams)
         self.cmapInvMapCombo = QComboBox()
-        cmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
-        for cmap in cmaps:
-            self.cmapInvMapCombo.addItem(cmap)
+        invMapCmaps = ['viridis_r', 'viridis', 'seismic', 'rainbow', 'jet']
+        self.cmapInvMapCombo.addItems(invMapCmaps)
         self.cmapInvMapCombo.activated.connect(cmapInvMapComboFunc)
         
         def surveyInvMapComboFunc(index):
@@ -1471,6 +1543,18 @@ class App(QMainWindow):
         self.saveInvMapDataBtn = QPushButton('Save Results')
         self.saveInvMapDataBtn.clicked.connect(saveInvMapDataBtnFunc)
         
+        
+        def expInvMap():
+            fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
+            if fname != '':
+                self.setProjection()
+                self.problem.saveSlice(fname=fname, islice=self.sliceCombo.currentIndex(), cmap=self.cmapInvMapCombo.currentText())
+            
+            
+        self.invMapExpBtn = QPushButton('Exp. GIS layer')
+        self.invMapExpBtn.setToolTip('Export a georeferenced TIFF file to directly be imported in GIS software.\n'
+                                     'Choose the correct EPSG CRS projection in the "Importing" tab!')
+        self.invMapExpBtn.clicked.connect(expInvMap)
         
         
         self.graphTabs = QTabWidget()
@@ -1551,6 +1635,7 @@ class App(QMainWindow):
         mapOptionsLayout.addWidget(self.contourInvMapCheck)
         mapOptionsLayout.addWidget(self.cmapInvMapCombo)
         mapOptionsLayout.addWidget(self.saveInvMapDataBtn)
+        mapOptionsLayout.addWidget(self.invMapExpBtn)
         mapLayout.addLayout(mapOptionsLayout)
         mapLayout.addWidget(self.mwInvMap)
         self.mapTab.setLayout(mapLayout)
@@ -1629,7 +1714,7 @@ PLoS ONE, <strong>10</strong>,12 (2015)
 </ul>
 </p>
 <p><strong>EMagPy's core developers: Guillaume Blanchy and Paul McLachlan.<strong></p>
-<p>Contributors: Jimmy Boyd</p>
+<p>Contributors: Jimmy Boyd, Sina Saneiyan</p>
 '''.format(EMagPy_version))
 #<p><b>Citing ResIPy</b>:<br>Blanchy G., Saneiyan S., Boyd J., McLachlan P. and Binley A. 2020.<br>“ResIPy, an Intuitive Open Source Software for Complex Geoelectrical Inversion/Modeling.”<br>Computers & Geosciences, February, 104423. <a href="https://doi.org/10.1016/j.cageo.2020.104423">https://doi.org/10.1016/j.cageo.2020.104423</a>.</p>
 
@@ -1649,10 +1734,26 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         self.setCentralWidget(self.table_widget)
         self.show()
     
+    def setProjection(self):
+        val = self.projEdit.text()
+        try:
+            if any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
+                epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME'] == val].values
+            elif any(self.pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
+                epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
+            epsgVal = 'EPSG:'+str(epsg_code[0])
+            self.problem.setProjection(targetProjection=epsgVal)
+        except:
+            self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
+    
     def projBtnFunc(self):
-        val = float(self.projEdit.text()) if self.projEdit.text() != '' else None
-        self.problem.convertFromNMEA(targetProjection='EPSG:{:.0f}'.format(val))
-        self.replot()
+        try:
+            if self.projEdit.text() != '':
+                self.setProjection()
+            self.problem.convertFromNMEA(targetProjection=self.problem.projection)
+            self.replot()
+        except Exception as e:
+            self.errorDump(e)
 
     def replot(self):
         index = self.showParams['index']
@@ -1668,7 +1769,7 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         else:
             self.mwRaw.replot(index=index, coil=coil, vmin=vmin, vmax=vmax)
                 
-    def processFname(self, fnames):
+    def processFname(self, fnames, merged=False):
         self.problem.surveys = [] # empty the list of current survey
         if len(fnames) == 1:
             fname = fnames[0]
@@ -1679,10 +1780,22 @@ PLoS ONE, <strong>10</strong>,12 (2015)
         else:
             self.importBtn.setText(os.path.basename(fnames[0]) + ' .. '
                                    + os.path.basename(fnames[-1]))
-            self.gammaEdit.setVisible(True)
-            self.gammaLabel.setVisible(True)
-            self.problem.createTimeLapseSurvey(fnames)
-        self.infoDump('Files well imported')
+            if merged:
+                self.problem.createMergedSurvey(fnames)
+            else:
+                self.gammaEdit.setVisible(True)
+                self.gammaLabel.setVisible(True)
+                self.problem.createTimeLapseSurvey(fnames)
+        # check if coils configuration seem to match GF instruments
+        coils = ['{:s}{:.2f}'.format(a.upper(), b) for a, b in zip(self.problem.cpos, self.problem.cspacing)]
+        if np.sum(np.in1d(coils, ['VCP0.32', 'HCP0.32', 'VCP1.48', 'HCP1.48'])) > 0:
+            self.gfCorrectionBtn.setVisible(True)
+            self.gfCalibCombo.setVisible(True)
+            self.infoDump('Files well imported. GF instrument suspected. Check if you need to apply the GF correction.')
+        else:
+            self.gfCorrectionBtn.setVisible(False)
+            self.gfCalibCombo.setVisible(False)
+            self.infoDump('Files well imported')
         self.setupUI()
         
     def setupUI(self):
@@ -1712,12 +1825,17 @@ PLoS ONE, <strong>10</strong>,12 (2015)
 
         # enable widgets
         if 'Latitude' in survey.df.columns:
-            self.projBtn.setEnabled(True)
-            self.projEdit.setEnabled(True)
-            self.projBtnFunc() # automatically convert NMEA string
+            try:
+                float(survey.df['Latitude'][0]) # coordinates are not string
+            except: # coordinates are string
+                self.problem.projection = 'EPSG:27700' # a default CRS if user hasn't defined anything
+                self.projBtnFunc() # automatically convert NMEA string
+                self.projBtn.setEnabled(True)
+            # self.projEdit.setEnabled(True)
         self.keepApplyBtn.setEnabled(True)
         self.rollingBtn.setEnabled(True)
         self.ptsKillerBtn.setEnabled(True)
+        self.gridBtn.setEnabled(True)
         self.coilCombo.setEnabled(True)
         self.surveyCombo.setEnabled(True)
         self.showRadio.setEnabled(True)

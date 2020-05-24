@@ -11,7 +11,8 @@ datas=[
        ('./emagpy/j1_140.txt', './emagpy'),
        ('./emagpy/hankelpts.txt', './emagpy'),
        ('./emagpy/hankelwts0.txt', './emagpy'),
-       ('./emagpy/hankelwts1.txt', './emagpy')
+       ('./emagpy/hankelwts1.txt', './emagpy'),
+       ('./emagpy/pcs.csv', './emagpy')
       ]
 
 def extra_datas(mydir):
@@ -55,7 +56,7 @@ exe = EXE(pyz,
           debug=False,
           strip=False,
           upx=True,
-          console=True,
+          console=False,
           icon='logo.ico')
           
 coll = COLLECT(exe,

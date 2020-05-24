@@ -6,3 +6,5 @@ pyproj
 spotpy
 joblib
 tqdm
+ipympl
+voila
