@@ -401,9 +401,9 @@ class Problem(object):
         """
         mMinimize = ['L-BFGS-B','TNC','CG','Nelder-Mead']
         mMCMC = ['ROPE','SCEUA','DREAM', 'MCMC']
-        mOther = ['ANN','Gauss-Newton']
+        mOther = ['ANN','Gauss-Newton','GPS']
         if (method not in mMinimize) and (method not in mMCMC) and (method not in mOther):
-            raise ValueError('Unknow method {:s}'.format(method))
+            raise ValueError('Unknown method {:s}'.format(method))
             return
         
         # check if we have initial model
@@ -517,6 +517,44 @@ class Problem(object):
         # if bounds is not None:
             # dump('bounds = ' + str(bounds) + '\n')
 
+
+        # gridded parameter search as an inversion method
+        if method == 'GPS':
+            if alpha !=0 or gamma != 0 or beta != 0:
+                dump('WARNING: Gridded Parameter Search does not accept any smoothing parameters.\n')
+            
+            dump('Inverting data using Gridded Parameter Search\n')
+
+            if len(self.conds0) > 0:
+
+                fixedParamsD = []
+                for i in range(0, len(self.depths0[0][0])):
+                    if self.fixedDepths[i] == True:
+                        fixedParamsD.append(self.depths0[0][0][i])
+                    else:
+                        fixedParamsD.append(None)
+        
+                fixedParamsC = []
+                for i in range(0, len(self.conds0[0][0])):
+                    if self.fixedConds[i] == True:
+                        fixedParamsC.append(self.conds0[0][0][i])
+                    else:
+                        fixedParamsC.append(None)
+
+                fixedParams = fixedParamsD + fixedParamsC
+                nlayers = len(fixedParamsC)
+            
+            else:
+                fixedParams = None
+                nlayers = 2
+
+            bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax = self.gridParamSearch(forwardModel=fmodel, bnds=bnds, regularization=regularization, fixedParams=fixedParams)
+
+            self.models.append(bestConds)
+            self.depths.append(bestDepths)
+            self.rmses.append(bestMisfits)
+            self.pstds.append(paramSd)
+
         # build ANN network
         if method == 'ANN': # pragma: no cover
             if gamma != 0 or beta != 0:
@@ -582,7 +620,7 @@ class Problem(object):
                                + beta*np.sum((p - pn)**2)/len(p)
                                + gamma*np.sum((p - spn)**2)/len(p))
             
-        # define spotpy class if MCMC-based methods
+        # define spotpy class if McMC-based methods
         if method in mMCMC:
             try:
                 import spotpy
@@ -2501,7 +2539,105 @@ class Problem(object):
 
 
 
-    def calibrate(self, fnameECa, fnameEC, forwardModel='CS', ax=None, apply=False, dump=None):
+    def resModtoEC(self, fnameECa, fnameresmod, binInt=None, nbins=None, meshType='quad'):
+
+        """Convert mesh data to dfec array to be used in calibrate.
+        Parameters
+        ----------
+        fnameECa : str
+            Path of the .csv file with the ECa data collected on the calibration points.
+        fnameresmod : str
+            Path of the .dat file with the restivity model.
+        nbins : int, optional
+            Number of bins to average the resistivity model over.
+        bin_int : int, optional
+            Bin interval in metres, over which to average resistivity model.
+  
+        """
+     
+        eca=pd.read_csv(fnameECa).values
+    
+        resmod=pd.read_table(fnameresmod,sep='\s+',header=None)
+        resmod=resmod.to_numpy()
+
+        # check if mesh is triangular or quadrilateral, meshes with topography may be read wrong
+        if(len(np.unique(resmod[:,0]))*len(np.unique(resmod[:,1])))==len(resmod[:,1]):
+            meshType='quad'
+            print('Mesh is quadrilateral.')
+        else:
+            meshType='tri'
+            print('Mesh is triangular, it will be regridded.')
+
+        if(meshType=='tri'):
+            resmod=pd.read_table(fnameresmod,sep='\s+',header=None)
+            resmod=np.asarray(resmod)
+            x = resmod[:,0]
+            y = resmod[:,1]
+            z = resmod[:,2]
+            np.min(y)- np.max(y)
+            xi = np.arange(np.min(x), np.max(x), 0.25)
+            yi = np.linspace(np.min(y), np.max(y), 15)
+            xi,yi = np.meshgrid(xi,yi)
+            zi = griddata((x,y),z,(xi,yi),method='linear')
+
+            x=np.unique(xi)
+            y=np.unique(yi)
+
+            resmodxy=np.array(np.meshgrid(x,y)).T.reshape(-1,2)
+            
+            z=zi.T.flatten()
+            resmod=np.concatenate((resmodxy, z[:,None]), axis=1)
+
+            resmod=resmod[~np.isnan(resmod[:,2]),:]
+             
+    
+        min_xpos=np.min(eca[:,0])
+        max_xpos=np.max(eca[:,0])
+    
+        resmod=resmod[np.where((resmod[:,0] >= min_xpos) & (resmod[:,0] <= max_xpos)),:][0]
+    
+        mid_depths=-np.unique(resmod[:,1])
+        
+        nlayers=len(mid_depths)
+
+        resmod=resmod[np.where((resmod[:,0] >= min_xpos) & (resmod[:,0] <= max_xpos)),:][0]
+
+        if nbins==None:
+            if binInt==None:
+                nbins=int(eca.shape[0]-1)
+            else:
+                nbins=int(round((max_xpos - min_xpos)/binInt))
+        
+        bins=np.linspace(min_xpos, max_xpos, nbins+1)
+        bin_id=np.digitize(np.unique(resmod[:,0]), bins+1)
+    
+        ec=np.ones((len(mid_depths), nbins))
+
+        mid_depths_r=mid_depths[::-1]
+        
+    
+        for i in range(0, len(mid_depths)):
+            for j in range(0, nbins):
+                ec[i,j]=1000/10**np.mean(np.log10(resmod[np.where(resmod[:,1]==-mid_depths_r[i])[0],:][bin_id==j+1,2]))
+            
+        ec=ec.T
+        
+
+        bin_id=np.digitize(np.unique(eca[:,0]), bins)
+        
+        depths =  (mid_depths_r[1:] + mid_depths_r[:-1])/2
+        
+        eca2=[]
+        for i in range(0, nbins):
+            if len(np.where(bin_id==i+1)) > 0:
+                eca2.append(np.sum(eca[bin_id==i+1, :],axis=0)/eca[bin_id==i+1,:].shape[0])
+        eca2=np.asarray(eca2)
+        eca2=eca2[~np.isnan(eca2).any(axis=1)]
+        return ec, depths, eca2[:, 1:]
+
+
+
+    def calibrate(self, fnameECa, fnameEC=None, fnameresmod=None, forwardModel='CS', ax=None, apply=False, dump=None, nbins=None, binInt=None,  meshType='quad'):
         """Calibrate ECa with given EC profile.
         
         Parameters
@@ -2512,8 +2648,10 @@ class Problem(object):
             Path of the .csv file with the EC profile data. One row per location
             corresponding to the rows of fnameECa. The header should be the
             corresponding depths in meters positive downards.
+        fnameresmod : str
+            File name of resmod, R2 format e.g. f001_mod.dat.
         forwardModel : str, optional
-            Forward model to use. Either CS (default), FS or FSeq.
+            Forward model to use. Either CS (default), FSlin or FSeq.
         ax : matplotlib.Axes
             If specified the graph will be plotted against this axis.
         apply : bool, optional
@@ -2533,11 +2671,22 @@ class Problem(object):
             except:
                 print('Frequency not found, revert to CS')
                 forwardModel = 'CS' # doesn't need frequency
-        dfec = pd.read_csv(fnameEC)
+        if fnameresmod is not None:
+            ec, depths, eca=self.resModtoEC(fnameECa=fnameECa, fnameresmod=fnameresmod, nbins=nbins, binInt=binInt,  meshType=meshType)
+            depths = depths
+            dfec = pd.DataFrame(ec)
+            dfeca = pd.DataFrame(eca)
+            dfeca.columns = list(survey.df.loc[:, survey.coils])
+            survey.df = dfeca
+
+        if fnameEC is not None:  
+            dfec = pd.read_csv(fnameEC)
+            depths = np.abs(dfec.columns.values.astype(float)) # those are the depths of at mid layer
+            depths = depths[:-1] + np.diff(depths) # those are depths of the bottom of the layer
+            
         if survey.df.shape[0] != dfec.shape[0]:
             raise ValueError('input ECa and inputEC should have the same number of rows so the measurements can be paired.')
-        depths = np.abs(dfec.columns.values.astype(float)) # those are the depths of at mid layer
-        depths = depths[:-1] + np.diff(depths) # those are depths of the bottom of the layer
+       
         
         # define the forward model
         if forwardModel == 'CS':
@@ -2770,21 +2919,24 @@ class Problem(object):
         fig.colorbar(cax, ax=ax, label='Depth [m]')
         ax.set_title('Depths[{:d}]'.format(idepth))
 
-
-
     def computeDOI(self, conds=None, depths=None, nlayers=50):
         """Compute a depth of investigation (DOI) for each 1D EC model.
         Sensitivity cutoff at 0.3, i.e. 70% of signal comes from above the DOI.
         
         Parameters
         ----------
-        conds : numpy.array, optional
-            Array of model conductivities.
-    	depths : numpy.array, optional
-            Array of model depths.
-        nlayers : int, optional
-            Number of layers for finely descretised model, this is done to obtain
-            more accurate DOI estimates. Default to 20.
+        forwardModel : str, 
+            forward model
+        nlayers : int, 
+            number of layers for model. Depth index. Default is first depth.
+        step : int, 
+            number of steps to use for each range
+        fixedParam : list of int and None,
+            array of whether parameters out to be fixed in grid parameter search or not
+        bnds : list of float, optional
+            If specified, will create bounds for the inversion parameters
+        topPer : int, 
+            Top X percentage of models to be used for model boundaries
         """
         # initial argument check
         ilocal = False
@@ -2829,4 +2981,112 @@ class Problem(object):
         print('')
 
         self.dois = dois
+
+    def gridParamSearch(self, forwardModel, nlayers=2, step=25, misfitMax=0.1, regularization='l1', fixedParams=None, bnds=None):
+        """Using a grid based parameter search method this returns a list of best models for a specified number of layers, the minimum and maximum parameter bounds for the the top x percentage of models is also returned. This method can be used to 'invert' data or provide initial model parameter and parameter bounds for McMC methods.
+        
+        Parameters
+        ----------
+        forwardModel : str, 
+            forward model
+        nlayers : int, 
+            number of layers for model. Depth index. Default is first depth.
+        step : int, 
+            number of steps to use for each range
+        fixedParam : list of int and None,
+            array of whether parameters out to be fixed in grid parameter search or not
+        bnds : list of float, optional
+            If specified, will create bounds for the inversion parameters
+        maxMisfit : int, 
+            Maximum allowable misfit
+        """
+
+        dfeca = self.surveys[0].df.loc[:, self.coils]
+        
+        eca = np.asarray(dfeca)
+
+        nparams = 2 * nlayers - 1   
+        ndepths = nparams - nlayers
+
+        if type(fixedParams) == list and len(fixedParams) < nlayers + ndepths:
+            print('Number of fixed params should match number of parameters')
+        
+        if type(bnds) == list and len(bnds) < nlayers + ndepths:
+            print('Length of bnds should match number of parameters')
+
+        if bnds==None:
+            bnds=[]
+            for i in range(0, ndepths):
+                bnds.append(((0.1 + i, 1 + i)))
+            for i in range(0, nlayers):
+                bnds.append(((1, 100)))
+
+        paramsRange=[]
+        if  type(fixedParams) == list:
+            for i in range(0, len(fixedParams)):
+                if type(fixedParams[i]) == float:
+                    paramsRange.append(((fixedParams[i], fixedParams[i])))
+                else:
+                    paramsRange.append(((bnds[i][0], bnds[i][1])))
+        else:
+            paramsRange=bnds
+
+        params=[]
+        for i in range(0, nparams):
+            
+            if paramsRange[i][0]==paramsRange[i][1]:
+                params.append(paramsRange[i][0])
+            else:
+                params.append((np.linspace(paramsRange[i][0], paramsRange[i][1], step)))
+
+ 
+        modParams = np.array(np.meshgrid(*params)).T.reshape(-1,nparams)
+    
+        print('Will compute', len(modParams), 'forward models')      
+    
+        depths=modParams[:,0:ndepths].reshape((len(modParams[:,0]),ndepths))
+    
+        conds=modParams[:,ndepths:ndepths+nlayers]
+    
+        eca_m=np.asarray(self.forward(depths=[depths], models=[conds])[0])
+
+        bestMod = []
+        modList = []
+        paramMin= []
+        paramMax = []
+        paramSd = []
+
+        for i in range(0,eca.shape[0]):
+        
+            eca_d = eca[i,:]
+            if regularization=='l1':
+                coilMisfits = np.absolute(eca_m - eca_d[None,:]) / eca_d[None,:]
+            if regularization=='l2':
+                coilMisfits = ((eca_m - eca_d[None,:])/ eca_d[None,:])**2
+            
+            totalMisfit = np.sum(coilMisfits, axis=1) / len(self.coils)
+        
+            converged=np.where(totalMisfit < misfitMax)
+            
+            convergedModels=np.hstack((modParams[converged,:][0],totalMisfit[converged][:,None]))
+            
+            if len(convergedModels) > 0:
+                modList.append(convergedModels)
+                paramMin.append(np.amin(convergedModels[:,:-1],axis=0))                 
+                paramMax.append(np.amax(convergedModels[:,:-1],axis=0))
+                paramSd.append(np.std(convergedModels[:,:-1],axis=0))
+            
+            else: 
+                paramMin.append(np.amin(paramsRange, axis=1))                 
+                paramMax.append(np.amax(paramsRange, axis=1))
+                paramSd.append(np.std(paramsRange,axis=0))
+
+            
+            bestMod.append(np.append(modParams[np.where(totalMisfit == np.min(totalMisfit))[0][0],:],np.min(totalMisfit)))
+            
+            bestDepths=np.asarray(bestMod)[:,0:ndepths]
+            bestConds=np.asarray(bestMod)[:,ndepths:nparams]
+            bestMisfits=np.asarray(bestMod)[:,-1]
+    
+        return bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax    
         

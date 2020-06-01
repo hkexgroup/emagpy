@@ -878,9 +878,21 @@ class App(QMainWindow):
             fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
             if fname != '':
                 self.fnameEC = fname
+                self.fnameresmod = None
                 self.ecImportBtn.setText(os.path.basename(fname))
         self.ecImportBtn = QPushButton('Import EC profiles')
         self.ecImportBtn.clicked.connect(ecImportBtnFunc)
+
+
+        # import Resistivity model, format should be x, z, resistivity with space delimeter, e.g. R2 'f001_res.dat' format
+        def ertImportBtnFunc():
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.dat')
+            if fname != '':
+                self.fnameresmod = fname
+                self.fnameEC = None
+                self.ertImportBtn.setText(os.path.basename(fname))
+        self.ertImportBtn = QPushButton('Import ERT Model')
+        self.ertImportBtn.clicked.connect(ertImportBtnFunc)
         
         # choose which forward model to use
         self.forwardCalibCombo = QComboBox()
@@ -892,7 +904,7 @@ class App(QMainWindow):
         def fitCalibBtnFunc():
             forwardModel = self.forwardCalibCombo.itemText(self.forwardCalibCombo.currentIndex())
             self.mwCalib.setCallback(self.problem.calibrate)
-            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
+            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC, fnameresmod=self.fnameresmod,
                            forwardModel=forwardModel)
         self.fitCalibBtn = QPushButton('Fit calibration')
         self.fitCalibBtn.clicked.connect(fitCalibBtnFunc)
@@ -900,8 +912,8 @@ class App(QMainWindow):
         # apply the calibration to the ECa measurements of the survey imported
         def applyCalibBtnFunc():
             forwardModel = self.forwardCalibCombo.itemText(self.forwardCalibCombo.currentIndex())
-            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
-                                forwardModel=forwardModel, apply=True)
+            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC, fnameresmod=self.fnameresmod,
+                           forwardModel=forwardModel, apply=True)
             self.replot()
             self.infoDump('Calibration applied')
         self.applyCalibBtn = QPushButton('Apply Calibration')
@@ -917,6 +929,7 @@ class App(QMainWindow):
         calibOptions = QHBoxLayout()
         calibOptions.addWidget(self.ecaImportBtn)
         calibOptions.addWidget(self.ecImportBtn)
+        calibOptions.addWidget(self.ertImportBtn)
         calibOptions.addWidget(self.forwardCalibCombo)
         calibOptions.addWidget(self.fitCalibBtn)
         calibOptions.addWidget(self.applyCalibBtn)
