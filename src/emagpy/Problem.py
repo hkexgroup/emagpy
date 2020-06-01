@@ -3059,19 +3059,20 @@ class Problem(object):
         conds = modParams[:,ndepths:ndepths+nlayers]
         eca_m = np.asarray(self.forward(depths=[depths], models=[conds])[0])
 
-        bestMod = []
+        bestMod = [] # TODO better to already set the size of these arrays using np.zeros((m,n))*np.nan, and then just assign items. This will make the code faster
         modList = []
         paramMin= []
         paramMax = []
         paramSd = []
-        for i in range(0, eca.shape[0]):
+        for i in range(0, eca.shape[0]): # TODO this will be slow, but not sure we can speed it up and might still be faster than other solvers
             eca_d = eca[i,:]
             if regularization == 'l1':
-                coilMisfits = np.absolute(eca_m - eca_d[None,:]) / eca_d[None,:]
+                coilMisfits = np.abs(eca_m - eca_d[None,:]) / eca_d[None,:]
             if regularization == 'l2':
                 coilMisfits = ((eca_m - eca_d[None,:]) / eca_d[None,:])**2
             totalMisfit = np.sum(coilMisfits, axis=1) / len(self.coils)
-            converged = np.where(totalMisfit < misfitMax)
+            # converged = np.where(totalMisfit < misfitMax) # TODO this can be a boolean array
+            converged = totalMisfit < misfitMax # TODO I think this can be a boolean array (boolean are faster than int arrays)
             convergedModels = np.hstack((modParams[converged,:][0],totalMisfit[converged][:,None]))
             
             if len(convergedModels) > 0:
