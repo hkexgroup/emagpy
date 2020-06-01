@@ -411,7 +411,7 @@ class Problem(object):
             self.setInit([0.5, 1.5]) # default depths
             
         # switch in case Gauss-Newton routine is selected
-        if forwardModel in ['CSgn']:
+        if (forwardModel == 'CSgn') | ((forwardModel == 'CS') & (method == 'Gauss-Newton')):
             self.invertGN(alpha=alpha, alpha_ref=None, dump=dump)
             self.forwardModel = 'CS'
             return
@@ -2982,108 +2982,109 @@ class Problem(object):
 
         self.dois = dois
 
-    def gridParamSearch(self, forwardModel, nlayers=2, step=25, misfitMax=0.1, regularization='l1', fixedParams=None, bnds=None):
-        """Using a grid based parameter search method this returns a list of best models for a specified number of layers, the minimum and maximum parameter bounds for the the top x percentage of models is also returned. This method can be used to 'invert' data or provide initial model parameter and parameter bounds for McMC methods.
+
+
+    def gridParamSearch(self, forwardModel, nlayers=2, step=25, misfitMax=0.1,
+                        regularization='l1', fixedParams=None, bnds=None):
+        """Using a grid based parameter search method this returns a list of
+        best models for a specified number of layers, the minimum and maximum
+        parameter bounds for the the top x percentage of models is also returned.
+        This method can be used to 'invert' data or provide initial model
+        parameter and parameter bounds for McMC methods.
         
         Parameters
         ----------
-        forwardModel : str, 
-            forward model
-        nlayers : int, 
-            number of layers for model. Depth index. Default is first depth.
-        step : int, 
-            number of steps to use for each range
-        fixedParam : list of int and None,
-            array of whether parameters out to be fixed in grid parameter search or not
+        forwardModel : str
+            Forward model name. Either 'CS','FSlin' of 'FSeq'.
+        nlayers : int, optional
+            Number of layers for model. Depth index. Default is first depth.
+        step : int, optional
+            Number of steps to use for each range.
+        fixedParam : list of int, optional
+            Array of whether parameters out to be fixed in grid parameter search or not.
+            TODO not explicit what this does
         bnds : list of float, optional
             If specified, will create bounds for the inversion parameters
-        maxMisfit : int, 
-            Maximum allowable misfit
+        maxMisfit : int, optional
+            Maximum allowable misfit.
+            TODO then what? happens if it's over?'
+        TODO regularization is not in the docstring
+        TODO the docstring parameters are not ordered the same way as the argument of the method
         """
-
-        dfeca = self.surveys[0].df.loc[:, self.coils]
-        
+        dfeca = self.surveys[0].df.loc[:, self.coils] # TODO what if multiple survey?
         eca = np.asarray(dfeca)
-
         nparams = 2 * nlayers - 1   
         ndepths = nparams - nlayers
 
+        # check arguments
         if type(fixedParams) == list and len(fixedParams) < nlayers + ndepths:
             print('Number of fixed params should match number of parameters')
         
         if type(bnds) == list and len(bnds) < nlayers + ndepths:
             print('Length of bnds should match number of parameters')
 
-        if bnds==None:
-            bnds=[]
+        # build bounds if not specified
+        if bnds is None:
+            bnds = []
             for i in range(0, ndepths):
                 bnds.append(((0.1 + i, 1 + i)))
             for i in range(0, nlayers):
                 bnds.append(((1, 100)))
 
-        paramsRange=[]
-        if  type(fixedParams) == list:
+        # combine bounds ??? TODO
+        paramsRange = []
+        if type(fixedParams) == list:
             for i in range(0, len(fixedParams)):
                 if type(fixedParams[i]) == float:
                     paramsRange.append(((fixedParams[i], fixedParams[i])))
                 else:
                     paramsRange.append(((bnds[i][0], bnds[i][1])))
         else:
-            paramsRange=bnds
+            paramsRange = bnds
 
+        # create a grid for each parameter
         params=[]
         for i in range(0, nparams):
-            
             if paramsRange[i][0]==paramsRange[i][1]:
                 params.append(paramsRange[i][0])
             else:
                 params.append((np.linspace(paramsRange[i][0], paramsRange[i][1], step)))
-
  
+        # create the N-dimensional meshgrid of parameter values
         modParams = np.array(np.meshgrid(*params)).T.reshape(-1,nparams)
-    
-        print('Will compute', len(modParams), 'forward models')      
-    
-        depths=modParams[:,0:ndepths].reshape((len(modParams[:,0]),ndepths))
-    
-        conds=modParams[:,ndepths:ndepths+nlayers]
-    
-        eca_m=np.asarray(self.forward(depths=[depths], models=[conds])[0])
+        print('Will compute {:d} forward models'.format(len(modParams)))      
+        
+        # compute forward response
+        depths = modParams[:,0:ndepths].reshape((len(modParams[:,0]),ndepths))
+        conds = modParams[:,ndepths:ndepths+nlayers]
+        eca_m = np.asarray(self.forward(depths=[depths], models=[conds])[0])
 
         bestMod = []
         modList = []
         paramMin= []
         paramMax = []
         paramSd = []
-
-        for i in range(0,eca.shape[0]):
-        
+        for i in range(0, eca.shape[0]):
             eca_d = eca[i,:]
-            if regularization=='l1':
+            if regularization == 'l1':
                 coilMisfits = np.absolute(eca_m - eca_d[None,:]) / eca_d[None,:]
-            if regularization=='l2':
-                coilMisfits = ((eca_m - eca_d[None,:])/ eca_d[None,:])**2
-            
+            if regularization == 'l2':
+                coilMisfits = ((eca_m - eca_d[None,:]) / eca_d[None,:])**2
             totalMisfit = np.sum(coilMisfits, axis=1) / len(self.coils)
-        
-            converged=np.where(totalMisfit < misfitMax)
-            
-            convergedModels=np.hstack((modParams[converged,:][0],totalMisfit[converged][:,None]))
+            converged = np.where(totalMisfit < misfitMax)
+            convergedModels = np.hstack((modParams[converged,:][0],totalMisfit[converged][:,None]))
             
             if len(convergedModels) > 0:
                 modList.append(convergedModels)
-                paramMin.append(np.amin(convergedModels[:,:-1],axis=0))                 
-                paramMax.append(np.amax(convergedModels[:,:-1],axis=0))
-                paramSd.append(np.std(convergedModels[:,:-1],axis=0))
-            
+                paramMin.append(np.amin(convergedModels[:,:-1], axis=0))                 
+                paramMax.append(np.amax(convergedModels[:,:-1], axis=0))
+                paramSd.append(np.std(convergedModels[:,:-1], axis=0))
             else: 
                 paramMin.append(np.amin(paramsRange, axis=1))                 
                 paramMax.append(np.amax(paramsRange, axis=1))
-                paramSd.append(np.std(paramsRange,axis=0))
+                paramSd.append(np.std(paramsRange, axis=0))
 
-            
             bestMod.append(np.append(modParams[np.where(totalMisfit == np.min(totalMisfit))[0][0],:],np.min(totalMisfit)))
-            
             bestDepths=np.asarray(bestMod)[:,0:ndepths]
             bestConds=np.asarray(bestMod)[:,ndepths:nparams]
             bestMisfits=np.asarray(bestMod)[:,-1]
