@@ -1770,15 +1770,15 @@ class App(QMainWindow):
         helpInv.setOpenExternalLinks(True)
         helpInv.setText(
         '''
-        <p> <b> EMagPy </b> can calibrate EMI data using ERT data, this can reduce systematic errors in EMI measurements to improve convergence, and confidence, of EMI inversions.</p>
+        <p> <b> EMagPy </b> can calibrate EMI data using inverted ERT data, check out <b>EMagPy's</b> ERT/IP counterpart  <a href="https://gitlab.com/hkex/pyr2"><b>ResIPy</b></a> for inversion of ERT data.</p>
         <p> To do this the forward model response of an inverted ERT model, in terms of ECa, can be paired with EMI measurements and fitted with a linear regression. 
-        <p> Data can be calbrated under the '<i>ERT Calibration</i>' tab, where EMI data collected along an ERT transect must be supplied.</p> <p> Additionally, data from the inverted ERT model is requred and can be specified in one of two formats:
+        <p> EMI data collected along an ERT transect must be supplied along with information from the ERT model. The ERT data can be supplied in one of two formats:
 <ul>
-    <li> The x, z and resistivity information for a quadrilateral or triangular mesh (e.g. the output format of <b>EMagPy's</b> ERT/IP counterpart <a href="https://gitlab.com/hkex/pyr2">ResIPy</a>). Note: This method assumes that the ERT model is inverted for a mesh with flat topography.</li>
-    <li> Conductivity format.</p>
+    <li> The x, z and resistivity information for a quadrilateral or triangular mesh inverted for a flat topography.</li>
+    <li> The conductivity of each mesh element beneath the positition of the corresponing EMI measurements, in this case the depth of the element centroid must be supplied in the header.</p>
 </li>
    <p>
-        <img width=500 src="image/calibfile.png"></img>
+        <img width=300 src="image/calibfile.png"></img>
 </p>
 
 
@@ -1812,10 +1812,6 @@ The 'inversion tab' contains a number of options:
         <li> Number of iterations.</li>
         <li> Parallel computing.</li> </p>
         <ul> If available checking this option will make use of multi-core machines. </ul></ul>
-        <p>
-
-        <img width=400 src="image/fig3.png"></img>
-        </p>
         ''')
         helpTab.addTab(helpInv, 'Inversion')       
         
