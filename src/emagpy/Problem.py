@@ -2539,7 +2539,7 @@ class Problem(object):
 
 
 
-    def resMod2EC(self, fnameECa, fnameResMod, binInt=None, nbins=None):
+    def resMod2EC(self, fnameECa, fnameResMod, binInt=None, nbins=None, calib=None):
         """Convert mesh data to dfec array to be used in calibrate.
         
         Parameters
@@ -2552,9 +2552,15 @@ class Problem(object):
             Bin interval in metres, over which to average resistivity model.
         nbins : int, optional
             Number of bins to average the resistivity model over.
+        calib str, optional
+            If specified, will apply a GF correction. Note that the main dataset
+            needs to be corrected as well.
         """
         # import data
-        eca = pd.read_csv(fnameECa).values
+        s = Survey(fnameECa)
+        if calib is not None:
+            s.gfCorrection(calib=calib)
+        eca = s.df[['x'] + s.coils].values
         resmod = pd.read_table(fnameResMod, sep='\s+', header=None).values
         min_xpos = np.min(eca[:,0])
         max_xpos = np.max(eca[:,0])
@@ -2568,7 +2574,7 @@ class Problem(object):
         if nbins > eca.shape[0]:
             raise ValueError('You have specified {:d} bins but you only have {:d} data points.'.format(
                 nbins, eca.shape[0]))
-            
+
         # check if mesh is triangular or quadrilateral, meshes with topography may be read wrong
         # if the product of the number of unique X and Z values equals the number of rows, it's a quad mesh
         if len(np.unique(resmod[:,0]))*len(np.unique(resmod[:,1])) == len(resmod[:,1]):
@@ -2669,24 +2675,23 @@ class Problem(object):
             except:
                 print('Frequency not found, revert to CS')
                 forwardModel = 'CS' # doesn't need frequency
-        
-        if calib is not None:
-            survey.gfCorrection(calib=calib)
             
         if fnameResMod is not None:
             ec, depths, eca = self.resMod2EC(fnameECa=fnameECa,
                                              fnameResMod=fnameResMod,
-                                             nbins=nbins, binInt=binInt)
+                                             nbins=nbins, binInt=binInt,
+                                             calib=calib)
             depths = depths
             dfec = pd.DataFrame(ec)
-            dfeca = pd.DataFrame(eca)
-            dfeca.columns = list(survey.df.loc[:, survey.coils])
+            dfeca = pd.DataFrame(eca, columns=survey.coils)
             survey.df = dfeca
 
-        if fnameEC is not None:  
+        if fnameEC is not None:
             dfec = pd.read_csv(fnameEC)
             depths = np.abs(dfec.columns.values.astype(float)) # those are the depths of at mid layer
             depths = depths[:-1] + np.diff(depths) # those are depths of the bottom of the layer
+            if calib is not None:
+                survey.gfCorrection(calib=calib)
             
         if survey.df.shape[0] != dfec.shape[0]:
             raise ValueError('input ECa and inputEC should have the same number of rows so the measurements can be paired.')
@@ -2732,7 +2737,7 @@ class Problem(object):
             slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
             slopes[i] = slope
             offsets[i] = intercept
-            dump('{:s}: ECa(ERT) = {:.2f} * ECa(EMI) + {:.2f} (R^2={:.2f})'.format(coil, slope, intercept, r_value**2))
+            dump('{:s}: ECa(ERT) = {:.2f} * ECa(EMI) {:+.2f} (R^2={:.2f})'.format(coil, slope, intercept, r_value**2))
             predECa[:,i] = obsECa[:,i]*slope + intercept
             ax.plot(obsECa[:,i], predECa[:,i], '-', label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
         ax.legend()
