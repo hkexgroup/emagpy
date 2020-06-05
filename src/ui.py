@@ -1831,7 +1831,7 @@ the ERT calibration will account for it.</p>
         <p> The user can also choose to fit an L-curve which will plot a graph of model and data misfit 
         for a number of vertical smoothing values. </p>
         <p>
-            <img width=400 src="image/lcurve.png"></img>
+            <img width=250 src="image/lcurve.png"></img>
 
         </p>
         <p><b><i>Inversion</i></b></p>
