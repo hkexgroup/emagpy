@@ -2667,7 +2667,7 @@ class Problem(object):
                 forwardModel = 'CS' # doesn't need frequency
         
         if calib is not None:
-            s.gfCorrection(calib=calib)
+            survey.gfCorrection(calib=calib)
             
         if fnameResMod is not None:
             ec, depths, eca = self.resMod2EC(fnameECa=fnameECa,
