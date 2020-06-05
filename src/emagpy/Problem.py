@@ -2539,15 +2539,14 @@ class Problem(object):
 
 
 
-    def resModtoEC(self, fnameECa, fnameresmod, binInt=None, nbins=None):
-
+    def resMod2EC(self, fnameECa, fnameResMod, binInt=None, nbins=None):
         """Convert mesh data to dfec array to be used in calibrate.
         
         Parameters
         ----------
         fnameECa : str
             Path of the .csv file with the ECa data collected on the calibration points.
-        fnameresmod : str
+        fnameResMod : str
             Path of the .dat file with the restivity model.
         binInt : int, optional
             Bin interval in metres, over which to average resistivity model.
@@ -2556,7 +2555,7 @@ class Problem(object):
         """
         # import data
         eca = pd.read_csv(fnameECa).values
-        resmod = pd.read_table(fnameresmod, sep='\s+', header=None).values
+        resmod = pd.read_table(fnameResMod, sep='\s+', header=None).values
         min_xpos = np.min(eca[:,0])
         max_xpos = np.max(eca[:,0])
         
@@ -2621,9 +2620,9 @@ class Problem(object):
 
 
 
-    def calibrate(self, fnameECa, fnameEC=None, fnameresmod=None, 
+    def calibrate(self, fnameECa, fnameEC=None, fnameResMod=None, 
                   forwardModel='CS', ax=None, apply=False, dump=None,
-                  nbins=None, binInt=None):
+                  nbins=None, binInt=None, calib=None):
         """Calibrate ECa with given EC profile.
         
         Parameters
@@ -2634,7 +2633,7 @@ class Problem(object):
             Path of the .csv file with the EC profile data. One row per location
             corresponding to the rows of fnameECa. The header should be the
             corresponding depths in meters positive downards.
-        fnameresmod : str
+        fnameResMod : str
             File name of resmod, R2 format e.g. f001_mod.dat.
         forwardModel : str, optional
             Forward model to use. Either CS (default), FSlin or FSeq.
@@ -2645,11 +2644,20 @@ class Problem(object):
             will just be plotted.
         dump : function, optional
             Display different parts of the calibration.
+        binInt : int, optional
+            Bin interval in metres, over which to average resistivity model.
+        nbins : int, optional
+            Number of bins to average the resistivity model over.
+        calib : str, optional
+            If specified, the corresponding GF correction will be applied prior
+            to ERT calibration. This is needed if you apply the correction to
+            your main dataset as well! See `gfCorrection()`.
         """
         if dump is None:
             def dump(x):
                 print(x)
         survey = Survey(fnameECa)
+        
         if survey.freqs[0] is None: # fallback in case the use doesn't specify the frequency in the headers
             try:
                 survey.freqs = np.ones(len(survey.freqs))*self.freqs[0]
@@ -2657,8 +2665,14 @@ class Problem(object):
             except:
                 print('Frequency not found, revert to CS')
                 forwardModel = 'CS' # doesn't need frequency
-        if fnameresmod is not None:
-            ec, depths, eca=self.resModtoEC(fnameECa=fnameECa, fnameresmod=fnameresmod, nbins=nbins, binInt=binInt)
+        
+        if calib is not None:
+            s.gfCorrection(calib=calib)
+            
+        if fnameResMod is not None:
+            ec, depths, eca = self.resMod2EC(fnameECa=fnameECa,
+                                             fnameResMod=fnameResMod,
+                                             nbins=nbins, binInt=binInt)
             depths = depths
             dfec = pd.DataFrame(ec)
             dfeca = pd.DataFrame(eca)
@@ -2672,7 +2686,6 @@ class Problem(object):
             
         if survey.df.shape[0] != dfec.shape[0]:
             raise ValueError('input ECa and inputEC should have the same number of rows so the measurements can be paired.')
-       
         
         # define the forward model
         if forwardModel == 'CS':
