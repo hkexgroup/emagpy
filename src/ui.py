@@ -1591,7 +1591,7 @@ class App(QMainWindow):
         invOptions.addWidget(self.lCombo)
         invOptions.addWidget(self.nitLabel)
         invOptions.addWidget(self.nitEdit)
-        invOptions.addWidget(self.parallelCheck) # disable for compilation
+        # invOptions.addWidget(self.parallelCheck) # disable for compilation
         invOptions.addWidget(self.annSampleLabel)
         invOptions.addWidget(self.annSampleEdit)
         invOptions.addWidget(self.annNoiseLabel)
