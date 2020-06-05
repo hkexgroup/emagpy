@@ -45,8 +45,21 @@ as a self-extractable executable:
 as a zip file:
 
 [![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.1.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-windows.zip)
-[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.1.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-macos.app.zip)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.1.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-macos.zip)
 [![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.1.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-linux.zip)
+
+
+Older versions
+--------------
+v 1.0.0
+
+[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.0.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-windows.exe)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.0.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-macos.dmg)
+[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.0.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-linux)
+
+[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.0.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-windows.zip)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.0.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-macos.app.zip)
+[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.0.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-linux.zip)
 
 
 
