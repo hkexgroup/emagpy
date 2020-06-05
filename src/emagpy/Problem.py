@@ -2539,105 +2539,91 @@ class Problem(object):
 
 
 
-    def resModtoEC(self, fnameECa, fnameresmod, binInt=None, nbins=None, meshType='quad'):
+    def resModtoEC(self, fnameECa, fnameresmod, binInt=None, nbins=None):
 
         """Convert mesh data to dfec array to be used in calibrate.
+        
         Parameters
         ----------
         fnameECa : str
             Path of the .csv file with the ECa data collected on the calibration points.
         fnameresmod : str
             Path of the .dat file with the restivity model.
+        binInt : int, optional
+            Bin interval in metres, over which to average resistivity model.
         nbins : int, optional
             Number of bins to average the resistivity model over.
-        bin_int : int, optional
-            Bin interval in metres, over which to average resistivity model.
-  
         """
-     
-        eca=pd.read_csv(fnameECa).values
-    
-        resmod=pd.read_table(fnameresmod,sep='\s+',header=None)
-        resmod=resmod.to_numpy()
-
+        # import data
+        eca = pd.read_csv(fnameECa).values
+        resmod = pd.read_table(fnameresmod, sep='\s+', header=None).values
+        min_xpos = np.min(eca[:,0])
+        max_xpos = np.max(eca[:,0])
+        
+        if nbins is None:
+            if binInt is None:
+                nbins = int(eca.shape[0]-1)
+            else:
+                nbins = (max_xpos - min_xpos)//binInt
+                
         # check if mesh is triangular or quadrilateral, meshes with topography may be read wrong
-        if(len(np.unique(resmod[:,0]))*len(np.unique(resmod[:,1])))==len(resmod[:,1]):
-            meshType='quad'
+        # if the product of the number of unique X and Z values equals the number of rows, it's a quad mesh
+        if len(np.unique(resmod[:,0]))*len(np.unique(resmod[:,1])) == len(resmod[:,1]):
+            meshType = 'quad'
             print('Mesh is quadrilateral.')
         else:
-            meshType='tri'
+            meshType = 'tri'
             print('Mesh is triangular, it will be regridded.')
 
-        if(meshType=='tri'):
-            resmod=pd.read_table(fnameresmod,sep='\s+',header=None)
-            resmod=np.asarray(resmod)
+        # if triangular we will grid the data
+        if meshType == 'tri':
             x = resmod[:,0]
-            y = resmod[:,1]
-            z = resmod[:,2]
-            np.min(y)- np.max(y)
+            z = resmod[:,1]
+            res = resmod[:,2]
             xi = np.arange(np.min(x), np.max(x), 0.25)
-            yi = np.linspace(np.min(y), np.max(y), 15)
-            xi,yi = np.meshgrid(xi,yi)
-            zi = griddata((x,y),z,(xi,yi),method='linear')
-
-            x=np.unique(xi)
-            y=np.unique(yi)
-
-            resmodxy=np.array(np.meshgrid(x,y)).T.reshape(-1,2)
-            
-            z=zi.T.flatten()
-            resmod=np.concatenate((resmodxy, z[:,None]), axis=1)
-
-            resmod=resmod[~np.isnan(resmod[:,2]),:]
-             
+            zi = np.linspace(np.min(z), np.max(z), 15) # 15 layers in Y
+            xi, zi = np.meshgrid(xi, zi)
+            resi = griddata((x,z), res, (xi, zi), method='linear') # linear interpolation
+            x = np.unique(xi)
+            z = np.unique(zi)
+            resmodxz = np.meshgrid(x,z).T.reshape(-1,2)            
+            res = resi.T.flatten()
+            resmod = np.concatenate((resmodxz, res[:,None]), axis=1)
+            resmod = resmod[~np.isnan(resmod[:,2]),:]
     
-        min_xpos=np.min(eca[:,0])
-        max_xpos=np.max(eca[:,0])
-    
-        resmod=resmod[np.where((resmod[:,0] >= min_xpos) & (resmod[:,0] <= max_xpos)),:][0]
-    
-        mid_depths=-np.unique(resmod[:,1])
+        resmod = resmod[(resmod[:,0] >= min_xpos) & (resmod[:,0] <= max_xpos),:]    
+        mid_depths = -np.unique(resmod[:,1])
+        resmod = resmod[np.where((resmod[:,0] >= min_xpos) & (resmod[:,0] <= max_xpos)),:][0]
         
-        nlayers=len(mid_depths)
-
-        resmod=resmod[np.where((resmod[:,0] >= min_xpos) & (resmod[:,0] <= max_xpos)),:][0]
-
-        if nbins==None:
-            if binInt==None:
-                nbins=int(eca.shape[0]-1)
-            else:
-                nbins=int(round((max_xpos - min_xpos)/binInt))
-        
-        bins=np.linspace(min_xpos, max_xpos, nbins+1)
-        bin_id=np.digitize(np.unique(resmod[:,0]), bins+1)
-    
-        ec=np.ones((len(mid_depths), nbins))
-
-        mid_depths_r=mid_depths[::-1]
-        
-    
-        for i in range(0, len(mid_depths)):
-            for j in range(0, nbins):
-                ec[i,j]=1000/10**np.mean(np.log10(resmod[np.where(resmod[:,1]==-mid_depths_r[i])[0],:][bin_id==j+1,2]))
-            
-        ec=ec.T
-        
-
-        bin_id=np.digitize(np.unique(eca[:,0]), bins)
-        
+        # computes mean EC for each bin
+        bins = np.linspace(min_xpos, max_xpos, nbins+1)
+        bin_id = np.digitize(np.unique(resmod[:,0]), bins+1)
+        ec = np.ones((nbins, len(mid_depths)))
+        mid_depths_r = mid_depths[::-1]
+        for j in range(0, nbins):
+            for i in range(0, len(mid_depths)):
+                idepth = resmod[:,1] == -mid_depths_r[j]
+                ibins = bin_id == i+1
+                ec[i,j] = 1000/np.mean(resmod[idepth,:][ibins, 2])
+                
+        # compute mean ECa for each bin
+        bin_id = np.digitize(np.unique(eca[:,0]), bins)
         depths =  (mid_depths_r[1:] + mid_depths_r[:-1])/2
-        
-        eca2=[]
+        eca2 = np.zeros(((len(mid_depths), nbins)))
         for i in range(0, nbins):
-            if len(np.where(bin_id==i+1)) > 0:
-                eca2.append(np.sum(eca[bin_id==i+1, :],axis=0)/eca[bin_id==i+1,:].shape[0])
-        eca2=np.asarray(eca2)
-        eca2=eca2[~np.isnan(eca2).any(axis=1)]
+            ie = bin_id == i+1
+            if np.sum(ie) > 0:
+                eca2[:,i] = np.sum(eca[ie, :], axis=0) / eca[ie,:].shape[0]
+        eca2 = np.array(eca2)
+        eca2 = eca2[~np.isnan(eca2).any(axis=1)]
+        
         return ec, depths, eca2[:, 1:]
 
 
 
-    def calibrate(self, fnameECa, fnameEC=None, fnameresmod=None, forwardModel='CS', ax=None, apply=False, dump=None, nbins=None, binInt=None,  meshType='quad'):
+    def calibrate(self, fnameECa, fnameEC=None, fnameresmod=None, 
+                  forwardModel='CS', ax=None, apply=False, dump=None,
+                  nbins=None, binInt=None):
         """Calibrate ECa with given EC profile.
         
         Parameters
@@ -2672,7 +2658,7 @@ class Problem(object):
                 print('Frequency not found, revert to CS')
                 forwardModel = 'CS' # doesn't need frequency
         if fnameresmod is not None:
-            ec, depths, eca=self.resModtoEC(fnameECa=fnameECa, fnameresmod=fnameresmod, nbins=nbins, binInt=binInt,  meshType=meshType)
+            ec, depths, eca=self.resModtoEC(fnameECa=fnameECa, fnameresmod=fnameresmod, nbins=nbins, binInt=binInt)
             depths = depths
             dfec = pd.DataFrame(ec)
             dfeca = pd.DataFrame(eca)
