@@ -914,8 +914,10 @@ class App(QMainWindow):
         # perform the fit (equations display in the console)
         def fitCalibBtnFunc():
             forwardModel = self.forwardCalibCombo.itemText(self.forwardCalibCombo.currentIndex())
+            calib = self.gfCalibCalibCombo.currentText() if self.gfCalibCalibCombo.currentText() != 'None' else None 
             self.mwCalib.setCallback(self.problem.calibrate)
-            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC, fnameResMod=self.fnameResMod,
+            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
+                                fnameResMod=self.fnameResMod, calib=calib,
                            forwardModel=forwardModel)
         self.fitCalibBtn = QPushButton('Fit calibration')
         self.fitCalibBtn.clicked.connect(fitCalibBtnFunc)
@@ -923,7 +925,9 @@ class App(QMainWindow):
         # apply the calibration to the ECa measurements of the survey imported
         def applyCalibBtnFunc():
             forwardModel = self.forwardCalibCombo.itemText(self.forwardCalibCombo.currentIndex())
-            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC, fnameResMod=self.fnameResMod,
+            calib = self.gfCalibCalibCombo.currentText() if self.gfCalibCalibCombo.currentText() != 'None' else None 
+            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
+                                fnameResMod=self.fnameResMod, calib=calib,
                            forwardModel=forwardModel, apply=True)
             self.replot()
             self.infoDump('Calibration applied')

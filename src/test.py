@@ -184,7 +184,9 @@ k.createSurvey(datadir + 'boxford-calib/eca_calibration.csv')
 k.calibrate(fnameECa=datadir + 'boxford-calib/eca_calibration.csv',
             fnameEC=datadir + 'boxford-calib/eri_ec.csv')
 k.calibrate(fnameECa=datadir + 'boxford-calib/eca_calibration.csv',
-            fnameResMod=datadir + 'boxford-calib/f001_res.dat', binInt=4)
+            fnameResMod=datadir + 'boxford-calib/quadmesh.dat', binInt=4)
+k.calibrate(fnameECa=datadir + 'boxford-calib/eca_calibration.csv',
+            fnameResMod=datadir + 'boxford-calib/trimesh.dat', binInt=4)
 
 
 #%% invert change in ECa

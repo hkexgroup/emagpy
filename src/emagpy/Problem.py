@@ -2589,7 +2589,7 @@ class Problem(object):
             resi = griddata((x,z), res, (xi, zi), method='linear') # linear interpolation
             x = np.unique(xi)
             z = np.unique(zi)
-            resmodxz = np.meshgrid(x,z).T.reshape(-1,2)            
+            resmodxz = np.array(np.meshgrid(x,z)).T.reshape(-1,2)            
             res = resi.T.flatten()
             resmod = np.concatenate((resmodxz, res[:,None]), axis=1)
             resmod = resmod[~np.isnan(resmod[:,2]),:]
