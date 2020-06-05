@@ -1703,7 +1703,7 @@ class App(QMainWindow):
             <li> Orientation of receiver and transmitter coils.</li>
             <li> Separation distance between <b>Tx</b>  and <b>Rx</b> coils.</li>
             <li> Operating frequency of the device.</li>
-            <li> Elevation of the device above thr ground.</li>
+            <li> Elevation of the device above the ground.</li>
             <li> Subsurface electrical conductivity distribution.</li>
             </ul>
 
@@ -1742,9 +1742,10 @@ class App(QMainWindow):
 
         </p>
 
-        <p>In the EMagPy inversion tab the <b>CS</b> forward model is selected by specifying '<i>CS</i>', given its linear nature the <b>CS</b> function is faster than the <b>FS</b> forward model. However, it is generally only suitable for low conductivities (&lt; 15 mS/m) when the device is operated at ground level. </p>
+        <p>In the EMagPy inversion tab the <b>CS</b> forward model is selected by specifying '<i>CS</i>', given its linear nature the <b>CS</b> function is faster than the <b>FS</b> forward model. However, it is generally only suitable for low conductivities when the device is operated at ground level. </p>
 
-        <p>Although <b>EMagPy</b> can be use with <b>Q</b> values, by specifying '<i>Q</i>' in the inversion tab, the majority of cases will likely deal with data in terms of <b>ECa</b>. </p>  In <b>EMagPy</b> the <b>FS</b> forward model with the <b>LIN</b> conversion can be implemented with '<i>FSlin</i>' whereas the <b>FS</b> forward model with the homogenous equivalent conductivity can be implemented with '<i>FSeq</i>'. </p><p> It is essential that the theoretical response, in terms of <b>ECa</b>, is comparable to the measured data. For instance, data expressed using ECa values obtained by some manufacturer calibration not yield reliable inversion results if the '<i>FSlin</i>' or '<i>FSeq</i>' methods are used. </p> <p>
+        <p>Although <b>EMagPy</b> can be use with <b>Q</b> values, by specifying '<i>Q</i>' in the inversion tab, the majority of cases will likely deal with data in terms of <b>ECa</b>. </p>  In <b>EMagPy</b> the <b>FS</b> forward model with the <b>LIN</b> conversion can be implemented with '<i>FSlin</i>' whereas the <b>FS</b> forward model with the homogenous equivalent conductivity can be implemented with '<i>FSeq</i>'. </p>
+        <p color='red'><b> It is essential that the theoretical response, in terms of <i>ECa</i>, is comparable to the measured data.</b><br> For instance, data expressed using ECa values obtained by some manufacturer calibration do not yield reliable inversion results if the '<i>FSlin</i>' or '<i>FSeq</i>' methods are used. </p> <p>
         ''')
 
         helpTab.addTab(helpFwd, 'Forward model')
@@ -1755,7 +1756,7 @@ class App(QMainWindow):
         helpInput.setText(
         '''
         <p>
-        To operate properly <b> EmagPy </b> must be supplied with the following aquistion setup details:
+        To operate properly, <b> EMagPy </b> must be supplied with the following aquisition setup details:
 <ul>
             <li> Orientation of receiver and transmitter coils.</li>
             <ul> Horizontal Coplanar (<b>HCP</b>), 
@@ -1773,8 +1774,10 @@ class App(QMainWindow):
 
         <img width=800 src="image/datalayout.png"></img>
 </p>
-<p> Additionally, if data from either the GF Instruments Mini-Explorer or Explorer is loaded an additional recalibration is done to convert the raw EMI ECa values into LIN-ECa values. This is done because the GF Instruments contain a specific manufacturer calibration to link <b>Q</b> and <b>ECa</b>.
+<p> Additionally, if data from either the GF Instruments Mini-Explorer or Explorer is loaded an additional correction can be done to convert the raw EMI ECa values into LIN-ECa values. This is done because the GF Instruments contain a specific manufacturer calibration to link <b>Q</b> and <b>ECa</b>.
 </p>
+<p><b>Note: </b>If ERT data for calibration are available, you do not need to apply this correction as
+the ERT calibration will account for it.</p>
 
         ''')
         helpTab.addTab(helpInput, 'Data Input')
@@ -1791,10 +1794,12 @@ class App(QMainWindow):
         <p> EMI data collected along an ERT transect must be supplied along with information from the ERT model. The ERT data can be supplied in one of two formats:
 <ul>
     <li> The x, z and resistivity information for a quadrilateral or triangular mesh inverted for a flat topography.</li>
-    <li> The conductivity of each mesh element beneath the positition of the corresponing EMI measurements, in this case the depth of the element centroid must be supplied in the header.</p>
-</li>
-   <p>
+    <li> As a series of EC profiles, with the depths of each measurement provided in the headers.
+</ul>
+</p>
+<p>
         <img width=300 src="image/calibfile.png"></img>
+        <img width=500 src="image/ec_header.png"></img>
 </p>
 
 
@@ -1807,18 +1812,35 @@ class App(QMainWindow):
         helpInv.setOpenExternalLinks(True)
         helpInv.setText(
         '''
-        <p> <b>EMagPy</b> can produce both smooth and sharply varying models of electrical conductivity. <p/> <p> The smooth inversion requires a series of fixed depths to solve the inverse problem in terms of conductivity. A vertical smoothing parameter is also required to regularize the solution. <p/> <p> The sharp model treats both model depths and model conductivties as parameters, however it is important that the number of layers is limited to avoid geologically unfeasible models. <p/> <p> <b><i>Inverse Settings</i></b><p/> <p> The starting model parameters can be supplied in the '<i>Inversion Settings</i>' tab where it can also be specified if these parameters should be fixed or not. <p/> <p> The user can also choose to fit an L-curve which will plot a graph of model and data misfit for a number of vertical smoothing values. </p>
-   <p>
-<img width=400 src="image/lcurve.png"></img>
+        <p><b>EMagPy</b> can produce both smoothly and sharply varying models of electrical conductivity.</p>
+        <p>
+            The smooth inversion requires a series of fixed depths to solve the inverse problem in terms 
+            of conductivity. A vertical smoothing parameter is also required to regularize the solution.
+        </p>
+        <p>
+            The sharp model treats both model depths and model conductivties as parameters,
+            however it is important that the number of layers is limited to avoid geologically
+            unfeasible models.
+        </p>
+        <p>
+            <img src='image/smooth-sharp.png' width=600></img>
+        </p>
+        <p><b><i>Inverse Settings</i></b></p>
+        <p>The starting model parameters can be supplied in the '<i>Inversion Settings</i>' 
+            tab where it can also be specified if these parameters should be fixed or not. </p>
+        <p> The user can also choose to fit an L-curve which will plot a graph of model and data misfit 
+        for a number of vertical smoothing values. </p>
+        <p>
+            <img width=400 src="image/lcurve.png"></img>
 
-</p><b><i>Inversion</i></b><p/>
-
-The 'inversion tab' contains a number of options:
+        </p>
+        <p><b><i>Inversion</i></b></p>
+        <p>The 'inversion tab' contains a number of options:
         <ul>
         <li> Forward model.</li>
         <ul> Specifies which forward model to use, (see Forward Model Help). </ul>
         <li> Inversion method.</li>
-        <ul> Specifies the inversion method to use, (see paper). </ul>
+        <ul> Specifies the inversion method to use, (see <a href="https://www.journals.elsevier.com/computers-and-geosciences/">McLachlan, Blanchy and Binley, 2020</a>). </ul>
         <li> Vertical smoothing.</li>
         <ul> This is required for smooth inversion and should be set to 0 for sharp inversions. </ul>
         <li> Lateral smoothing.</li>
@@ -1826,10 +1848,14 @@ The 'inversion tab' contains a number of options:
         <li> Regularization.</li>
         <ul> Specifes whether to use the L1 or L2 norm (of the parameter space) to minimise misfit. </ul>
         <li> Number of iterations.</li>
-        <li> Parallel computing.</li> </p>
-        <ul> If available checking this option will make use of multi-core machines. </ul></ul>
+        <li> Parallel computing.</li>
+        <ul>If available checking this option will make use of multi-core machines (only available when running from source). </ul>
+        </ul>
+        </p>
         ''')
         helpTab.addTab(helpInv, 'Inversion')       
+        
+        
         
         #%%about tab
         tabAbout = QWidget()

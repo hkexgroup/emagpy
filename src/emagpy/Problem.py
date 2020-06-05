@@ -2688,7 +2688,7 @@ class Problem(object):
 
         if fnameEC is not None:
             dfec = pd.read_csv(fnameEC)
-            depths = np.abs(dfec.columns.values.astype(float)) # those are the depths of at mid layer
+            depths = np.abs([float(a[1:]) for a in dfec.columns if a[0] == 'd']) # those are the depths of at mid layer
             depths = depths[:-1] + np.diff(depths) # those are depths of the bottom of the layer
             if calib is not None:
                 survey.gfCorrection(calib=calib)
