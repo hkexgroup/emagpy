@@ -2563,8 +2563,12 @@ class Problem(object):
             if binInt is None:
                 nbins = int(eca.shape[0]-1)
             else:
-                nbins = (max_xpos - min_xpos)//binInt
+                nbins = int((max_xpos - min_xpos)//binInt)
                 
+        if nbins > eca.shape[0]:
+            raise ValueError('You have specified {:d} bins but you only have {:d} data points.'.format(
+                nbins, eca.shape[0]))
+            
         # check if mesh is triangular or quadrilateral, meshes with topography may be read wrong
         # if the product of the number of unique X and Z values equals the number of rows, it's a quad mesh
         if len(np.unique(resmod[:,0]))*len(np.unique(resmod[:,1])) == len(resmod[:,1]):
@@ -2599,20 +2603,20 @@ class Problem(object):
         bin_id = np.digitize(np.unique(resmod[:,0]), bins+1)
         ec = np.ones((nbins, len(mid_depths)))
         mid_depths_r = mid_depths[::-1]
-        for j in range(0, nbins):
-            for i in range(0, len(mid_depths)):
+        for i in range(0, nbins):
+            for j in range(0, len(mid_depths)):
                 idepth = resmod[:,1] == -mid_depths_r[j]
                 ibins = bin_id == i+1
                 ec[i,j] = 1000/np.mean(resmod[idepth,:][ibins, 2])
                 
         # compute mean ECa for each bin
         bin_id = np.digitize(np.unique(eca[:,0]), bins)
-        depths =  (mid_depths_r[1:] + mid_depths_r[:-1])/2
-        eca2 = np.zeros(((len(mid_depths), nbins)))
+        depths = (mid_depths_r[1:] + mid_depths_r[:-1])/2
+        eca2 = np.zeros((nbins, eca.shape[1]))
         for i in range(0, nbins):
             ie = bin_id == i+1
             if np.sum(ie) > 0:
-                eca2[:,i] = np.sum(eca[ie, :], axis=0) / eca[ie,:].shape[0]
+                eca2[i,:] = np.mean(eca[ie,:], axis=0)
         eca2 = np.array(eca2)
         eca2 = eca2[~np.isnan(eca2).any(axis=1)]
         

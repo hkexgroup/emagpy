@@ -178,6 +178,15 @@ print('PAR elapsed {:.2f}s'.format(time.time() - t0))
 k.showResults()
 
 
+#%% calibration with Boxford dataset
+k = Problem()
+k.createSurvey(datadir + 'boxford-calib/eca_calibration.csv')
+k.calibrate(fnameECa=datadir + 'boxford-calib/eca_calibration.csv',
+            fnameEC=datadir + 'boxford-calib/eri_ec.csv')
+k.calibrate(fnameECa=datadir + 'boxford-calib/eca_calibration.csv',
+            fnameResMod=datadir + 'boxford-calib/f001_res.dat', binInt=4)
+
+
 #%% invert change in ECa
 k = Problem()
 k.createTimeLapseSurvey(datadir + 'timelapse-wheat')
