@@ -1285,7 +1285,7 @@ class App(QMainWindow):
             else:
                 self.betaEdit.setEnabled(True)
                 self.lCombo.setEnabled(True)
-                self.parallelCheck.setEnabled(True)
+                self.parallelCheck.setEnabled(False) # TODO
                 self.nitEdit.setEnabled(True)
                 
         self.methodCombo = QComboBox()
@@ -1339,6 +1339,7 @@ class App(QMainWindow):
         
         self.parallelCheck = QCheckBox('Parallel')
         self.parallelCheck.setToolTip('If checked, inversion will be run in parallel.')
+        self.parallelCheck.setEnabled(False) # TODO
         
         self.annSampleLabel = QLabel('Number of samples:')
         self.annSampleEdit = QLineEdit('100')
@@ -1550,13 +1551,11 @@ class App(QMainWindow):
         self.saveInvMapDataBtn = QPushButton('Save Results')
         self.saveInvMapDataBtn.clicked.connect(saveInvMapDataBtnFunc)
         
-        
         def expInvMap():
             fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
             if fname != '':
                 self.setProjection()
                 self.problem.saveSlice(fname=fname, islice=self.sliceCombo.currentIndex(), cmap=self.cmapInvMapCombo.currentText())
-            
             
         self.invMapExpBtn = QPushButton('Exp. GIS layer')
         self.invMapExpBtn.setToolTip('Export a georeferenced TIFF file to directly be imported in GIS software.\n'
@@ -1591,7 +1590,7 @@ class App(QMainWindow):
         invOptions.addWidget(self.lCombo)
         invOptions.addWidget(self.nitLabel)
         invOptions.addWidget(self.nitEdit)
-        # invOptions.addWidget(self.parallelCheck) # disable for compilation
+        invOptions.addWidget(self.parallelCheck) # disable for compilation
         invOptions.addWidget(self.annSampleLabel)
         invOptions.addWidget(self.annSampleEdit)
         invOptions.addWidget(self.annNoiseLabel)
