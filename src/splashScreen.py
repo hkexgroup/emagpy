@@ -142,7 +142,7 @@ if __name__ == "__main__":
     
     splash.hide()
     splash.close()
-    appDir = os.path.join(bundle_dir, 'ui', 'ui') # zip always putting a double dir ... don't know why
+    appDir = os.path.join(bundle_dir, 'ui') # zip always putting a double dir ... don't know why
     print('Main app will be run in appDir = ', appDir)
     os.chdir(appDir)
 #    os.system(['python3', 'ui.py']) # this work fine
