@@ -15,7 +15,7 @@ datas=[
        ('./emagpy/pcs.csv', './emagpy')
       ]
 
-def extra_datas(mydir):
+def extra_datas(mydir, outdir='emagpy'):
     def rec_glob(p, files):
         import os
         import glob
@@ -27,12 +27,12 @@ def extra_datas(mydir):
     rec_glob("%s/*" % mydir, files)
     extra_datas = []
     for f in files:
-        extra_datas.append((f, os.path.dirname(os.path.join('emagpy',f))))
+        extra_datas.append((f, os.path.dirname(os.path.join(outdir,f))))
 
     return extra_datas
 
 datas += extra_datas('examples')
-datas += extra_datas('image')
+datas += extra_datas('image', outdir='.')
 
 
 a = Analysis(['ui.py'],
