@@ -30,6 +30,7 @@ def extra_datas(mydir):
     return extra_datas
 
 datas += extra_datas('examples')
+datas += extra_datas('image')
 
 
 a = Analysis(['ui.py'],
