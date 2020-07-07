@@ -1979,6 +1979,7 @@ class Problem(object):
             distance = np.sqrt(np.sum(np.diff(xy, axis=0)**2, axis=1))
             distance = np.r_[[0], distance, distance[[-1]]]
             x = np.cumsum(distance)
+
         xs = np.tile(np.repeat(x, 2)[1:-1][:,None], nlayer+1)
         ys = np.repeat(depths, 2, axis=0)
         vertices = np.c_[xs.flatten('F'), ys.flatten('F')]
