@@ -569,7 +569,7 @@ class App(QMainWindow):
         
         # display options
         self.showParams = {'index': 0, 'coil':'all', 'contour':False, 'vmin':None,
-                           'vmax':None,'pts':False, 'cmap':'viridis_r'} 
+                           'vmax':None,'pts':False, 'cmap':'viridis_r', 'dist':True} 
 
         # vmin/vmax filtering
         self.vminfLabel = QLabel('Vmin:')
@@ -678,46 +678,64 @@ class App(QMainWindow):
 #                                'border-style:inset;}')
         
         # alternative button checkable
-        def showRadioFunc(state):
-            if state:
-                self.mapRadio.setChecked(False)
+        # def showRadioFunc(state):
+        #     if state:
+        #         self.mapRadio.setChecked(False)
+        #         showMapOptions(False)
+        #         self.mwRaw.setCallback(self.problem.show)
+        #         self.replot()
+        #     else:
+        #         self.mapRadio.setChecked(True)
+        # self.showRadio = QPushButton('Raw')
+        # self.showRadio.setCheckable(True)
+        # self.showRadio.setChecked(True)
+        # self.showRadio.toggled.connect(showRadioFunc)
+        # self.showRadio.setEnabled(False)
+        # self.showRadio.setAutoDefault(True)
+        # def mapRadioFunc(state):
+        #     if state:
+        #         self.showRadio.setChecked(False)
+        #         showMapOptions(True)
+        #         self.mwRaw.setCallback(self.problem.showMap)
+        #         if self.showParams['coil'] == 'all':
+        #             self.coilCombo.setCurrentIndex(0)
+        #             coilComboFunc(0)
+        #         self.replot()
+        #     else:
+        #         self.showRadio.setChecked(True)
+        # self.mapRadio = QPushButton('Map')
+        # self.mapRadio.setCheckable(True)
+        # self.mapRadio.setEnabled(False)
+        # self.mapRadio.setChecked(False)
+        # self.mapRadio.setAutoDefault(True)
+        # self.mapRadio.toggled.connect(mapRadioFunc)
+        # showGroup = QGroupBox()
+        # showGroupLayout = QHBoxLayout()
+        # showGroupLayout.addWidget(self.showRadio)
+        # showGroupLayout.addWidget(self.mapRadio)
+        # showGroup.setLayout(showGroupLayout)
+        # showGroup.setFlat(True)
+        # showGroup.setContentsMargins(0,0,0,0)
+        # showGroup.setStyleSheet('QGroupBox{border: 0px;'
+        #                         'border-style:inset;}')
+        
+        # show dots, map or pseudo
+        def showComboFunc(index):
+            if self.showCombo.currentText() == 'Dots':
                 showMapOptions(False)
                 self.mwRaw.setCallback(self.problem.show)
                 self.replot()
-            else:
-                self.mapRadio.setChecked(True)
-        self.showRadio = QPushButton('Raw')
-        self.showRadio.setCheckable(True)
-        self.showRadio.setChecked(True)
-        self.showRadio.toggled.connect(showRadioFunc)
-        self.showRadio.setEnabled(False)
-        self.showRadio.setAutoDefault(True)
-        def mapRadioFunc(state):
-            if state:
-                self.showRadio.setChecked(False)
+            elif self.showCombo.currentText() == 'Map':
                 showMapOptions(True)
                 self.mwRaw.setCallback(self.problem.showMap)
                 if self.showParams['coil'] == 'all':
                     self.coilCombo.setCurrentIndex(0)
                     coilComboFunc(0)
-                self.replot()
-            else:
-                self.showRadio.setChecked(True)
-        self.mapRadio = QPushButton('Map')
-        self.mapRadio.setCheckable(True)
-        self.mapRadio.setEnabled(False)
-        self.mapRadio.setChecked(False)
-        self.mapRadio.setAutoDefault(True)
-        self.mapRadio.toggled.connect(mapRadioFunc)
-        showGroup = QGroupBox()
-        showGroupLayout = QHBoxLayout()
-        showGroupLayout.addWidget(self.showRadio)
-        showGroupLayout.addWidget(self.mapRadio)
-        showGroup.setLayout(showGroupLayout)
-        showGroup.setFlat(True)
-        showGroup.setContentsMargins(0,0,0,0)
-        showGroup.setStyleSheet('QGroupBox{border: 0px;'
-                                'border-style:inset;}')
+        self.showCombo = QComboBox()
+        self.showCombo.addItem('Dots')
+        self.showCombo.addItem('Map')
+        self.showCombo.currentIndexChanged.connect(showComboFunc)
+        self.showCombo.setEnabled(False)
         
         def showMapOptions(arg):
             objs = [self.ptsLabel, self.ptsCheck, self.contourLabel,
@@ -725,13 +743,28 @@ class App(QMainWindow):
             [o.setVisible(arg) for o in objs]
             if arg is False:
                 self.coilCombo.addItem('all')
+                self.xlabCombo.setVisible(True)
             else:
+                self.xlabCombo.setVisible(False)
                 n = len(self.problem.coils)
                 if self.coilCombo.currentIndex() == n:
                     self.coilCombo.setCurrentIndex(n-1)
                 self.coilCombo.removeItem(n)
+                
             print([self.coilCombo.itemText(i) for i in range(self.coilCombo.count())])
 
+        def xlabComboFunc(index):
+            if index == 0:
+                self.showParams['dist'] = True
+            else:
+                self.showParams['dist'] = False
+            self.replot()
+        self.xlabCombo = QComboBox()
+        self.xlabCombo.addItem('Distance')
+        self.xlabCombo.addItem('Samples')
+        self.xlabCombo.currentIndexChanged.connect(xlabComboFunc)
+        self.xlabCombo.setEnabled(False)
+        
         # apply the display vmin/vmax for colorbar or y label                
         self.vminEdit = QLineEdit('')
         self.vminEdit.setValidator(QDoubleValidator())
@@ -838,7 +871,9 @@ class App(QMainWindow):
         midLayout.addWidget(self.surveyCombo, 7)
         midLayout.addWidget(QLabel('Select coil:'))
         midLayout.addWidget(self.coilCombo, 7)
-        midLayout.addWidget(showGroup)
+        # midLayout.addWidget(showGroup)
+        midLayout.addWidget(self.showCombo)
+        midLayout.addWidget(self.xlabCombo)
         midLayout.addWidget(QLabel('Vmin:'))
         midLayout.addWidget(self.vminEdit, 5)
         midLayout.addWidget(QLabel('Vmax:'))
@@ -1339,7 +1374,8 @@ class App(QMainWindow):
         
         self.parallelCheck = QCheckBox('Parallel')
         self.parallelCheck.setToolTip('If checked, inversion will be run in parallel.')
-        self.parallelCheck.setEnabled(False) # TODO
+        if frozen != 'not':
+            self.parallelCheck.setEnabled(False) # TODO on available on unfrozen version
         
         self.annSampleLabel = QLabel('Number of samples:')
         self.annSampleEdit = QLineEdit('100')
@@ -1381,6 +1417,8 @@ class App(QMainWindow):
             else: # button press while running => killing
                 print('killing')
                 self.problem.ikill = True
+                self.invertBtn.setText('Invert')
+                self.invertBtn.setStyleSheet('background-color:green')
                 return
             outputStack.setCurrentIndex(0)
             self.logText.clear()
@@ -1447,7 +1485,7 @@ class App(QMainWindow):
         
         # profile display
         showInvParams = {'index':0, 'vmin':None, 'vmax':None, 
-                         'cmap':'viridis_r', 'contour':False}
+                         'cmap':'viridis_r', 'contour':False, 'dist':True}
         
         def cmapInvComboFunc(index):
             showInvParams['cmap'] = self.cmapInvCombo.itemText(index)
@@ -1471,6 +1509,7 @@ class App(QMainWindow):
         self.vmaxInvEdit = QLineEdit('')
         self.vmaxInvEdit.setValidator(QDoubleValidator())
         
+        # apply display settings
         def applyInvBtnFunc():
             vmin = float(self.vminInvEdit.text()) if self.vminInvEdit.text() != '' else None
             vmax = float(self.vmaxInvEdit.text()) if self.vmaxInvEdit.text() != '' else None
@@ -1480,20 +1519,33 @@ class App(QMainWindow):
         self.applyInvBtn = QPushButton('Apply')
         self.applyInvBtn.clicked.connect(applyInvBtnFunc)
         
+        # contour the plot
         self.contourInvLabel = QLabel('Contour:')
         def contourInvCheckFunc(state):
             showInvParams['contour'] = state
             self.mwInv.replot(**showInvParams)
         self.contourInvCheck = QCheckBox()
         self.contourInvCheck.clicked.connect(contourInvCheckFunc)
- 
+        
+        # change x axis from distance to samples
+        def xlabInvComboFunc(index):
+            if index == 0:
+                showInvParams['dist'] = True
+            else:
+                showInvParams['dist'] = False
+            self.mwInv.replot(**showInvParams)
+        self.xlabInvCombo = QComboBox()
+        self.xlabInvCombo.addItem('Distance')
+        self.xlabInvCombo.addItem('Samples')
+        self.xlabInvCombo.currentIndexChanged.connect(xlabInvComboFunc)
+        
+        # save inversion results as .csv
         def saveInvDataBtnFunc():
             fdir = QFileDialog.getExistingDirectory(invTab, 'Choose directory where to save the files')
             if fdir != '':
                 self.problem.saveInvData(fdir)
         self.saveInvDataBtn = QPushButton('Save Results')
         self.saveInvDataBtn.clicked.connect(saveInvDataBtnFunc)
-
         
         
         # for the map
@@ -1620,6 +1672,7 @@ class App(QMainWindow):
         profOptionsLayout.addWidget(self.applyInvBtn)
         profOptionsLayout.addWidget(self.contourInvLabel)
         profOptionsLayout.addWidget(self.contourInvCheck)
+        profOptionsLayout.addWidget(self.xlabInvCombo)
         profOptionsLayout.addWidget(self.cmapInvCombo)
         profOptionsLayout.addWidget(self.saveInvDataBtn)
         profLayout.addLayout(profOptionsLayout)
@@ -1928,11 +1981,14 @@ the ERT calibration will account for it.</p>
         vmax = self.showParams['vmax']
         pts = self.showParams['pts']
         cmap = self.showParams['cmap']
-        if self.mapRadio.isChecked():
+        dist = self.showParams['dist']
+        # if self.mapRadio.isChecked():
+        if self.showCombo.currentText() == 'Map':
             self.mwRaw.replot(index=index, coil=coil, contour=contour,
                               vmin=vmin, vmax=vmax, pts=pts, cmap=cmap)
         else:
-            self.mwRaw.replot(index=index, coil=coil, vmin=vmin, vmax=vmax)
+            self.mwRaw.replot(index=index, coil=coil, vmin=vmin, vmax=vmax,
+                              dist=dist)
                 
     def processFname(self, fnames, merged=False):
         self.problem.surveys = [] # empty the list of current survey
@@ -1985,7 +2041,9 @@ the ERT calibration will account for it.</p>
             self.surveyInvMapCombo.addItem(survey.name)
         
         # set to default values
-        self.showRadio.setChecked(True)
+        # self.showRadio.setChecked(True)
+        self.showCombo.setEnabled(True)
+        self.xlabCombo.setEnabled(True)
         self.contourCheck.setChecked(False)
 
         # enable widgets
@@ -2003,8 +2061,8 @@ the ERT calibration will account for it.</p>
         self.gridBtn.setEnabled(True)
         self.coilCombo.setEnabled(True)
         self.surveyCombo.setEnabled(True)
-        self.showRadio.setEnabled(True)
-        self.mapRadio.setEnabled(True)
+        # self.showRadio.setEnabled(True)
+        # self.mapRadio.setEnabled(True)
         self.applyBtn.setEnabled(True)
         self.cmapCombo.setEnabled(True)
         self.contourCheck.setEnabled(True)
