@@ -33,7 +33,7 @@ from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButt
     QTabWidget, QVBoxLayout, QLabel, QLineEdit, QMessageBox, QCompleter,
     QFileDialog, QCheckBox, QComboBox, QTextEdit, QHBoxLayout, QTextBrowser,
     QTableWidget, QFormLayout, QTableWidgetItem, QHeaderView, QProgressBar,
-    QStackedLayout, QGroupBox)#, QRadioButton, QAction, QListWidget, QShortcut)
+    QStackedLayout, QGroupBox, QFrame)#, QRadioButton, QAction, QListWidget, QShortcut)
 from PyQt5.QtGui import QIcon, QPixmap, QIntValidator, QDoubleValidator#, QKeySequence
 from PyQt5.QtCore import QThread, pyqtSignal#, QProcess, QSize
 from PyQt5.QtCore import Qt
@@ -45,6 +45,26 @@ from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationTo
 from matplotlib.figure import Figure
 from matplotlib import rcParams
 rcParams.update({'font.size': 12}) # CHANGE HERE for graph font size
+
+try:
+    import pyvista as pv
+    try:
+        from pyvistaqt import QtInteractor # newer version
+    except:
+        from pyvista import QtInteractor # older version
+    pvfound = True
+except:
+    pvfound = False
+    print('WARNING: pyvista not found, 3D plotting will be disabled.')
+
+
+# debug options
+DEBUG = True # set to false to not display message in the console
+def pdebug(*args, **kwargs):
+    if DEBUG:
+        print('DEBUG:', *args, **kwargs)
+    else:
+        pass
 
 
 #%% General crash ERROR
@@ -725,14 +745,21 @@ class App(QMainWindow):
                 showMapOptions(False)
                 self.mwRaw.setCallback(self.problem.show)
                 self.replot()
+            elif self.showCombo.currentText() == 'Pseudo':
+                showMapOptions(False)
+                self.mwRaw.setCallback(self.problem.showPseudo)
+                self.replot()                
             elif self.showCombo.currentText() == 'Map':
                 showMapOptions(True)
                 self.mwRaw.setCallback(self.problem.showMap)
                 if self.showParams['coil'] == 'all':
                     self.coilCombo.setCurrentIndex(0)
                     coilComboFunc(0)
+                else:
+                    self.replot()
         self.showCombo = QComboBox()
         self.showCombo.addItem('Dots')
+        self.showCombo.addItem('Pseudo')
         self.showCombo.addItem('Map')
         self.showCombo.currentIndexChanged.connect(showComboFunc)
         self.showCombo.setEnabled(False)
@@ -829,6 +856,10 @@ class App(QMainWindow):
 
         # display it
         self.mwRaw = MatplotlibWidget()
+        
+        
+        # 3D viewing tab
+        
         
         
         # layout
@@ -1417,6 +1448,7 @@ class App(QMainWindow):
             else: # button press while running => killing
                 print('killing')
                 self.problem.ikill = True
+                self.running = False
                 self.invertBtn.setText('Invert')
                 self.invertBtn.setStyleSheet('background-color:green')
                 return
@@ -1469,6 +1501,8 @@ class App(QMainWindow):
                 self.mwInvMap.replot(**showInvMapParams)
                 self.mwMisfit.plot(self.problem.showMisfit)
                 self.mwOne2One.plot(self.problem.showOne2one)
+                if pvfound:
+                    replot3D()
                 outputStack.setCurrentIndex(1)
             
             # reset button
@@ -1615,16 +1649,151 @@ class App(QMainWindow):
         self.invMapExpBtn.clicked.connect(expInvMap)
         
         
+        
+        # 3D options tab
+        self.showInv3dParams = {'index':0, 'vmin':None, 'vmax':None,
+                                'maxDepth':None, 'cmap':'viridis_r', 'elev':False,
+                                'edges':False, 'pvslices':([],[],[]),
+                                'pvthreshold':None, 'pvgrid':False,
+                                'pvcontour':[]}
+        # 3D plotter
+        if pvfound:
+            plotterFrame = QFrame()
+            vlayout = QHBoxLayout()
+            self.plInv = QtInteractor(plotterFrame)
+            vlayout.addWidget(self.plInv.interactor)
+            plotterFrame.setLayout(vlayout)
+            self.showInv3dParams['pl'] = self.plInv
+        
+        def replot3D():
+            self.plInv.clear()
+            try:
+                self.problem.show3D(**self.showInv3dParams)
+            except:
+                self.errorDump('Error in 3D plotting')
+        
+        def surveyInv3dComboFunc(index):
+            self.showInv3dParams['index'] = index
+            replot3D()
+        self.surveyInv3dCombo = QComboBox()
+        self.surveyInv3dCombo.activated.connect(surveyInv3dComboFunc)
+        
+        self.vminInv3dLabel = QLabel('Vmin|Vmax')
+        self.vminInv3dEdit = QLineEdit('')
+        self.vminInv3dEdit.setValidator(QDoubleValidator())
+        
+        # self.vmaxInv3dLabel = QLabel('vmax:')
+        self.vmaxInv3dEdit = QLineEdit('')
+        self.vmaxInv3dEdit.setValidator(QDoubleValidator())
+
+        # 3D specific options for pyvista
+        self.pvthreshLabel = QLabel('Threshold:')
+        self.pvthreshLabel.setToolTip('Value which to keep the cells.')
+        self.pvthreshMin = QLineEdit('')
+        self.pvthreshMin.setPlaceholderText('Min')
+        self.pvthreshMin.setValidator(QDoubleValidator())
+        self.pvthreshMin.setToolTip('Minimal value above which to keep the cells.')
+        
+        # pvthreshMaxLabel = QLabel('Max Threshold:')
+        self.pvthreshMax = QLineEdit('')
+        self.pvthreshMax.setPlaceholderText('Max')
+        self.pvthreshMax.setValidator(QDoubleValidator())
+        self.pvthreshMax.setToolTip('Maximal value below which to keep the cells.')
+        
+        self.pvslicesLabel = QLabel('Slices:')
+        self.pvslicesLabel.setToolTip('Slice the mesh normal to X, Y and/or Z axis. '
+                                 'Set multiple slices on one axis by separating values with ","')
+        self.pvxslices = QLineEdit('')
+        self.pvxslices.setPlaceholderText('X [m]')
+        self.pvxslices.setToolTip('e.g. 4, 5 to have to slices normal'
+                                  'to X in 4 and 5.')
+        
+        # pvyslicesLabel = QLabel('Y slices:')
+        self.pvyslices = QLineEdit('')
+        self.pvyslices.setPlaceholderText('Y [m]')
+        self.pvyslices.setToolTip('e.g. 4, 5 to have to slices normal'
+                                  'to Y in 4 and 5.')
+        
+        # pvzslicesLabel = QLabel('Z slices:')
+        self.pvzslices = QLineEdit('')
+        self.pvzslices.setPlaceholderText('Z [m]')
+        self.pvzslices.setToolTip('e.g. 4, 5 to have to slices normal'
+                                  'to Z in 4 and 5.')
+                
+        self.pvcontourLabel = QLabel('Isosurfaces:')
+        self.pvcontour = QLineEdit('')
+        self.pvcontour.setToolTip('Values of isosurfaces (comma separated).')
+        
+        def pvapplyBtnFunc():
+            vmin = float(self.vminInv3dEdit.text()) if self.vminInv3dEdit.text() != '' else None
+            vmax = float(self.vmaxInv3dEdit.text()) if self.vmaxInv3dEdit.text() != '' else None
+            self.showInv3dParams['vmin'] = vmin
+            self.showInv3dParams['vmax'] = vmax
+            threshMin = float(self.pvthreshMin.text()) if self.pvthreshMin.text() != '' else None
+            threshMax = float(self.pvthreshMax.text()) if self.pvthreshMax.text() != '' else None
+            self.showInv3dParams['pvthreshold'] = [threshMin, threshMax]
+            if self.pvxslices.text() != '':
+                xslices = [float(a) for a in self.pvxslices.text().split(',')]
+            else:
+                xslices = []
+            if self.pvyslices.text() != '':
+                yslices = [float(a) for a in self.pvyslices.text().split(',')]
+            else:
+                yslices = []
+            if self.pvzslices.text() != '':
+                zslices = [float(a) for a in self.pvzslices.text().split(',')]
+            else:
+                zslices = []
+            self.showInv3dParams['pvslices'] = (xslices, yslices, zslices)
+            if self.pvcontour.text() != '':
+                pvcontour = [float(a) for a in self.pvcontour.text().split(',')]
+            else:
+                pvcontour = []
+            self.showInv3dParams['pvcontour'] = pvcontour
+            replot3D()
+        self.pvapplyBtn = QPushButton('Apply 3D')
+        self.pvapplyBtn.setAutoDefault(True)
+        self.pvapplyBtn.clicked.connect(pvapplyBtnFunc)
+        self.pvapplyBtn.setToolTip('Apply 3D options')
+        
+        def pvgridCheckFunc(state):
+            self.showInv3dParams['pvgrid'] = self.pvgridCheck.isChecked()
+            replot3D()
+        self.pvgridCheck = QCheckBox('Grid')
+        self.pvgridCheck.stateChanged.connect(pvgridCheckFunc)
+        
+        def cmapInv3dComboFunc(index):
+            self.showInv3dParams['cmap'] = self.cmapInv3dCombo.itemText(index)
+            replot3D()
+        self.cmapInv3dCombo = QComboBox()
+        self.cmapInv3dCombo.addItems(invMapCmaps)
+        self.cmapInv3dCombo.activated.connect(cmapInv3dComboFunc)
+        
+        def screenshotBtnFunc():
+            fname, _ = QFileDialog.getSaveFileName(self, 'Open File', self.datadir,
+                                                   'PNG (*.png);;TIFF (*.tif)')
+            if fname != '':
+                self.vtkWidget.screenshot(fname, transparent_background=True)
+        self.screenshotBtn = QPushButton('Save screenshot')
+        self.screenshotBtn.setAutoDefault(True)
+        self.screenshotBtn.clicked.connect(screenshotBtnFunc)        
+
+
+        # subtabs
         self.graphTabs = QTabWidget()
         self.profTab = QWidget()
         self.mapTab = QWidget()
+        self.m3dTab = QWidget()
         self.graphTabs.addTab(self.profTab, 'Profile')
         self.graphTabs.addTab(self.mapTab, 'Slice')
+        self.graphTabs.addTab(self.m3dTab, '3D View')
+        if pvfound is False:
+            self.graphTabs.setEnabled(2, False)
         
         # graph or log    
         self.mwInv = MatplotlibWidget()
         self.mwInvMap = MatplotlibWidget()
-
+        
         
         # layout
         invLayout = QVBoxLayout()
@@ -1687,7 +1856,6 @@ class App(QMainWindow):
         mapOptionsLayout.addWidget(self.sliceCombo)
         mapOptionsLayout.addWidget(self.vminInvMapLabel)
         mapOptionsLayout.addWidget(self.vminInvMapEdit)
-        mapOptionsLayout.addWidget(self.vmaxInvMapLabel)
         mapOptionsLayout.addWidget(self.vmaxInvMapEdit)
         mapOptionsLayout.addWidget(self.applyInvMapBtn)
         mapOptionsLayout.addWidget(self.contourInvMapLabel)
@@ -1698,6 +1866,30 @@ class App(QMainWindow):
         mapLayout.addLayout(mapOptionsLayout)
         mapLayout.addWidget(self.mwInvMap)
         self.mapTab.setLayout(mapLayout)
+        
+        m3dLayout = QVBoxLayout()
+        m3dOptionsLayout = QHBoxLayout()
+        m3dOptionsLayout.addWidget(self.surveyInv3dCombo)
+        m3dOptionsLayout.addWidget(self.vminInv3dLabel)
+        m3dOptionsLayout.addWidget(self.vminInv3dEdit)
+        # m3dOptionsLayout.addWidget(self.vmaxInv3dLabel)
+        m3dOptionsLayout.addWidget(self.vmaxInv3dEdit)
+        m3dOptionsLayout.addWidget(self.pvthreshLabel)
+        m3dOptionsLayout.addWidget(self.pvthreshMin)
+        m3dOptionsLayout.addWidget(self.pvthreshMax)
+        m3dOptionsLayout.addWidget(self.pvslicesLabel)
+        m3dOptionsLayout.addWidget(self.pvxslices)
+        m3dOptionsLayout.addWidget(self.pvyslices)
+        m3dOptionsLayout.addWidget(self.pvzslices)
+        m3dOptionsLayout.addWidget(self.pvcontourLabel)
+        m3dOptionsLayout.addWidget(self.pvcontour)
+        m3dOptionsLayout.addWidget(self.pvapplyBtn)
+        m3dOptionsLayout.addWidget(self.cmapInv3dCombo)
+        m3dOptionsLayout.addWidget(self.pvgridCheck)
+        m3dOptionsLayout.addWidget(self.screenshotBtn)
+        m3dLayout.addLayout(m3dOptionsLayout)
+        m3dLayout.addWidget(plotterFrame)
+        self.m3dTab.setLayout(m3dLayout)
         
         outputLog.addWidget(self.logText)
         
@@ -1931,6 +2123,7 @@ the ERT calibration will account for it.</p>
                 <a href="https://joblib.readthedocs.io/en/latest/">joblib</a> and
                 <a href="https://rasterio.readthedocs.io/en/latest/index.html">rasterio (optional)</a>.
             </p>
+            <p>EMagPy is the sister code of <a href="https://gitlab.com/hkex/pyr2">ResIPy</a> and has been heavily influenced by it.</p>
             <p><strong>EMagPy's core developers: Guillaume Blanchy and Paul McLachlan.<strong></p>
             <p>Contributors: Jimmy Boyd, Sina Saneiyan</p>
             '''.format(EMagPy_version))
@@ -2034,11 +2227,13 @@ the ERT calibration will account for it.</p>
         self.surveyCombo.clear()
         self.surveyInvCombo.clear()
         self.surveyInvMapCombo.clear()
+        self.surveyInv3dCombo.clear()
         for survey in self.problem.surveys:
             self.surveyCombo.addItem(survey.name)
             self.surveyErrCombo.addItem(survey.name)
             self.surveyInvCombo.addItem(survey.name)
             self.surveyInvMapCombo.addItem(survey.name)
+            self.surveyInv3dCombo.addItem(survey.name)
         
         # set to default values
         # self.showRadio.setChecked(True)

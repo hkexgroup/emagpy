@@ -1516,22 +1516,22 @@ class Problem(object):
             If `True` the true distance between points will be computed else
             the sample index is used as X index.
         """
-        # 
-
         # compute local sensitivity for a 1D profile given coil configurations of the survey
         ksens = Problem()
-        cond = np.ones((1, 1000))
-        depth = np.linspace(0.05, 2, cond.shape[1]-1)[None,:]
-        out = ksens.computeSens(forwardModel='CS', coils=self.coils, models=[cond], depths=[depth])
+        cond = np.ones((1, 100))
+        depth = np.linspace(0.05, 3*np.max(self.cspacing), cond.shape[1]-1)
+        out = ksens.computeSens(forwardModel='CS', coils=self.coils, models=[cond], depths=[depth[None,:]])
         sens = out[0].squeeze(-1) # depth x coils
+        mdepths = np.r_[depth[0]/2, depth[:-1] + np.diff(depth)/2, depth[-1] + (depth[-1]-depth[-2])/2]
+        print(mdepths)
         
         # look at 70% cumulate signal
         cs = np.cumsum(sens, axis=0)
         cs = cs/np.max(cs, axis=0)
         idoe = np.argmin(np.abs(cs - 0.7), axis=0)
-        # print([cs[j,i] for i,j in enumerate(idoe)])
-        doe = depth[0,idoe]
-        # print(doe)
+        print([cs[j,i] for i,j in enumerate(idoe)])
+        doe = mdepths[idoe]
+        print(doe)
         
         # figure
         eca = self.surveys[index].df[self.coils].values.flatten()
@@ -2194,29 +2194,44 @@ class Problem(object):
             raise ImportError('Please install pyvista: pip install pyvista.')
             return
         
+        # save vtk to temporary folder
         folder = tempfile.TemporaryDirectory()
         fname = os.path.join(folder.name, 'emagpyMesh.vtk')
         self.saveVTK(fname, index=index, elev=elev)
         
+        # vmin/vmax values
         if vmin is None:
             vmin = np.nanmin(self.models[index])
         if vmax is None:
             vmax = np.nanmax(self.models[index])
 
-        # load with pyvista
+        # create plotter is none specified
         if pl is None:
             pl = pv.Plotter()
         pl.set_background(background_color)
         self.pvmesh = pv.read(fname)
+        
+        # thresholding between pvthreshold[0] and pvthreshold[1]
         if pvthreshold is not None:
+            if isinstance(pvthreshold, list):
+                ec = self.models[index].flatten()
+                if pvthreshold[0] is None:
+                    pvthreshold[0] = np.nanmin(ec)
+                if pvthreshold[1] is None:
+                    pvthreshold[1] = np.nanmax(ec)
             self.pvmesh = self.pvmesh.threshold(value=pvthreshold)
+        
+        # if contour, then convert to point data
         if len(pvcontour) > 0:
             self.pvmesh = self.pvmesh.cell_data_to_point_data()
             self.pvmesh = self.pvmesh.contour(isosurfaces=pvcontour)
+        
+        # show grid
         if pvgrid:
             pl.show_grid(color='k')
-                
-        if np.sum([len(a) for a in pvslices]) > 0: # we have slices
+        
+        # create slices
+        if np.sum([len(a) for a in pvslices]) > 0:
             pl.add_mesh(self.pvmesh.outline(), color='k')
             for i, ss in enumerate(pvslices):
                 normal = np.zeros(3)
@@ -2239,7 +2254,8 @@ class Problem(object):
                                          'vertical':False,
                                          'title_font_size':16,
                                          'label_font_size':14})
-    
+        
+        # show mesh and clean temporary folder
         pl.show()
         folder.cleanup()
         

@@ -671,7 +671,8 @@ class Survey(object):
         df = pd.DataFrame()
         df['x'] = X.flatten()
         df['y'] = Y.flatten()
-        for col in np.r_[self.coils, ['elevation']]:
+        cols = self.coils + self.coilsInph + ['elevation']
+        for col in cols:
             values = self.df[col].values
             if method == 'idw':
                 z = idw(X.flatten(), Y.flatten(), xknown, yknown, values)
@@ -966,6 +967,7 @@ class Survey(object):
             df['y'] = 0
             coils = hiCols[:3]
             coilsInph = hiCols[3:]
+        df = df.rename(columns={'Altitude':'elevation'})
 
         if df is not None:
             self.coils = coils
