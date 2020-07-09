@@ -1496,6 +1496,75 @@ class Problem(object):
                     ylab=ylab, nlevel=nlevel)
         
     
+    def showPseudo(self, index=0, coil='all', ax=None, vmin=None, vmax=None, 
+             dist=True):
+        """Show the raw data of the survey.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Survey number, by default, the first survey is chosen.
+        coil : str, optional
+            Specify which coil to plot. Default is all coils available.
+        ax : matplotlib.Axes, optional
+            If supplied, the graph will be plotted against `ax`.
+        vmin : float, optional
+            Minimal Y value.
+        vmax : float, optional
+            Maximial Y value.
+        dist : bool, optional
+            If `True` the true distance between points will be computed else
+            the sample index is used as X index.
+        """
+        # 
+
+        # compute local sensitivity for a 1D profile given coil configurations of the survey
+        ksens = Problem()
+        cond = np.ones((1, 1000))
+        depth = np.linspace(0.05, 2, cond.shape[1]-1)[None,:]
+        out = ksens.computeSens(forwardModel='CS', coils=self.coils, models=[cond], depths=[depth])
+        sens = out[0].squeeze(-1) # depth x coils
+        
+        # look at 70% cumulate signal
+        cs = np.cumsum(sens, axis=0)
+        cs = cs/np.max(cs, axis=0)
+        idoe = np.argmin(np.abs(cs - 0.7), axis=0)
+        # print([cs[j,i] for i,j in enumerate(idoe)])
+        doe = depth[0,idoe]
+        # print(doe)
+        
+        # figure
+        eca = self.surveys[index].df[self.coils].values.flatten()
+        x = self.surveys[index].df['x'].values
+        y = self.surveys[index].df['y'].values
+        if dist:
+            dist = np.r_[0, np.cumsum(np.sqrt(np.diff(x)**2 + np.diff(y)**2))]
+            xlab = 'Distance [m]'
+        else:
+            dist = np.arange(len(x))
+            xlab = 'Samples'
+        dd = np.repeat(dist, len(self.coils))
+        does = np.tile(doe, self.surveys[index].df.shape[0])
+        
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(12,3))
+        else:
+            fig = ax.figure
+            
+        if vmin is None:
+            vmin = np.nanmin(eca)
+        if vmax is None:
+            vmax = np.nanmax(eca)
+        levels = np.linspace(vmin, vmax, 7)
+        # cax = ax.scatter(dd, -does, s=15, c=eca)
+        cax = ax.tricontourf(dd, does, eca, cmap='viridis_r', levels=levels, extend='both')
+        ax.plot(dd, does, 'k+')
+        ax.invert_yaxis()
+        ax.set_ylabel('Pseudo depth [m]')
+        ax.set_xlabel(xlab)
+        fig.colorbar(cax, ax=ax, label='ECa [mS/m]')
+
+    
     
     def saveMap(self, fname, index=0, coil=None, nx=100, ny=100, method='linear',
                 xmin=None, xmax=None, ymin=None, ymax=None, color=True,
