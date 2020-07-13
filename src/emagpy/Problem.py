@@ -47,24 +47,38 @@ class Problem(object):
     
     """
     def __init__(self):
+        # data attributes
+        self.surveys = []
+        self.freqs = []
+        self.coils = []
+        self.coilsInph = []
+        self.cpos = []
+        self.cspacing = []
+        self.hx = []
+        self.projection = None # string of projection as EPSG
+        
+        # initiatial inversion parameters
         self.depths0 = np.array([0.5, 1.5]) # initial depths of the bottom of each layer (last one is -inf)
         self.conds0 = [] # initial conductivity for each layer
         self.fixedConds = []
         self.fixedDepths = []
-        self.surveys = []
+        self.forwardModel = None # store the forward model choosen for showMisfit and showOne2One
+        
+        # processing outputs
         self.models = []
+        self.depths = [] # contains inverted depths or just depths0 if fixed
         self.pstds = [] # parameter standard deviation for MCMC inversion
         self.rmses = []
-        self.freqs = []
-        self.depths = [] # contains inverted depths or just depths0 if fixed
+        self.dois = [] # list of array of DOI computed from ('computeDOI()')
+
+        # flags
         self.ikill = False # if True, the inversion is killed
         self.c = 0 # counter
         self.calibrated = False # flag for ERT calibration
-        self.annReplaced = 0 # number of measurement outliers by ANN
         self.runningUI = False # True if run in UI, just change output of parallel stuff
-        self.forwardModel = None # store the forward model choosen for showMisfit and showOne2One
-        self.projection = None # string of projection as EPSG
-        self.dois = [] # list of array of DOI computed from ('computeDOI()')
+        
+        # others
+        self.annReplaced = 0 # number of measurement outliers by ANN
         
         
     def createSurvey(self, fname, freq=None, hx=None, targetProjection=None):
@@ -103,6 +117,7 @@ class Problem(object):
             self.cspacing = survey.cspacing
             self.cpos = survey.cpos
             self.hx = survey.hx
+            self.coilsInph = survey.coilsInph
             self.surveys.append(survey)
         else: # check we have the same configuration than other survey
             check = [a == b for a,b, in zip(self.coils, survey.coils)]
@@ -194,6 +209,7 @@ class Problem(object):
         mergedSurvey.readDF(df)
         self.surveys.append(mergedSurvey)
         self.coils = mergedSurvey.coils
+        self.coilsInph = mergedSurvey.coilsInph
         self.freqs = mergedSurvey.freqs
         self.cspacing = mergedSurvey.cspacing
         self.cpos = mergedSurvey.cpos
@@ -232,6 +248,7 @@ class Problem(object):
         survey = Survey()
         survey.importGF(fnameLo, fnameHi, device, hx, calib, targetProjection)
         self.coils = survey.coils
+        self.coilsInph = survey.coilsInph
         self.freqs = survey.freqs
         self.cspacing = survey.cspacing
         self.cpos = survey.cpos
@@ -481,6 +498,8 @@ class Problem(object):
                 return fMaxwellQ(cond, depth, self.cspacing, self.cpos, f=self.freqs, hx=self.hx)
             elif forwardModel == 'Q':
                 return np.imag(getQs(cond, depth, self.cspacing, self.cpos, f=self.freqs, hx=self.hx))
+            elif forwardModel == 'QP':
+                return getQs(cond, depth, self.cspacing, self.cpos, f=self.freqs, hx=self.hx)
 
         # define bounds
         if bnds is not None:
@@ -524,32 +543,25 @@ class Problem(object):
                 dump('WARNING: Gridded Parameter Search does not accept any smoothing parameters.\n')
             
             dump('Inverting data using Gridded Parameter Search\n')
-
             if len(self.conds0) > 0:
-
                 fixedParamsD = []
                 for i in range(0, len(self.depths0[0][0])):
                     if self.fixedDepths[i] == True:
                         fixedParamsD.append(self.depths0[0][0][i])
                     else:
-                        fixedParamsD.append(None)
-        
+                        fixedParamsD.append(None)        
                 fixedParamsC = []
                 for i in range(0, len(self.conds0[0][0])):
                     if self.fixedConds[i] == True:
                         fixedParamsC.append(self.conds0[0][0][i])
                     else:
                         fixedParamsC.append(None)
-
                 fixedParams = fixedParamsD + fixedParamsC
-                nlayers = len(fixedParamsC)
-            
+                nlayers = len(fixedParamsC)            
             else:
                 fixedParams = None
                 nlayers = 2
-
             bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax = self.gridParamSearch(forwardModel=fmodel, bnds=bnds, regularization=regularization, fixedParams=fixedParams)
-
             self.models.append(bestConds)
             self.depths.append(bestDepths)
             self.rmses.append(bestMisfits)
@@ -592,15 +604,13 @@ class Problem(object):
             misfit = fmodel(p, ini0) - obs
             if forwardModel == 'Q':
                 misfit = misfit * 1e5 # to help the solver with small Q
+            if forwardModel == 'QP':
+                misfit[len(misfit)//2:] *= 1e5 # TODO to be tested out
             return misfit 
         
         # model misfit only for conductivities not depths
         def modelMisfit(p):
-            # cond = self.conds0[0][0,:].copy()
-            # if np.sum(vc) > 0:
-                # cond[vc] = p[:np.sum(vc)]
-            # return cond[:-1] - cond[1:]
-            cond = p[:np.sum(vc)] # smoothing only for parameters elements
+            cond = p[:np.sum(vc)] # smoothing only for parameters elements (depth or cond)
             return cond[:-1] - cond[1:]
         
         # set up regularisation
@@ -758,7 +768,8 @@ class Problem(object):
             if self.ikill:
                 break
             self.c = 0
-            apps = survey.df[self.coils].values
+            apps = survey.df[self.coils].values # ECa in mS/m
+            inph = survey.df[self.coilsInph].values # inphase in ppt
             rmse = np.zeros(apps.shape[0])*np.nan
             model = self.conds0[i].copy()
             depth = self.depths0[i].copy()
@@ -776,7 +787,9 @@ class Problem(object):
                 obs = apps[j,:]
                 if forwardModel == 'Q':
                     obs = np.array([eca2Q(a*1e-3, s) for a, s in zip(obs, self.cspacing)])
-                
+                if forwardModel == 'QP':
+                    obs = np.array([eca2Q(a*1e-3, s) for a, s in zip(obs, self.cspacing)])
+                    
                 # define previous profile in case we want to lateral constrain
                 if j == 0:
                     pn = np.zeros(np.sum(np.r_[vd, vc]))
