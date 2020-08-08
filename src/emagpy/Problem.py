@@ -301,10 +301,10 @@ class Problem(object):
 
         # get measurements common to all surveys
         df0 = dfs2[0]
-        x0 = cols2str(df0[['x','y']].values.astype(int))
+        x0 = cols2str(df0[['x','y']].values.astype(float))
         icommon = np.ones(len(x0), dtype=bool)
         for df in dfs2[1:]:
-            x = cols2str(df[['x','y']].values.astype(int))
+            x = cols2str(df[['x','y']].values.astype(float))
             ie = np.in1d(x0, x)
             icommon = icommon & ie
         print(np.sum(icommon), 'in common...', end='')
@@ -313,7 +313,7 @@ class Problem(object):
         indexes = []
         xcommon = x0[icommon]
         for df in dfs2:
-            x = cols2str(df[['x','y']].values)
+            x = cols2str(df[['x','y']].values.astype(float))
             indexes.append(np.in1d(x, xcommon))
 
         print('done in {:.3}s'.format(time.time()-t0))

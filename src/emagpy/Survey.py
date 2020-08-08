@@ -158,6 +158,7 @@ class Survey(object):
         self.cpos = [] # orientation of the coils
         self.cspacing = [] # spacing between Tx and Rx [m]
         self.coilsInph = [] # name of the coils with inphase value in [ppt]
+        self.coilsErr = [] # stacking error
         self.hx = [] # height of the instrument above the ground [m]
         self.name = ''
         self.iselect = []
@@ -219,6 +220,8 @@ class Survey(object):
                     df = df.rename(columns={c:c.replace('VMD','HCP')})
                 if c[-5:] == '_inph':
                     self.coilsInph.append(c)
+                elif c[-4:] == '_err':
+                    self.coilsErr.append(c)
                 else:
                     self.coils.append(c)
         df = df.rename(columns={'X':'x','Y':'y','ELEVATION':'elevation'})
