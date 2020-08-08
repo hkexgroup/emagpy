@@ -52,6 +52,7 @@ class Problem(object):
         self.freqs = []
         self.coils = []
         self.coilsInph = []
+        self.coilsErr = []
         self.cpos = []
         self.cspacing = []
         self.hx = []
@@ -118,6 +119,7 @@ class Problem(object):
             self.cpos = survey.cpos
             self.hx = survey.hx
             self.coilsInph = survey.coilsInph
+            self.coilsErr = survey.coilsErr
             self.surveys.append(survey)
         else: # check we have the same configuration than other survey
             check = [a == b for a,b, in zip(self.coils, survey.coils)]
@@ -210,6 +212,7 @@ class Problem(object):
         self.surveys.append(mergedSurvey)
         self.coils = mergedSurvey.coils
         self.coilsInph = mergedSurvey.coilsInph
+        self.coilsErr = mergedSurvey.coilsErr
         self.freqs = mergedSurvey.freqs
         self.cspacing = mergedSurvey.cspacing
         self.cpos = mergedSurvey.cpos
@@ -249,6 +252,7 @@ class Problem(object):
         survey.importGF(fnameLo, fnameHi, device, hx, calib, targetProjection)
         self.coils = survey.coils
         self.coilsInph = survey.coilsInph
+        self.coilsErr = survey.coilsErr
         self.freqs = survey.freqs
         self.cspacing = survey.cspacing
         self.cpos = survey.cpos
