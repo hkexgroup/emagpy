@@ -2123,7 +2123,7 @@ the ERT calibration will account for it.</p>
                 <a href="https://joblib.readthedocs.io/en/latest/">joblib</a> and
                 <a href="https://rasterio.readthedocs.io/en/latest/index.html">rasterio (optional)</a>.
             </p>
-            <p>EMagPy is the sister code of <a href="https://gitlab.com/hkex/pyr2">ResIPy</a> and has been heavily influenced by it.</p>
+            <p>EMagPy is the sister code of <a href="https://gitlab.com/hkex/pyr2">ResIPy</a> and has EMagPy's design has been heavily influenced by ResIPy.</p>
             <p><strong>EMagPy's core developers: Guillaume Blanchy and Paul McLachlan.<strong></p>
             <p>Contributors: Jimmy Boyd, Sina Saneiyan</p>
             '''.format(EMagPy_version))
