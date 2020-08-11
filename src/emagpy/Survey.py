@@ -159,6 +159,7 @@ class Survey(object):
         self.cspacing = [] # spacing between Tx and Rx [m]
         self.coilsInph = [] # name of the coils with inphase value in [ppt]
         self.coilsErr = [] # stacking error
+        self.coilsQuad = [] # name of the coils with quadrature value in ppt
         self.hx = [] # height of the instrument above the ground [m]
         self.name = ''
         self.iselect = []
@@ -209,6 +210,8 @@ class Survey(object):
             column is found in the dataframe. e.g. 'EPSG:27700' for the British grid.
         """
         self.name = 'Survey 1' if name is None else name
+        
+        # parsin columns and extracting coils information
         for c in df.columns:
             orientation = c[:3].upper()
             if ((orientation == 'VCP') | (orientation == 'VMD') | (orientation == 'PRP') |
@@ -222,8 +225,12 @@ class Survey(object):
                     self.coilsInph.append(c)
                 elif c[-4:] == '_err':
                     self.coilsErr.append(c)
+                elif c[-5:] == '_quad':
+                    self.coilsQuad.append(c)
                 else:
                     self.coils.append(c)
+        
+        # extracting x, y, elevation data
         df = df.rename(columns={'X':'x','Y':'y','ELEVATION':'elevation'})
         if 'x' not in df.columns:
             df['x'] = np.arange(df.shape[0])
@@ -231,6 +238,20 @@ class Survey(object):
             df['y'] = 0
         if 'elevation' not in df.columns:
             df['elevation'] = 0
+        
+        # IMPORTANT! convert all Q columns to LIN ECa
+        if len(self.coilsQuad) > 0:
+            print('Converting quadrature columns to LIN ECa. '
+                  'You can use "FSlin" or "Q" as forward model.')
+        for c in self.coilsQuad:
+            # as LIN ECa is faster but also is used when doing Q or QP based inversion
+            coilName = c[:-5]
+            info = self.getCoilInfo(coilName)
+            values = 1 + 1j*df[c].values/1e3 # assuming Q is in ppt (part per thousand)
+            df[coilName] = Q2eca(values, s=info['coilSeparation'], f=info['freq'])*1e3 # mS/m
+            self.coils.append(coilName)
+            
+        # extraction of other attributes
         coilInfo = [self.getCoilInfo(c) for c in self.coils]
         self.freqs = [a['freq'] for a in coilInfo]
         self.hx = [a['height'] for a in coilInfo]
@@ -238,15 +259,19 @@ class Survey(object):
         self.cpos = [a['orientation'] for a in coilInfo]
         self.df = df
         self.sensor = sensor
+        
+        # setting projection if any
         if targetProjection is not None:
             self.convertFromNMEA(targetProjection=targetProjection)
 
+            
         
     def getCoilInfo(self, arg):
         arg = arg.lower()
         orientation = arg[:3]
         b = arg[3:].split('f')
         coilSeparation = float(b[0])
+        # NOTE could make this more flexible with regexp if h is before f and so on
         if len(b) > 1:
             c = b[1].split('h')
             freq = float(c[0])
@@ -262,6 +287,7 @@ class Survey(object):
                 'freq': freq,
                 'height': height}
         
+    
     
     def filterRange(self, vmin=None, vmax=None):
         """Filter out measurements that are not between vmin and vmax.

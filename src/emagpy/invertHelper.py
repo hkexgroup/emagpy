@@ -4,6 +4,12 @@
 Created on Wed Apr 24 07:52:50 2019
 
 @author: jkl
+
+
+NOTE: the terminology of some functions is a bit confusing. For instance
+getQ(), getQs(), getQ2() will return the complex ratio of Hs/Hp and not just
+its imaginary part (= the quadrature). Doing np.imag(getQ()) will return just
+the quadrature (imaginary part).
 """
 #from numba import njit, jit
 import os
