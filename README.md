@@ -49,6 +49,38 @@ as a zip file:
 [![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.1.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-linux.zip)
 
 
+Contributing
+---------
+If you wish to contribute to the code, please familiarize yourself with the ![guidelines](./CONTRIBUTING.md).
+
+
+Citing EMagPy
+-------------
+If you use EMagPy for you work, please cite [this paper](https://doi.org/10.1016/j.cageo.2020.104561) as:
+
+    McLachlan, Paul, Guillaume Blanchy, and Andrew Binley. 2020. 
+    ‘EMagPy: Open-Source Standalone Software for Processing, Forward Modeling 
+    and Inversion of Electromagnetic Induction Data’.
+    Computers & Geosciences, August, 104561. https://doi.org/10.1016/j.cageo.2020.104561.
+
+BibTex code:
+```latex
+@article{mclachlan_emagpy_2020,
+	title = {{EMagPy}: open-source standalone software for processing, forward modeling and inversion of electromagnetic induction data},
+	issn = {0098-3004},
+	shorttitle = {{EMagPy}},
+	url = {http://www.sciencedirect.com/science/article/pii/S0098300420305513},
+	doi = {10.1016/j.cageo.2020.104561},
+	language = {en},
+	urldate = {2020-08-30},
+	journal = {Computers \& Geosciences},
+	author = {McLachlan, Paul and Blanchy, Guillaume and Binley, Andrew},
+	month = aug,
+	year = {2020},
+	pages = {104561}
+}
+```
+
 Older versions
 --------------
 v 1.0.0
