@@ -49,11 +49,6 @@ as a zip file:
 [![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.1.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-linux.zip)
 
 
-Contributing
----------
-If you wish to contribute to the code, please familiarize yourself with the ![guidelines](./CONTRIBUTING.md).
-
-
 Citing EMagPy
 -------------
 If you use EMagPy for you work, please cite [this paper](https://doi.org/10.1016/j.cageo.2020.104561) as:
