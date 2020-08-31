@@ -611,7 +611,7 @@ class Problem(object):
         def dataMisfit(p, obs, ini0):
             misfit = fmodel(p, ini0) - obs
             if forwardModel == 'Q':
-                misfit = misfit * 1e5 # to help the solver with small Q
+                misfit = misfit # to help the solver with small Q
             if forwardModel == 'QP':
                 misfit[len(misfit)//2:] *= 1e5 # TODO to be tested out
             return misfit 
