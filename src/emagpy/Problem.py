@@ -52,6 +52,8 @@ class Problem(object):
         self.freqs = []
         self.coils = []
         self.coilsInph = []
+        self.coilsErr = []
+        self.coilsQuad = []
         self.cpos = []
         self.cspacing = []
         self.hx = []
@@ -118,6 +120,8 @@ class Problem(object):
             self.cpos = survey.cpos
             self.hx = survey.hx
             self.coilsInph = survey.coilsInph
+            self.coilsQuad = survey.coilsQuad
+            self.coilsErr = survey.coilsErr
             self.surveys.append(survey)
         else: # check we have the same configuration than other survey
             check = [a == b for a,b, in zip(self.coils, survey.coils)]
@@ -210,6 +214,8 @@ class Problem(object):
         self.surveys.append(mergedSurvey)
         self.coils = mergedSurvey.coils
         self.coilsInph = mergedSurvey.coilsInph
+        self.coilsQuad = mergedSurvey.coilsQuad
+        self.coilsErr = mergedSurvey.coilsErr
         self.freqs = mergedSurvey.freqs
         self.cspacing = mergedSurvey.cspacing
         self.cpos = mergedSurvey.cpos
@@ -249,6 +255,8 @@ class Problem(object):
         survey.importGF(fnameLo, fnameHi, device, hx, calib, targetProjection)
         self.coils = survey.coils
         self.coilsInph = survey.coilsInph
+        self.coilsQuad = survey.coilsQuad
+        self.coilsErr = survey.coilsErr
         self.freqs = survey.freqs
         self.cspacing = survey.cspacing
         self.cpos = survey.cpos
@@ -301,10 +309,10 @@ class Problem(object):
 
         # get measurements common to all surveys
         df0 = dfs2[0]
-        x0 = cols2str(df0[['x','y']].values.astype(int))
+        x0 = cols2str(df0[['x','y']].values.astype(float))
         icommon = np.ones(len(x0), dtype=bool)
         for df in dfs2[1:]:
-            x = cols2str(df[['x','y']].values.astype(int))
+            x = cols2str(df[['x','y']].values.astype(float))
             ie = np.in1d(x0, x)
             icommon = icommon & ie
         print(np.sum(icommon), 'in common...', end='')
@@ -313,7 +321,7 @@ class Problem(object):
         indexes = []
         xcommon = x0[icommon]
         for df in dfs2:
-            x = cols2str(df[['x','y']].values)
+            x = cols2str(df[['x','y']].values.astype(float))
             indexes.append(np.in1d(x, xcommon))
 
         print('done in {:.3}s'.format(time.time()-t0))
@@ -603,7 +611,7 @@ class Problem(object):
         def dataMisfit(p, obs, ini0):
             misfit = fmodel(p, ini0) - obs
             if forwardModel == 'Q':
-                misfit = misfit * 1e5 # to help the solver with small Q
+                misfit = misfit # to help the solver with small Q
             if forwardModel == 'QP':
                 misfit[len(misfit)//2:] *= 1e5 # TODO to be tested out
             return misfit 
