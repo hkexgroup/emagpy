@@ -2066,6 +2066,8 @@ class Problem(object):
         nlayer = sig.shape[1]
         nsample = sig.shape[0]
         x = np.arange(nsample+1) # number of samples + 1
+        if nsample == 1:
+            dist = False
         if dist:
             xy = self.surveys[index].df[['x','y']].values
             distance = np.sqrt(np.sum(np.diff(xy, axis=0)**2, axis=1))
