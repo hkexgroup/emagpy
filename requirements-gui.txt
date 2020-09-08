@@ -1,0 +1,11 @@
+numpy
+matplotlib==3.2.1
+pandas
+scipy
+pyproj
+spotpy
+joblib
+tqdm
+pyvista
+pyvistaqt
+PyQt5
