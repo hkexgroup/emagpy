@@ -92,8 +92,8 @@ jobs:
         run: |
           brew reinstall python@3.7
           cd ..
-          python3 -m pip install virtualenv
-          python3 -m virtualenv -p python3 pyenv
+          /usr/local/opt/python@3.7/bin/python3 -m pip install virtualenv
+          /usr/local/opt/python@3.7/bin/python3 -m virtualenv -p /usr/local/opt/python@3.7/bin/python3 pyenv
           source pyenv/bin/activate
           cd emagpy
           pip install setuptools==49.0.0
