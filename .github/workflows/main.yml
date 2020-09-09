@@ -18,8 +18,6 @@ jobs:
 
       - name: Set up environment
         run: |
-          sudo apt-get update
-          cat apt.txt | xargs sudo apt-get install
           cd ..
           pip3 install virtualenv
           python3 -m virtualenv -p python3 pyenv
@@ -92,10 +90,7 @@ jobs:
 
       - name: Set up environment
         run: |
-          brew cask install xquartz
-          brew cask install wine-stable
           brew install python@3.7
-          which python3
           cd ..
           pip3 install virtualenv
           python3 -m virtualenv -p python3 pyenv
@@ -111,7 +106,7 @@ jobs:
           mkdir -p macdmg
           ./build-app.sh
           cd dist
-          zip -r EMagPy-macos.zip EMagPy.app
+          zip -r EMagPy-macos.zip EMagPy-macos.app
           cd ../..
           
 
