@@ -92,7 +92,7 @@ jobs:
 
       - name: Set up environment
         run: |
-          brew install wine
+          brew install wine-stable
           brew install python@3.7
           cd ..
           pip3 install virtualenv
