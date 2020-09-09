@@ -92,7 +92,7 @@ jobs:
         run: |
           brew install python@3.7
           cd ..
-          pythonp3.7 -m pip install virtualenv
+          python3.7 -m pip install virtualenv
           python3.7 -m virtualenv -p python3.7 pyenv
           source pyenv/bin/activate
           cd emagpy
