@@ -92,6 +92,7 @@ jobs:
 
       - name: Set up environment
         run: |
+          brew cask install xquartz
           brew cask install wine-stable
           brew install python@3.7
           which python3
