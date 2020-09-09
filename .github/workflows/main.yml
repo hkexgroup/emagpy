@@ -92,13 +92,15 @@ jobs:
         run: |
           brew install python@3.7
           cd ..
-          pip3 install virtualenv
-          python3 -m virtualenv -p python3 pyenv
+          pip3.7 install virtualenv
+          python3.7 -m virtualenv -p python3.7 pyenv
           source pyenv/bin/activate
           cd emagpy
-          pip3 install setuptools==49.0.0
-          pip3 install -r requirements-gui.txt
-          pip3 install pyinstaller
+          pip install setuptools==49.0.0
+          pip install -r requirements-gui.txt
+          pip install vtk==8.1.2
+          pip install matplotlib==3.2.1
+          pip install pyinstaller
 
       - name: Run build
         run: |
