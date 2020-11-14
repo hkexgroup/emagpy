@@ -611,7 +611,8 @@ class Problem(object):
         def dataMisfit(p, obs, ini0):
             misfit = fmodel(p, ini0) - obs
             if forwardModel == 'Q':
-                misfit = misfit # to help the solver with small Q
+                #misfit = misfit*1e6 # to help the solver with small Q
+                misfit = np.abs(misfit/obs)
             if forwardModel == 'QP':
                 misfit[len(misfit)//2:] *= 1e5 # TODO to be tested out
             return misfit 
@@ -2218,6 +2219,7 @@ class Problem(object):
         except:
             raise ImportError('Please install pyvista: pip install pyvista.')
             return
+        fpl = True if pl is not None else False # flag if pl is supplied
         
         # save vtk to temporary folder
         folder = tempfile.TemporaryDirectory()
@@ -2233,7 +2235,8 @@ class Problem(object):
         # create plotter is none specified
         if pl is None:
             pl = pv.Plotter()
-        pl.set_background(background_color)
+        if type(pl) != type(pv.PlotterITK()): # PlotterITK doesn't have .set_background()
+            pl.set_background(background_color)
         self.pvmesh = pv.read(fname)
         
         # thresholding between pvthreshold[0] and pvthreshold[1]
@@ -2270,18 +2273,22 @@ class Problem(object):
                                 clim=[vmin, vmax],
                                 show_edges=edges,
                                 scalar_bar_args={'color':'k'})
-        else:           
-            pl.add_mesh(self.pvmesh,
-                        cmap=cmap,
-                        clim=[vmin,vmax],
-                        show_edges=edges,
-                        scalar_bar_args={'color':'k',
-                                         'vertical':False,
-                                         'title_font_size':16,
-                                         'label_font_size':14})
+        else:
+            if type(pl) != type(pv.PlotterITK()): # PlotterITK is strange
+                pl.add_mesh(self.pvmesh,
+                            cmap=cmap,
+                            clim=[vmin,vmax],
+                            show_edges=edges,
+                            scalar_bar_args={'color':'k',
+                                             'vertical':False,
+                                             'title_font_size':16,
+                                             'label_font_size':14})
+            else:
+                pl.add_mesh(self.pvmesh)
         
         # show mesh and clean temporary folder
-        pl.show()
+        if fpl is False:
+            pl.show()
         folder.cleanup()
         
         
