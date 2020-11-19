@@ -185,7 +185,10 @@ class Survey(object):
             EPSG string describing the projection of a 'Latitude' and 'Longitude'
             column is found in the dataframe. e.g. 'EPSG:27700' for the British grid.
         """
-        name = os.path.basename(fname)[:-4]
+        if type(fname) == type('a'):
+            name = os.path.basename(fname)[:-4]
+        else:
+            name = 'MySurvey'
         delimiter=','
         if fname.find('.DAT')!=-1:
             delimiter = '\t'
@@ -910,10 +913,12 @@ class Survey(object):
         """
         if fnameLo is None and fnameHi is None:
             raise ValueError('You must specify at least one of fnameLo or fnameHi.')
-        if fnameLo is not None:
+        if (fnameLo is not None) and (type(fnameLo) == type('a')):
             self.name = os.path.basename(fnameLo)[:-4] # to remove .dat
-        else:
+        elif type(fnameHi) == type('a'):
             self.name = os.path.basename(fnameHi)[:-4]
+        else:
+            self.name = 'MySurvey'
             
         if device == 'CMD Mini-Explorer':
             freq = 30000

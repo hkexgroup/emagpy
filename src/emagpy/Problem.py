@@ -787,7 +787,8 @@ class Problem(object):
             iinverted = np.zeros(apps.shape[0], dtype=bool)
             dist0 = np.sqrt(np.sum((xy - xy[0,:])**2, axis=1))
             iorder = np.argsort(dist0)
-            dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
+            if len(self.surveys) > 1: # if only one survey, this isn't needed
+                dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
             outs = []
             nrows = survey.df.shape[0]
@@ -2328,7 +2329,7 @@ class Problem(object):
         
         # build node and connection matrix for prism
         z = depths.flatten('F')
-        nodes = np.c_[np.tile(xy.T, nlayer+1).T, -z]
+        nodes = np.c_[np.tile(xy.T, nlayer+1).T, z]
         nnodes = nodes.shape[0]
         ec = sig.flatten('F')
         conMatrix = []
