@@ -92,5 +92,4 @@ v 1.0.0
 
 [![coverage report](https://gitlab.com/hkex/emagpy/badges/master/coverage.svg)](https://gitlab.com/hkex/emagpy/-/commits/master)
 
-(alpha) EMagPy online based on Voila:
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gl/hkex%2Femagpy/master?filepath=voila%2Ftree%2Fjupyter-notebook)
+(alpha) EMagPy online based on Voila: replace `tree` with `voila/tree` once the binder url is loaded, then load `ui.ipynb`.
