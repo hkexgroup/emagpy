@@ -959,8 +959,16 @@ class App(QMainWindow):
                 self.fnameEC = None
                 self.ecImportBtn.setText('Import EC profiles')
                 self.ertImportBtn.setText(os.path.basename(fname))
+                if self.meshTypeBtn.currentText() == 'Quadrilateral ERT Mesh':
+                    self.meshType = 'quad'
+                if self.meshTypeBtn.currentText() == 'Triangular ERT Mesh':
+                    self.meshType = 'tri'
         self.ertImportBtn = QPushButton('Import ERT model')
         self.ertImportBtn.clicked.connect(ertImportBtnFunc)
+        self.meshTypeBtn = QComboBox()
+        self.meshTypeBtn.addItem('Quadrilateral ERT Mesh')
+        self.meshTypeBtn.addItem('Triangular ERT Mesh')
+        self.meshTypeBtn.setToolTip('Select whether ERT model used is quadrilateral or triangular')
         
         # GF calibration for the calibration dataset
         self.gfCalibCalibCombo = QComboBox()
@@ -983,7 +991,7 @@ class App(QMainWindow):
             calib = self.gfCalibCalibCombo.currentText() if self.gfCalibCalibCombo.currentText() != 'None' else None 
             self.mwCalib.setCallback(self.problem.calibrate)
             self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
-                                fnameResMod=self.fnameResMod, calib=calib,
+                                fnameResMod=self.fnameResMod, calib=calib, meshType=self.meshType,
                            forwardModel=forwardModel)
         self.fitCalibBtn = QPushButton('Fit calibration')
         self.fitCalibBtn.clicked.connect(fitCalibBtnFunc)
@@ -1011,6 +1019,7 @@ class App(QMainWindow):
         calibOptions.addWidget(self.ecaImportBtn)
         calibOptions.addWidget(self.ecImportBtn)
         calibOptions.addWidget(self.ertImportBtn)
+        calibOptions.addWidget(self.meshTypeBtn)
         calibOptions.addWidget(self.gfCalibCalibCombo)
         calibOptions.addWidget(self.forwardCalibCombo)
         calibOptions.addWidget(self.fitCalibBtn)

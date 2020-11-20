@@ -2658,7 +2658,7 @@ class Problem(object):
 
 
 
-  def resMod2EC(self, fnameECa, fnameResMod, meshType=None, binInt=None, nbins=None, calib=None):
+    def resMod2EC(self, fnameECa, fnameResMod, meshType=None, binInt=None, nbins=None, calib=None):
         """Convert mesh data to dfec array to be used in calibrate.
         
         Parameters
