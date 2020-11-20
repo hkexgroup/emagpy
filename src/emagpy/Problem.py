@@ -2658,7 +2658,7 @@ class Problem(object):
 
 
 
-    def resMod2EC(self, fnameECa, fnameResMod, binInt=None, nbins=None, calib=None):
+  def resMod2EC(self, fnameECa, fnameResMod, meshType=None, binInt=None, nbins=None, calib=None):
         """Convert mesh data to dfec array to be used in calibrate.
         
         Parameters
@@ -2675,82 +2675,123 @@ class Problem(object):
             If specified, will apply a GF correction. Note that the main dataset
             needs to be corrected as well.
         """
+
         # import data
-        s = Survey(fnameECa)
+        survey = Survey(fnameECa)
         if calib is not None:
-            s.gfCorrection(calib=calib)
-        eca = s.df[['x'] + s.coils].values
+            survey.gfCorrection(calib=calib)
+
+        survey = Survey(fnameECa)
+        eca = survey.df[['x'] + survey.coils].values
+
         resmod = pd.read_table(fnameResMod, sep='\s+', header=None).values
-        min_xpos = np.min(eca[:,0])
-        max_xpos = np.max(eca[:,0])
         
+        minX = np.min(eca[:,0])
+        maxX = np.max(eca[:,0])
+
         if nbins is None:
             if binInt is None:
                 nbins = int(eca.shape[0]-1)
             else:
-                nbins = int((max_xpos - min_xpos)//binInt)
-                
+                nbins = int((maxX - minX)//binInt)
+
         if nbins > eca.shape[0]:
             raise ValueError('You have specified {:d} bins but you only have {:d} data points.'.format(
                 nbins, eca.shape[0]))
 
-        # check if mesh is triangular or quadrilateral, meshes with topography may be read wrong
-        # if the product of the number of unique X and Z values equals the number of rows, it's a quad mesh
-        if len(np.unique(resmod[:,0]))*len(np.unique(resmod[:,1])) == len(resmod[:,1]):
-            meshType = 'quad'
-            print('Mesh is quadrilateral.')
-        else:
-            meshType = 'tri'
-            print('Mesh is triangular, it will be regridded.')
+        if meshType != 'quad' and 'tri':
+            print("Please specify mesh type as 'tri' or 'quad'.")
+            return
 
-        # if triangular we will grid the data
-        if meshType == 'tri':
+        #crop ert mesh based on location of EMI calibration data
+        resmod = resmod[np.where((resmod[:,0] >= minX) & (resmod[:,0] <= maxX)),:][0]
+
+        if meshType == 'quad':
+            print('Mesh is quadrilateral.')
+            #check if topo in mesh
+            maxTopo = max(resmod[:,1])
             x = resmod[:,0]
-            z = resmod[:,1]
-            res = resmod[:,2]
-            xi = np.arange(np.min(x), np.max(x), 0.25)
-            zi = np.linspace(np.min(z), np.max(z), 15) # 15 layers in Y
-            xi, zi = np.meshgrid(xi, zi)
-            resi = griddata((x,z), res, (xi, zi), method='linear') # linear interpolation
-            x = np.unique(xi)
-            z = np.unique(zi)
-            resmodxz = np.array(np.meshgrid(x,z)).T.reshape(-1,2)            
-            res = resi.T.flatten()
-            resmod = np.concatenate((resmodxz, res[:,None]), axis=1)
-            resmod = resmod[~np.isnan(resmod[:,2]),:]
-    
-        resmod = resmod[(resmod[:,0] >= min_xpos) & (resmod[:,0] <= max_xpos),:]    
-        mid_depths = -np.unique(resmod[:,1])
-        resmod = resmod[np.where((resmod[:,0] >= min_xpos) & (resmod[:,0] <= max_xpos)),:][0]
-        
-        # computes mean EC for each bin
-        bins = np.linspace(min_xpos, max_xpos, nbins+1)
-        bin_id = np.digitize(np.unique(resmod[:,0]), bins+1)
-        ec = np.ones((nbins, len(mid_depths)))
-        mid_depths_r = mid_depths[::-1]
-        for i in range(0, nbins):
-            for j in range(0, len(mid_depths)):
-                idepth = resmod[:,1] == -mid_depths_r[j]
-                ibins = bin_id == i+1
-                ec[i,j] = 1000/np.mean(resmod[idepth,:][ibins, 2])
-                
-        # compute mean ECa for each bin
-        bin_id = np.digitize(np.unique(eca[:,0]), bins)
-        depths = (mid_depths_r[1:] + mid_depths_r[:-1])/2
-        eca2 = np.zeros((nbins, eca.shape[1]))
-        for i in range(0, nbins):
-            ie = bin_id == i+1
-            if np.sum(ie) > 0:
-                eca2[i,:] = np.mean(eca[ie,:], axis=0)
-        eca2 = np.array(eca2)
-        eca2 = eca2[~np.isnan(eca2).any(axis=1)]
-        
+
+            if len(np.where(resmod[:,1] == maxTopo)[0]) < len(np.unique(x)):
+                print('Mesh has topograpy and will be flattened.')
+
+                #x location of maximum topography
+                xMaxTopo = x[np.where(resmod[:,1] == maxTopo)]
+
+                #determine new z values for mesh
+                newZ = resmod[np.where(resmod[:,0] == xMaxTopo),1] - maxTopo
+
+                #count number of layers for each x position along transect
+                uniqueX = np.unique(x)
+                nlayers = []
+                for i in range(0, len(uniqueX)):
+                    nlayers = np.append(nlayers, resmod[np.where(resmod[:,0] == uniqueX[i]),1].shape[1])
+
+                #normalize layer depths for each x position
+                for i in range(0, len(uniqueX)):
+                    resmodCol = resmod[np.where(resmod[:,0] == uniqueX[i]),:]
+                    shiftZ = np.max(resmodCol[0][:,1]) - maxTopo
+                    resmod[np.where(resmod[:,0] == uniqueX[i]),1] = resmod[np.where(resmod[:,0] == uniqueX[i]),1] - shiftZ
+
+                resmod[:,1] = resmod[:,1] - maxTopo
+
+                #model needs homogenous layer number, layers exceeding minimum number of layers deleted
+                nlayer = np.min(nlayers)
+                resmod = resmod[np.where(resmod[:,1] > np.mean(newZ[0][::-1][:2])),:][0]
+                newZ = newZ[0][:int(nlayer)]        
+                for i in range(0, len(uniqueX)):
+                    resmod[np.where(resmod[:,0] == uniqueX[i]),1] = newZ #this is done to avoid errors arising from rounding
+
+            if meshType == 'tri':
+                print('Mesh is triangular, topography shift is not implement and will be assumed negligible.')
+                return
+
+                #TODO method define upper surface of mesh when topography is involved
+                x = resmod[:,0]
+                z = resmod[:,1]
+                res = resmod[:,2]
+                xi = np.arange(np.min(x), np.max(x), 0.25)
+                zi = np.linspace(np.min(z), np.max(z), 15) # 15 layers in Y
+                xi, zi = np.meshgrid(xi, zi)
+                resi = griddata((x,z), res, (xi, zi), method='linear') # linear interpolation
+                x = np.unique(xi)
+                z = np.unique(zi)
+                resmodxz = np.array(np.meshgrid(x,z)).T.reshape(-1,2)            
+                res = resi.T.flatten()
+                resmod = np.concatenate((resmodxz, res[:,None]), axis=1)
+                resmod = resmod[~np.isnan(resmod[:,2]),:]
+
+            midDepths = -np.unique(resmod[:,1])
+
+            # compute mean EC for each bin
+            bins = np.linspace(minX, maxX, nbins+1)
+            binID = np.digitize(np.unique(resmod[:,0]), bins+1)
+            ec = np.empty((nbins, len(midDepths)))
+            midDepthsr = midDepths[::-1]
+            for i in range(0, nbins):
+                for j in range(0, len(midDepths)):
+                    idepth = resmod[:,1] == -midDepthsr[j]
+                    ibins = binID == i+1
+                    ec[i,j] = 1000/np.mean(resmod[idepth,:][ibins, 2])
+
+            # compute mean ECa for each bin
+            binID = np.digitize(np.unique(eca[:,0]), bins)
+            depths = (midDepthsr[1:] + midDepthsr[:-1])/2
+            eca2 = np.zeros((nbins, eca.shape[1]))
+            for i in range(0, nbins):
+                ie = binID == i+1
+                if np.sum(ie) > 0:
+                    eca2[i,:] = np.mean(eca[ie,:], axis=0)
+            eca2 = np.array(eca2)
+            eca2 = eca2[~np.isnan(eca2).any(axis=1)]
+            eca2[np.all(eca2 == 0, axis=1)] = np.nan
+            
+        #ec is electrical conductivtiy from ERT model, depths are depths from resmodel, eca2 is eca data in same dimension as ec
         return ec, depths, eca2[:, 1:]
 
 
-
     def calibrate(self, fnameECa, fnameEC=None, fnameResMod=None, 
-                  forwardModel='CS', ax=None, apply=False, dump=None,
+                  forwardModel='CS', ax=None, apply=False, meshType=None, dump=None,
                   nbins=None, binInt=None, calib=None):
         """Calibrate ECa with given EC profile.
         
@@ -2782,6 +2823,7 @@ class Problem(object):
             to ERT calibration. This is needed if you apply the correction to
             your main dataset as well! See `gfCorrection()`.
         """
+        
         if dump is None:
             def dump(x):
                 print(x)
@@ -2789,8 +2831,8 @@ class Problem(object):
         
         if survey.freqs[0] is None: # fallback in case the use doesn't specify the frequency in the headers
             try:
-                survey.freqs = np.ones(len(survey.freqs))*self.freqs[0]
-                print('EMI frequency not specified in headers, will use the one from the main data:' + str(self.freqs[0]) + 'Hz')
+                survey.freqs = np.ones(len(survey.freqs))*survey.freqs[0]
+                print('EMI frequency not specified in headers, will use the one from the main data:' + str(survey.freqs[0]) + 'Hz')
             except:
                 print('Frequency not found, revert to CS')
                 forwardModel = 'CS' # doesn't need frequency
@@ -2798,6 +2840,7 @@ class Problem(object):
         if fnameResMod is not None:
             ec, depths, eca = self.resMod2EC(fnameECa=fnameECa,
                                              fnameResMod=fnameResMod,
+                                             meshType=meshType,
                                              nbins=nbins, binInt=binInt,
                                              calib=calib)
             depths = depths
@@ -2833,6 +2876,7 @@ class Problem(object):
         
         # graph
         obsECa = survey.df[survey.coils].values
+        
         if ax is None:
             fig, ax = plt.subplots()
         ax.plot(obsECa, simECa, '.')
@@ -2861,7 +2905,6 @@ class Problem(object):
             ax.plot(obsECa[:,i], predECa[:,i], '-', label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
         ax.legend()
 
-        
         # apply it to all ECa values
         if apply:
             if self.calibrated: # already calibrated
@@ -2885,6 +2928,8 @@ class Problem(object):
                 predECaCorr = x * slope + intercept
                 ax.plot(x, predECaCorr, '-', color=cax[0].get_color(),
                         label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
+                ax.set_xlabel('ERT ECa [mS/m]')
+                ax.set_ylabel('EMI ECa [mS/m]')
             ax.legend()
             ax.set_xlim([vmin, vmax])
             ax.set_ylim([vmin, vmax])
@@ -2894,7 +2939,8 @@ class Problem(object):
                 for i, c in enumerate(self.coils):
                     # s.df.loc[:, c] = (s.df[c].values - offsets[i])/slopes[i]
                     s.df.loc[:, c] = s.df[c].values + offsets[i] - (1-slopes[i]) * s.df[c].values
-            dump('Correction is applied.')
+            dump('Correction is applied.')   
+        
         
         
         
