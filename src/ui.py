@@ -1000,7 +1000,7 @@ class App(QMainWindow):
         def applyCalibBtnFunc():
             forwardModel = self.forwardCalibCombo.itemText(self.forwardCalibCombo.currentIndex())
             calib = self.gfCalibCalibCombo.currentText() if self.gfCalibCalibCombo.currentText() != 'None' else None 
-            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
+            self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,  meshType=self.meshType,
                                 fnameResMod=self.fnameResMod, calib=calib,
                            forwardModel=forwardModel, apply=True)
             self.replot()

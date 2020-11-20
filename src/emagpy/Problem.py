@@ -2762,7 +2762,6 @@ class Problem(object):
                 resmod = resmod[~np.isnan(resmod[:,2]),:]
 
             midDepths = -np.unique(resmod[:,1])
-
             # compute mean EC for each bin
             bins = np.linspace(minX, maxX, nbins+1)
             binID = np.digitize(np.unique(resmod[:,0]), bins+1)
@@ -2788,6 +2787,7 @@ class Problem(object):
             
         #ec is electrical conductivtiy from ERT model, depths are depths from resmodel, eca2 is eca data in same dimension as ec
         return ec, depths, eca2[:, 1:]
+
 
 
     def calibrate(self, fnameECa, fnameEC=None, fnameResMod=None, 
@@ -2940,9 +2940,7 @@ class Problem(object):
                     # s.df.loc[:, c] = (s.df[c].values - offsets[i])/slopes[i]
                     s.df.loc[:, c] = s.df[c].values + offsets[i] - (1-slopes[i]) * s.df[c].values
             dump('Correction is applied.')   
-        
-        
-        
+   
         
     def crossOverPointsError(self, index=0, coil=None, ax=None, dump=print):
         """ Build an error model based on the cross-over points.
