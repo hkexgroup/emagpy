@@ -2784,9 +2784,10 @@ class Problem(object):
             eca2 = np.array(eca2)
             eca2 = eca2[~np.isnan(eca2).any(axis=1)]
             eca2[np.all(eca2 == 0, axis=1)] = np.nan
+            dist = (bins[1:] + bins[:-1]) / 2
             
         #ec is electrical conductivtiy from ERT model, depths are depths from resmodel, eca2 is eca data in same dimension as ec
-        return ec, depths, eca2[:, 1:]
+        return ec, depths, eca2[:, 1:], dist
 
 
 
@@ -2838,11 +2839,11 @@ class Problem(object):
                 forwardModel = 'CS' # doesn't need frequency
             
         if fnameResMod is not None:
-            ec, depths, eca = self.resMod2EC(fnameECa=fnameECa,
-                                             fnameResMod=fnameResMod,
-                                             meshType=meshType,
-                                             nbins=nbins, binInt=binInt,
-                                             calib=calib)
+            ec, depths, eca, dist = self.resMod2EC(fnameECa=fnameECa,
+                                                   fnameResMod=fnameResMod,
+                                                   meshType=meshType,
+                                                   nbins=nbins, binInt=binInt,
+                                                   calib=calib)
             depths = depths
             dfec = pd.DataFrame(ec)
             dfeca = pd.DataFrame(eca, columns=survey.coils)
@@ -2886,8 +2887,8 @@ class Problem(object):
         ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
         ax.set_xlim([vmin, vmax])
         ax.set_ylim([vmin, vmax])
-        ax.set_xlabel('ECa(EM) [mS/m]')
-        ax.set_ylabel('ECa(ER) [mS/m]')
+        ax.set_xlabel('ECa (EMI) [mS/m]')
+        ax.set_ylabel('ECa (ERT) [mS/m]')
         
         # plot equation, apply it or not directly
         predECa = np.zeros(obsECa.shape)
@@ -2900,7 +2901,7 @@ class Problem(object):
             slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
             slopes[i] = slope
             offsets[i] = intercept
-            dump('{:s}: ECa(ERT) = {:.2f} * ECa(EMI) {:+.2f} (R^2={:.2f})'.format(coil, slope, intercept, r_value**2))
+            dump('{:s}: ECa (ERT) = {:.2f} * ECa (EMI) {:+.2f} (R^2={:.2f})'.format(coil, slope, intercept, r_value**2))
             predECa[:,i] = obsECa[:,i]*slope + intercept
             ax.plot(obsECa[:,i], predECa[:,i], '-', label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
         ax.legend()
