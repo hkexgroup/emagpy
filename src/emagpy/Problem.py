@@ -2861,13 +2861,13 @@ class Problem(object):
         # define the forward model
         if forwardModel == 'CS':
             def fmodel(p):
-                return fCS(p, depths, survey.cspacing, survey.cpos, hx=survey.hx[0])
+                return fCS(p, depths, survey.cspacing, survey.cpos, hx=survey.hx)
         elif forwardModel == 'FSlin':
             def fmodel(p):
-                return fMaxwellECa(p, depths, survey.cspacing, survey.cpos, f=survey.freqs[0], hx=survey.hx[0])
+                return fMaxwellECa(p, depths, survey.cspacing, survey.cpos, f=survey.freqs, hx=survey.hx)
         elif forwardModel == 'FSeq':
             def fmodel(p):
-                return fMaxwellQ(p, depths, survey.cspacing, survey.cpos, f=survey.freqs[0], hx=survey.hx[0])
+                return fMaxwellQ(p, depths, survey.cspacing, survey.cpos, f=survey.freqs, hx=survey.hx)
     
         # compute the forward response
         simECa = np.zeros((dfec.shape[0], len(survey.coils)))
