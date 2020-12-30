@@ -33,7 +33,7 @@ from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButt
     QTabWidget, QVBoxLayout, QLabel, QLineEdit, QMessageBox, QCompleter,
     QFileDialog, QCheckBox, QComboBox, QTextEdit, QHBoxLayout, QTextBrowser,
     QTableWidget, QFormLayout, QTableWidgetItem, QHeaderView, QProgressBar,
-    QStackedLayout, QGroupBox, QFrame)#, QRadioButton, QAction, QListWidget, QShortcut)
+    QStackedLayout, QGroupBox, QFrame, QMenu, QAction)#, QRadioButton, QListWidget, QShortcut)
 from PyQt5.QtGui import QIcon, QPixmap, QIntValidator, QDoubleValidator#, QKeySequence
 from PyQt5.QtCore import QThread, pyqtSignal#, QProcess, QSize
 from PyQt5.QtCore import Qt
@@ -232,7 +232,11 @@ class App(QMainWindow):
             self.datadir = os.path.join(bundle_dir, 'emagpy', 'examples')
         self.fnameHi = None
         self.fnameLo = None
+        self.fnameEC = None
+        self.fnameResMod = None
         self.running = False # True when inverison is running
+        self.apiLog = '' # store log of API call
+        self.meshType = None # 'tri' or 'quad' if specified
         
         self.errorLabel = QLabel('<i style="color:black">Error messages will be displayed here</i>')
         QApplication.processEvents()
@@ -243,7 +247,15 @@ class App(QMainWindow):
         
         self.problem = Problem()
         self.problem.runningUI = True
+        self.writeLog('# ======= EMagPy API log ======')
+        self.writeLog('from emagpy import Problem')
+        self.writeLog('k = Problem()')
         
+        self.optBtn = QPushButton('Options')
+        self.menu = QMenu()
+        self.menu.addAction('Save API log', self.saveLog)
+        self.optBtn.setMenu(self.menu)
+        self.tabs.setCornerWidget(self.optBtn, Qt.TopRightCorner)
         
         
         #%% tab 0 forward modelling
@@ -264,6 +276,7 @@ class App(QMainWindow):
                     depths = df[dcols].values
                     self.problem.setModels([depths], [conds])
                     self.mwf.replot()
+                    self.writeLog('k.importModel("{:s}")'.format(fname))
                 except Exception as e:
                     print(e)
                     self.errorDump('Error in reading file. Please check format.')
@@ -411,6 +424,8 @@ class App(QMainWindow):
             forwardModel = fforwardModels[self.fforwardCombo.currentIndex()]
             noise = float(self.fnoise.text())/100
             self.problem.forward(forwardModel, coils=coils, noise=noise)
+            self.writeLog('k.forward("{:s}", coils={:s}, noise={:.2f}'.format(
+                forwardModel, str(coils), noise))
             self.setupUI()
             self.tabs.setCurrentIndex(1)
         self.fforwardBtn = QPushButton('Compute Forward response')
@@ -523,6 +538,8 @@ class App(QMainWindow):
             hx = float(self.hxEdit.text()) if self.hxEdit.text() != '' else 0
             device = self.sensorCombo.itemText(self.sensorCombo.currentIndex())
             self.problem.importGF(self.fnameLo, self.fnameHi, device, hx)
+            self.writeLog('k.importGF("{:s}", "{:s}", "device={:s}", hx={:.2f})'.format(
+                self.fnameLo, self.fnameHi, device, hx))
             self.infoDump('Surveys well imported')
             self.setupUI()
         self.importGFApply = QPushButton('Import')
@@ -537,6 +554,8 @@ class App(QMainWindow):
         
         def gfCorrectionBtnFunc():
             self.problem.gfCorrection(calib=self.gfCalibCombo.currentText())
+            self.writeLog('k.gfCorrection(calib="{:s}")'.format(
+                self.gfCalibCombo.currentText()))
             self.replot()
         self.gfCorrectionBtn = QPushButton('Convert to LIN ECa')
         self.gfCorrectionBtn.clicked.connect(gfCorrectionBtnFunc)
@@ -602,6 +621,8 @@ class App(QMainWindow):
             vmin = float(self.vminfEdit.text()) if self.vminfEdit.text() != '' else None
             vmax = float(self.vmaxfEdit.text()) if self.vmaxfEdit.text() != '' else None
             self.problem.filterRange(vmin, vmax)
+            self.writeLog('k.filterRange(vmin={:s}, vmax={:s})'.format(
+                str(vmin), str(vmax)))
             self.replot()
         self.keepApplyBtn = QPushButton('Apply')
         self.keepApplyBtn.clicked.connect(keepApplyBtnFunc)
@@ -615,6 +636,7 @@ class App(QMainWindow):
         def rollingBtnFunc():
             window = int(self.rollingEdit.text()) if self.rollingEdit.text() != '' else None
             self.problem.rollingMean(window=window)
+            self.writeLog('k.rollingMean(window={:d}'.format(window))
             self.replot()
         self.rollingBtn = QPushButton('Rolling Mean')
         self.rollingBtn.clicked.connect(rollingBtnFunc)
@@ -634,6 +656,7 @@ class App(QMainWindow):
             nx = int(self.gridx.text())
             ny = int(self.gridy.text())
             self.problem.gridData(nx=nx, ny=ny)
+            self.writeLog('k.gridData(nx={:d}, ny={:d}'.format(nx, ny))
             self.replot()
         self.gridBtn = QPushButton('Grid Data')
         self.gridBtn.setEnabled(False)
@@ -846,6 +869,8 @@ class App(QMainWindow):
             if fname != '':
                 self.setProjection()
                 self.problem.saveMap(fname=fname, cmap=self.cmapCombo.currentText())
+                self.writeLog('k.saveMap(fname="{:s}", cmap="{:s}")'.format(
+                    fname, self.cmapCombo.currentText()))
             
             
         self.psMapExpBtn = QPushButton('Exp. GIS layer')
@@ -993,6 +1018,11 @@ class App(QMainWindow):
             self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
                                 fnameResMod=self.fnameResMod, calib=calib, meshType=self.meshType,
                            forwardModel=forwardModel)
+            self.writeLog('k.calibrate(fnameECa="{:s}", fnameEC="{:s}",'
+                          'fnameResMod="{:s}", calib="{:s}", meshType="{:s}",'
+                          'forwardModel="{:s}")'.format(self.fnameECa, str(self.fnameEC),
+                                                        str(self.fnameResMod), str(calib), str(self.meshType),
+                                                        forwardModel))
         self.fitCalibBtn = QPushButton('Fit calibration')
         self.fitCalibBtn.clicked.connect(fitCalibBtnFunc)
         
@@ -1003,6 +1033,11 @@ class App(QMainWindow):
             self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,  meshType=self.meshType,
                                 fnameResMod=self.fnameResMod, calib=calib,
                            forwardModel=forwardModel, apply=True)
+            self.writeLog('k.calibrate(fnameECa="{:s}", fnameEC="{:s}",'
+                          'fnameResMod="{:s}", calib="{:s}", meshType="{:s}",'
+                          'forwardModel="{:s}", apply=True)'.format(self.fnameECa, str(self.fnameEC),
+                                                        str(self.fnameResMod), str(calib), str(self.meshType),
+                                                        forwardModel))
             self.replot()
             self.infoDump('Calibration applied')
         self.applyCalibBtn = QPushButton('Apply Calibration')
@@ -1040,10 +1075,14 @@ class App(QMainWindow):
         def fitErrBtnFunc():
             index = self.surveyErrCombo.currentIndex()
             coil = self.coilErrCombo.itemText(self.coilErrCombo.currentIndex())
-            self.mwErr.setCallback(self.problem.crossOverPoints)
+            self.mwErr.setCallback(self.problem.crossOverPointsError)
             self.mwErr.replot(index=index, coil=coil, dump=self.infoDump)
+            self.writeLog('k.crossOverPointsError(index={:d}, coil="{:s}")'.format(
+                index, coil))
             self.mwErrMap.setCallback(self.problem.plotCrossOverMap)
             self.mwErrMap.replot(index=index, coil=coil)
+            self.writeLog('k.plotCrossOverMap(index={:d}, coil="{:s}")'.format(
+                index, coil))
         self.fitErrBtn = QPushButton('Fit Error Model based on colocated measurements')
         self.fitErrBtn.clicked.connect(fitErrBtnFunc)
         
@@ -1206,6 +1245,7 @@ class App(QMainWindow):
             if fname != '':
                 # try:
                 self.problem.importModel(fname)
+                self.writeLog('k.importModel("{:s}"'.format(fname))
                 nlayer = self.problem.models[0].shape[1]
                 self.modelTable.setTable([-1]*(nlayer-1),[-1]*nlayer)
                 self.createModelBtn.setEnabled(False)
@@ -1280,6 +1320,7 @@ class App(QMainWindow):
         
         def lcurveBtnFunc():
             self.mwlcurve.plot(self.problem.lcurve)
+            self.writeLog('k.lcurve()')
         self.lcurveBtn = QPushButton('Fit L-curve')
         self.lcurveBtn.clicked.connect(lcurveBtnFunc)
         
@@ -1470,6 +1511,9 @@ class App(QMainWindow):
                 depths0 = self.problem.depths[0]
                 conds0 = self.problem.models[0]
             self.problem.setInit(depths0, conds0, fixedDepths, fixedConds)
+            self.writeLog('k.setInit(depths0={:s}, conds0={:s}, fixedDepths={:s}, fixedConds={:s})'.format(
+                str(list(depths0)), str(list(conds0)),
+                str(list(fixedDepths)), str(list(fixedConds))))
             regularization = self.lCombo.itemText(self.lCombo.currentIndex())
             alpha = float(self.alphaEdit.text()) if self.alphaEdit.text() != '' else 0.07
             forwardModel = self.forwardCombo.itemText(self.forwardCombo.currentIndex())
@@ -1495,21 +1539,32 @@ class App(QMainWindow):
             # invert
             if forwardModel == 'CS (fast)':
                 self.problem.invertGN(alpha=alpha, dump=logTextFunc)
+                self.writeLog('k.invertGF(alpha={:s})'.format(str(alpha)))
             else:
                 self.problem.invert(forwardModel=forwardModel, alpha=alpha,
                                     dump=logTextFunc, regularization=regularization,
                                     method=method, options={'maxiter':nit},
                                     beta=beta, gamma=gamma, nsample=nsample,
                                     noise=noise/100, njobs=njobs)
+                self.writeLog('k.invert(forwardModel="{:s}", alpha={:s}, '
+                              'regularization="{:s}", method="{:s}", '
+                              'options={{"maxiter":{:d}}}, beta={:s}, gamma={:s}'
+                              ', nsample={:s}, noise={:.2f}, njobs={:d})'.format(
+                        forwardModel, str(alpha), regularization, method, nit,
+                        str(beta), str(gamma), str(nsample), noise/100, njobs))
             
             # plot results
             if self.problem.ikill == False: # program wasn't killed
                 self.mwInv.setCallback(self.problem.showResults)
                 self.mwInv.replot(**showInvParams)
+                self.writeLog('k.showResults', showInvParams)
                 self.mwInvMap.setCallback(self.problem.showSlice)
                 self.mwInvMap.replot(**showInvMapParams)
+                self.writeLog('k.showSlice', showInvMapParams)
                 self.mwMisfit.plot(self.problem.showMisfit)
+                self.writeLog('k.showMisfit()')
                 self.mwOne2One.plot(self.problem.showOne2one)
+                self.writeLog('k.showOne2one()')
                 if pvfound:
                     replot3D()
                 outputStack.setCurrentIndex(1)
@@ -1587,6 +1642,7 @@ class App(QMainWindow):
             fdir = QFileDialog.getExistingDirectory(invTab, 'Choose directory where to save the files')
             if fdir != '':
                 self.problem.saveInvData(fdir)
+                self.writeLog('k.saveInvData("{:s}"'.format(fdir))
         self.saveInvDataBtn = QPushButton('Save Results')
         self.saveInvDataBtn.clicked.connect(saveInvDataBtnFunc)
         
@@ -1643,6 +1699,7 @@ class App(QMainWindow):
             fdir = QFileDialog.getExistingDirectory(invTab, 'Choose directory where to save the files')
             if fdir != '':
                 self.problem.saveInvData(fdir)
+                self.writeLog('k.saveInvData("{:s}"'.format(fdir))
         self.saveInvMapDataBtn = QPushButton('Save Results')
         self.saveInvMapDataBtn.clicked.connect(saveInvMapDataBtnFunc)
         
@@ -1651,7 +1708,8 @@ class App(QMainWindow):
             if fname != '':
                 self.setProjection()
                 self.problem.saveSlice(fname=fname, islice=self.sliceCombo.currentIndex(), cmap=self.cmapInvMapCombo.currentText())
-            
+                self.writeLog('k.saveSlice(fname="{:s}", islice={:d}, cmap="{:s}"'.format(
+                    fname, self.sliceCombo.currentIndex, self.cmapInvMapCombo.currentText()))
         self.invMapExpBtn = QPushButton('Exp. GIS layer')
         self.invMapExpBtn.setToolTip('Export a georeferenced TIFF file to directly be imported in GIS software.\n'
                                      'Choose the correct EPSG CRS projection in the "Importing" tab!')
@@ -1678,6 +1736,7 @@ class App(QMainWindow):
             self.plInv.clear()
             try:
                 self.problem.show3D(**self.showInv3dParams)
+                self.writeLog('k.show3D', self.showInv3dParams)
             except:
                 self.errorDump('Error in 3D plotting')
         
@@ -2163,6 +2222,7 @@ the ERT calibration will account for it.</p>
                 epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
             epsgVal = 'EPSG:'+str(epsg_code[0])
             self.problem.setProjection(targetProjection=epsgVal)
+            self.writeLog('k.setProjection(targetProjection="{:s}")'.format(epsgVal))
         except:
             self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
     
@@ -2171,6 +2231,7 @@ the ERT calibration will account for it.</p>
             if self.projEdit.text() != '':
                 self.setProjection()
             self.problem.convertFromNMEA(targetProjection=self.problem.projection)
+            self.writeLog('k.convertFromNMEA(targetProjection="{:s}")'.format(self.problem.projection))
             self.replot()
         except Exception as e:
             self.errorDump(e)
@@ -2188,9 +2249,23 @@ the ERT calibration will account for it.</p>
         if self.showCombo.currentText() == 'Map':
             self.mwRaw.replot(index=index, coil=coil, contour=contour,
                               vmin=vmin, vmax=vmax, pts=pts, cmap=cmap)
+            self.writeLog('k.showMap(index={:d}, coil="{:s}", contour={:s},'
+                          ' vmin={:s}, vmax={:s}, pts={:s}, cmap="{:s}")'.format(
+                              index, coil, str(contour), str(vmin), str(vmax),
+                              str(pts), cmap))
         else:
             self.mwRaw.replot(index=index, coil=coil, vmin=vmin, vmax=vmax,
                               dist=dist)
+            if self.showCombo.currentText() == 'Dots':
+                self.writeLog('k.show(index={:d}, coil="{:s}",'
+                          ' vmin={:s}, vmax={:s}, dist={:s})'.format(
+                              index, coil, str(vmin), str(vmax),
+                              str(dist)))
+            else:
+                self.writeLog('k.showPseudo(index={:d}, coil="{:s}",'
+                          ' vmin={:s}, vmax={:s}, dist={:s})'.format(
+                              index, coil, str(vmin), str(vmax),
+                              str(dist)))
                 
     def processFname(self, fnames, merged=False):
         self.problem.surveys = [] # empty the list of current survey
@@ -2198,6 +2273,7 @@ the ERT calibration will account for it.</p>
             fname = fnames[0]
             self.importBtn.setText(os.path.basename(fname))
             self.problem.createSurvey(fname)
+            self.writeLog('k.createSurvey("{:s}")'.format(fname))
             self.gammaEdit.setVisible(False)
             self.gammaLabel.setVisible(False)
         else:
@@ -2205,10 +2281,12 @@ the ERT calibration will account for it.</p>
                                    + os.path.basename(fnames[-1]))
             if merged:
                 self.problem.createMergedSurvey(fnames)
+                self.writeLog('k.createMergedSurvey({:s})'.format(str(fnames)))
             else:
                 self.gammaEdit.setVisible(True)
                 self.gammaLabel.setVisible(True)
                 self.problem.createTimeLapseSurvey(fnames)
+                self.writeLog('k.createTimeLapseSurvey({:s})'.format(str(fnames)))
         # check if coils configuration seem to match GF instruments
         coils = ['{:s}{:.2f}'.format(a.upper(), b) for a, b in zip(self.problem.cpos, self.problem.cspacing)]
         if np.sum(np.in1d(coils, ['VCP0.32', 'HCP0.32', 'VCP1.48', 'HCP1.48'])) > 0:
@@ -2282,9 +2360,43 @@ the ERT calibration will account for it.</p>
             col = 'black'
         self.errorLabel.setText('<i style="color:'+col+'">['+timeStamp+']: '+text+'</i>')
 
+
     def infoDump(self, text):
         self.errorDump(text, flag=0)
 
+
+    def writeLog(self, text, dico=None):
+        if dico is None:
+            self.apiLog += text + '\n'
+        else:
+            arg = ''
+            for key in dico.keys():
+                val = dico[key]
+                if type(val) == str:
+                    arg += key + '="{:s}", '.format(val)
+                elif (type(val) == int or
+                    type(val) == float or
+                    type(val) == tuple or
+                    type(val) == list or
+                    type(val) == bool or
+                    val is None):
+                    arg += key + '={:s}, '.format(str(val))
+                elif type(val) == type(np.ndarray):
+                    arg += key + '={:s}, '.format(str(list(val)))
+                else:
+                    pass # ignore argument
+            self.apiLog += text + '(' + arg[:-2] + ')\n'
+        
+    def saveLog(self):
+        fname, _ = self._dialog.getSaveFileName(self)
+        if fname != '':
+            if fname[-3:] != '.py':
+                fname = fname + '.py'
+            self.apiLog = self.apiLog.replace('"None"', 'None')
+            with open(fname, 'w') as f:
+                f.write(self.apiLog)
+        
+        
     def keyPressEvent(self, e):
         if (e.modifiers() == Qt.ControlModifier) & (e.key() == Qt.Key_Q):
             self.close()
