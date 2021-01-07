@@ -83,7 +83,7 @@ class Problem(object):
         self.annReplaced = 0 # number of measurement outliers by ANN
         
         
-    def createSurvey(self, fname, freq=None, hx=None, targetProjection=None):
+    def createSurvey(self, fname, freq=None, hx=None, targetProjection=None, unit='ppt'):
         """Create a survey object.
         
         Parameters
@@ -97,12 +97,16 @@ class Problem(object):
         targetProjection : str, optional
             If specified, a conversion from NMEA string in 'Latitude' and 'Longitude'
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
+        unit : str, optional
+            Unit for the _quad and _inph columns. By default assume to be in ppt 
+            (part per thousand). ppm (part per million) can also be specified. Note
+            that ECa columns, if present are assumed to be in mS/m.
         """
         # create Survey object
         if self.projection is not None:
             targetProjection = self.projection
             
-        survey = Survey(fname, freq=freq, hx=hx, targetProjection=targetProjection)
+        survey = Survey(fname, freq=freq, hx=hx, targetProjection=targetProjection, unit=unit)
         
         # remove NaN from survey
         inan = np.zeros(survey.df.shape[0], dtype=bool)
@@ -130,7 +134,7 @@ class Problem(object):
         
             
         
-    def createTimeLapseSurvey(self, fnames, targetProjection=None):
+    def createTimeLapseSurvey(self, fnames, targetProjection=None, unit='ppt'):
         """Import multiple surveys.
         
         Parameters
@@ -140,6 +144,10 @@ class Problem(object):
         targetProjection : str, optional
             If specified, a conversion from NMEA string in 'Latitude' and 'Longitude'
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
+        unit : str, optional
+            Unit for the _quad and _inph columns. By default assume to be in ppt 
+            (part per thousand). ppm (part per million) can also be specified. Note
+            that ECa columns, if present are assumed to be in mS/m.
         """
         if isinstance(fnames, list): # it's a list of filename
             if len(fnames) < 2:
@@ -153,11 +161,11 @@ class Problem(object):
         if self.projection is not None:
             targetProjection = self.projection
         for fname in fnames:
-            self.createSurvey(fname, targetProjection=targetProjection)
+            self.createSurvey(fname, targetProjection=targetProjection, unit=unit)
             
     
     
-    def createMergedSurvey(self, fnames, method='nearest', how='add', targetProjection=None):
+    def createMergedSurvey(self, fnames, method='nearest', how='add', targetProjection=None, unit='ppt'):
         """Create a unique survey from different files by spatially interpolating the values.
         This can be useful when two surveys (Hi and Lo mode, vertical and horizontal) were
         taken on the same site successively. The method adds the 'x' and 'y' positions of all
@@ -177,13 +185,17 @@ class Problem(object):
         targetProjection : str, optional
             If specified, a conversion from NMEA string in 'Latitude' and 'Longitude'
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
+        unit : str, optional
+            Unit for the _quad and _inph columns. By default assume to be in ppt 
+            (part per thousand). ppm (part per million) can also be specified. Note
+            that ECa columns, if present are assumed to be in mS/m.
         """
         # import all surveys
         if self.projection is not None:
             targetProjection = self.projection
         surveys = []
         for fname in fnames:
-            surveys.append(Survey(fname, targetProjection=targetProjection))
+            surveys.append(Survey(fname, targetProjection=targetProjection, unit=unit))
         
         # check all surveys have different coil configurations
         coils = np.hstack([survey.coils for survey in surveys])
@@ -1484,6 +1496,28 @@ class Problem(object):
             the sample index is used as X index.
         """
         self.surveys[index].show(coil=coil, vmin=vmin, vmax=vmax, ax=ax, dist=dist)
+    
+    
+    def showDist(self, index=0, coil=None, nbins=20, vmin=None, vmax=None, ax=None):
+        """Display a histogram of the recorded values.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Survey number, by default, the first survey is chosen.
+        coil : str or list of str, optional
+            By default all coils are stacked on each other. Otherwise specific coils
+            (dataframe columns) can be specified.
+        nbins : int, optional
+            Number of bins to use for the histogram.
+        vmin : float, optional
+            Value of minimum bin limit.
+        vmax : float, optional
+            Value of maximum bin limit.
+        ax : matplotlib.Axes, optional
+            If given, the graph will be plotted against this axis.
+        """
+        self.surveys[index].showDist(coil=coil, nbins=nbins, vmin=vmin, vmax=vmax, ax=ax)
     
     
     

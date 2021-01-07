@@ -146,8 +146,12 @@ class Survey(object):
     targetProjection : str, optional
         If specified, the 'Latitude' and 'Longitude' NMEA string will be
         converted to the targeted grid e.g. : 'EPSG:27700'.
+    unit : str, optional
+        Unit for the _quad and _inph columns. By default assume to be in ppt 
+        (part per thousand). ppm (part per million) can also be specified. Note
+        that ECa columns, if present are assumed to be in mS/m.
     """
-    def __init__(self, fname=None, freq=None, hx=None, targetProjection=None):
+    def __init__(self, fname=None, freq=None, hx=None, targetProjection=None, unit='ppt'):
         self.df = None # main dataframe
         self.drift_df = None # drift station dataframe
         self.fil_df = None # filtered dataframe 
@@ -165,14 +169,14 @@ class Survey(object):
         self.iselect = []
         self.projection = None # store the project
         if fname is not None:
-            self.readFile(fname, targetProjection=targetProjection)
+            self.readFile(fname, targetProjection=targetProjection, unit=unit)
             if freq is not None:
                 self.freqs = np.ones(len(self.coils))*freq
             if hx is not None:
                 self.hx = np.ones(len(self.coils))*hx
         
     
-    def readFile(self, fname, sensor=None, targetProjection=None):
+    def readFile(self, fname, sensor=None, targetProjection=None, unit='ppt'):
         """Read a .csv file.
         
         Parameters
@@ -184,6 +188,10 @@ class Survey(object):
         targetProjection : str, optional
             EPSG string describing the projection of a 'Latitude' and 'Longitude'
             column is found in the dataframe. e.g. 'EPSG:27700' for the British grid.
+        unit : str, optional
+            Unit for the _quad and _inph columns. By default assume to be in ppt 
+            (part per thousand). ppm (part per million) can also be specified. Note
+            that ECa columns, if present are assumed to be in mS/m.
         """
         if type(fname) == type('a'):
             name = os.path.basename(fname)[:-4]
@@ -193,10 +201,10 @@ class Survey(object):
         if fname.find('.DAT')!=-1:
             delimiter = '\t'
         df = pd.read_csv(fname, delimiter=delimiter)
-        self.readDF(df, name, sensor, targetProjection)
+        self.readDF(df, name, sensor, targetProjection, unit)
         
         
-    def readDF(self, df, name=None, sensor=None, targetProjection=None):
+    def readDF(self, df, name=None, sensor=None, targetProjection=None, unit='ppt'):
         """Parse dataframe.
         
         Parameters
@@ -211,10 +219,14 @@ class Survey(object):
         targetProjection : str, optional
             EPSG string describing the projection of a 'Latitude' and 'Longitude'
             column is found in the dataframe. e.g. 'EPSG:27700' for the British grid.
+        unit : str, optional
+            Unit for the _quad and _inph columns. By default assume to be in ppt 
+            (part per thousand). ppm (part per million) can also be specified. Note
+            that ECa columns, if present are assumed to be in mS/m.
         """
         self.name = 'Survey 1' if name is None else name
-        
-        # parsin columns and extracting coils information
+
+        # parsing columns and extracting coils information
         for c in df.columns:
             orientation = c[:3].upper()
             if ((orientation == 'VCP') | (orientation == 'VMD') | (orientation == 'PRP') |
@@ -246,11 +258,17 @@ class Survey(object):
         if len(self.coilsQuad) > 0:
             print('Converting quadrature columns to LIN ECa. '
                   'You can use "FSlin" or "Q" as forward model.')
+        for c in self.coilsInph:
+            if unit == 'ppm':
+                df[c] = df[c].values/1e3 # to put it in ppt
         for c in self.coilsQuad:
             # as LIN ECa is faster but also is used when doing Q or QP based inversion
             coilName = c[:-5]
             info = self.getCoilInfo(coilName)
-            values = 1 + 1j*df[c].values/1e3 # assuming Q is in ppt (part per thousand)
+            if unit == 'ppt':
+                values = 1 + 1j*df[c].values/1e3 # Q is in ppt (part per thousand) like GF-Instruments
+            elif unit == 'ppm':
+                values = 1 + 1j*df[c].values/1e6 # Q is in ppm (part per million) like GEM 2
             df[coilName] = Q2eca(values, s=info['coilSeparation'], f=info['freq'])*1e3 # mS/m
             self.coils.append(coilName)
             
@@ -485,6 +503,51 @@ class Survey(object):
         self.df = convertFromCoord(self.df, targetProjection)
 
 
+        
+    def showDist(self, coil=None, nbins=20, vmin=None, vmax=None, ax=None):
+        """Display a histogram of the recorded values.
+        
+        Parameters
+        ----------
+        coil : str or list of str, optional
+            By default all coils are stacked on each other. Otherwise specific coils
+            (dataframe columns) can be specified.
+        nbins : int, optional
+            Number of bins to use for the histogram.
+        vmin : float, optional
+            Value of minimum bin limit.
+        vmax : float, optional
+            Value of maximum bin limit.
+        ax : matplotlib.Axes, optional
+            If given, the graph will be plotted against this axis.
+        """
+        # check arguments
+        if coil is None:
+            coils = self.coils
+        elif type(coil) == type('a'):
+            coils = [coil]
+        else:
+            coils = coil
+        if ax is None:
+            fig, ax = plt.subplots()
+        if vmin is None or vmax is None:
+            val = np.hstack(self.df[coils].values).flatten()
+            if vmin is None:
+                vmin = np.nanpercentile(val, 2) # taking percentile to avoid extreme values
+            if vmax is None:
+                vmax = np.nanpercentile(val, 98)
+        
+        # plotting histogram
+        bins = np.linspace(vmin, vmax, nbins+1) # for 20 bins, we need 21 bin limits
+        for c in coils:
+            color = next(ax._get_lines.prop_cycler)["color"]
+            ax.hist(self.df[c].values, bins=bins, label=c, color=color, 
+                    alpha=0.3, edgecolor=color, lw=3)
+        ax.legend()
+        ax.set_xlabel('Values')
+        ax.set_ylabel('Count')
+        
+        
     
     def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None,
                 pts=False, cmap='viridis_r', xlab='x', ylab='y', nlevel=7):
