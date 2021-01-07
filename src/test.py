@@ -31,6 +31,7 @@ k = Problem()
 k.importGF(fnameLo=datadir + 'potatoes/potatoesLo.dat',
            fnameHi=datadir + 'potatoes/potatoesHi.dat',
            targetProjection='EPSG:27700')
+k.showDist()
 k.computeStat()
 k.showMap()
 k.filterBearing(phiMin=0, phiMax=25)
