@@ -1069,6 +1069,13 @@ class App(QMainWindow):
         errTab = QTabWidget()
         self.tabs.addTab(errTab, 'Error Modelling')
         
+        self.errLabel = QLabel('EXPERIMENTAL: this tab helps to fit an '
+                               'error model based on cross-over measurements. '
+                               'It helps estimate the amount of error on '
+                               'the data. Currently, the error model is not used by the '
+                               'inversion.')
+        self.errLabel.setWordWrap(True)
+        
         self.surveyErrCombo = QComboBox()
         self.coilErrCombo = QComboBox()
         
@@ -1093,6 +1100,7 @@ class App(QMainWindow):
         
         # layout
         errLayout = QVBoxLayout()
+        errLayout.addWidget(self.errLabel)
         errOptionLayout = QHBoxLayout()
         errOptionLayout.addWidget(self.surveyErrCombo)
         errOptionLayout.addWidget(self.coilErrCombo)
