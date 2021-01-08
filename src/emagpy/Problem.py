@@ -70,7 +70,7 @@ class Problem(object):
         self.models = []
         self.depths = [] # contains inverted depths or just depths0 if fixed
         self.pstds = [] # parameter standard deviation for MCMC inversion
-        self.rmses = []
+        self.misfits = []
         self.dois = [] # list of array of DOI computed from ('computeDOI()')
 
         # flags
@@ -118,14 +118,14 @@ class Problem(object):
             
         # set attribute according to the first survey
         if len(self.surveys) == 0:
-            self.coils = survey.coils
-            self.freqs = survey.freqs
-            self.cspacing = survey.cspacing
-            self.cpos = survey.cpos
-            self.hx = survey.hx
-            self.coilsInph = survey.coilsInph
-            self.coilsQuad = survey.coilsQuad
-            self.coilsErr = survey.coilsErr
+            self.coils = survey.coils.copy()
+            self.freqs = survey.freqs.copy()
+            self.cspacing = survey.cspacing.copy()
+            self.cpos = survey.cpos.copy()
+            self.hx = survey.hx.copy()
+            self.coilsInph = survey.coilsInph.copy()
+            self.coilsQuad = survey.coilsQuad.copy()
+            self.coilsErr = survey.coilsErr.copy()
             self.surveys.append(survey)
         else: # check we have the same configuration than other survey
             check = [a == b for a,b, in zip(self.coils, survey.coils)]
@@ -466,7 +466,7 @@ class Problem(object):
         self.forwardModel = forwardModel # for future RMSE or misfit computation
         self.models = []
         self.depths = []
-        self.rmses = []
+        self.misfits = []
         self.pstds = []
         self.annReplaced = 0
         self.ikill = False
@@ -584,7 +584,7 @@ class Problem(object):
             bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax = self.gridParamSearch(forwardModel=fmodel, bnds=bnds, regularization=regularization, fixedParams=fixedParams)
             self.models.append(bestConds)
             self.depths.append(bestDepths)
-            self.rmses.append(bestMisfits)
+            self.misfits.append(bestMisfits)
             self.pstds.append(paramSd)
 
         # build ANN network
@@ -873,7 +873,7 @@ class Problem(object):
                         sens = sens[0][:,:,0]
                         J = sens/np.sum(sens, axis=0) # so that sum == 1
                         J = J.T
-                        
+
                         # Gauss-Newton algorithm
                         cond = np.copy(ini0[1])[:,None]
                         app = obs.copy()
@@ -947,7 +947,7 @@ class Problem(object):
             dump('\n')
             self.models.append(model)
             self.depths.append(depth)
-            self.rmses.append(rmse)
+            self.misfits.append(rmse)
             self.pstds.append(stds)
             # dump('{:d} measurements inverted\n'.format(apps.shape[0]))
                     
@@ -1117,7 +1117,7 @@ class Problem(object):
             Function to output the running inversion.
         """
         self.models = []
-        self.rmses = []
+        self.misfits = []
         self.depths = []
         self.pstds = []
         
@@ -1165,7 +1165,7 @@ class Problem(object):
                 rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/np.sum(app**2)/len(app))*100
                 dump('\r{:d}/{:d} inverted'.format(j+1, apps.shape[0]))
             self.models.append(model)
-            self.rmses.append(rmse)
+            self.misfits.append(rmse)
             depth = np.repeat(depths0[None,:], apps.shape[0], axis=0)
             self.depths.append(depth)
             self.pstds.append(np.zeros(model.shape))
@@ -1300,6 +1300,22 @@ class Problem(object):
         for s in self.surveys:
             s.filterRepeated(tolerance=tolerance)
             
+            
+    def removeCoil(self, icoil):
+        """Remove coil by index.
+        
+        Parameters
+        ----------
+        icoil : int
+            Index of the coil to be remmoved.
+        """
+        del self.coils[icoil]
+        del self.cpos[icoil]
+        del self.cspacing[icoil]
+        del self.hx[icoil]
+        del self.freqs[icoil]
+        for s in self.surveys:
+            s.removeCoil(icoil)
         
         
     def forward(self, forwardModel='CS', coils=None, noise=0.0,
@@ -1797,6 +1813,34 @@ class Problem(object):
             df.to_csv(fname, index=False)
     
     
+    def interpData(self, surveyIndex=-1, method='nearest'):
+        """All locations from all  or specific surveys are merged
+        and data are interpolated using nearest neighbours.
+        
+        Parameters
+        ----------
+        surveyIndex : int, optional
+            If -1, all locations from all surveys are merged together.
+            Otherwise, only the locations of the survey with the selected
+            index is used.
+        method : str, optional
+            Either, 'nearest', 'linear' or 'cubic' method for interpolation.
+        """
+        if surveyIndex == -1:
+            locs = np.vstack([s.df[['x','y', 'elevation']].values for s in self.surveys])
+        else:
+            locs = self.surveys[surveyIndex].df[['x','y', 'elevation']].values
+
+        for s in self.surveys:
+            cols = self.coils + self.coilsInph + self.coilsQuad + self.coilsErr
+            df = pd.DataFrame(locs, columns=['x','y','elevation'])
+            for col in cols:
+                 df[col] = griddata(s.df[['x','y']].values, 
+                                    s.df[col].values,
+                                    locs[:,:2], method=method)
+            s.df = df
+            
+    
     
     def gridData(self, nx=100, ny=100, method='nearest', 
                  xmin=None, xmax=None, ymin=None, ymax=None):
@@ -2022,7 +2066,7 @@ class Problem(object):
         ax.set_xlabel('EC [mS/m]')
         ax.set_ylabel('Elevation [m]')
         ax.set_title('{:s}, sample {:d} (RMSE={:.2f})'.format(
-            self.surveys[index].name, ipos, self.rmses[index][ipos]))
+            self.surveys[index].name, ipos, self.misfits[index][ipos]))
         
 
     
@@ -2156,8 +2200,8 @@ class Problem(object):
         
         if rmse:
             ax2 = ax.twinx()
-            ax2.plot(x[:-1] + np.diff(x)/2, self.rmses[index], 'kx-')
-            ax2.set_ylabel('RRMSE [%]')
+            ax2.plot(x[:-1] + np.diff(x)/2, self.misfits[index], 'kx-')
+            ax2.set_ylabel('RMSPE [%]')
             
         if errorbar or overlay:
             vc = ~self.fixedConds
@@ -2603,7 +2647,7 @@ class Problem(object):
             vmax = np.nanpercentile(obsECa.flatten(), 95)
         if ax is None:
             fig, ax = plt.subplots()
-        ax.set_title('RRMSE: {:.3f} %'.format(rmse))
+        ax.set_title('RMSPE: {:.3f} %'.format(rmse))
         ax.plot(obsECa, simECa, '.')
         ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
         ax.set_xlim([vmin, vmax])

@@ -193,7 +193,8 @@ k.calibrate(fnameECa=datadir + 'boxford-calib/eca_calibration.csv', meshType = '
 #%% invert change in ECa
 k = Problem()
 k.createTimeLapseSurvey(datadir + 'timelapse-wheat')
-k.surveys = k.surveys[:2]
+k.surveys = k.surveys[:2] # we reading the save models as well by default :/
+k.interpData()
 k.computeApparentChange()
 k.setInit(depths0=np.linspace(0.1, 2, 10))
 k.invert(forwardModel='CSgn')

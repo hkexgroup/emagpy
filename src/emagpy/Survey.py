@@ -309,6 +309,20 @@ class Survey(object):
                 'height': height}
         
     
+    def removeCoil(self, icoil):
+        """Remove coil by index.
+        
+        Parameters
+        ----------
+        icoil : int
+            Index of the coil to be remmoved.
+        """
+        del self.coils[icoil]
+        del self.cpos[icoil]
+        del self.cspacing[icoil]
+        del self.hx[icoil]
+        del self.freqs[icoil]
+    
     
     def filterRange(self, vmin=None, vmax=None):
         """Filter out measurements that are not between vmin and vmax.
@@ -1117,8 +1131,8 @@ class Survey(object):
         elif 'Date' in df.columns:
             tcol = 'Date'
         else:
-            tcol = 'none'
-        if tcol != 'none':
+            tcol = None
+        if tcol is not None:
             times = pd.to_datetime(df[tcol], format=timef)
             
         def quadrantCheck(dx,dy):
@@ -1174,16 +1188,16 @@ class Survey(object):
         bearing[azimuth > 180] = azimuth[azimuth > 180] - 180 # add 180 in order to get a postive bearing or strike 
         bearing[azimuth <= 180] = azimuth[azimuth <= 180]
 
-        elapsed = times - times[0]
-
         df['interdist'] = np.r_[0, interdist] # distance between consecutive points 
         df['azimuth'] = np.r_[0, azimuth] # walking direction in terms of azimuth relative to local coordinate system
         df['bearing'] = np.r_[0, bearing] # walking direction in terms of bearing relative to local coordinate system
-        df['surveyTime'] = times # times in python datetime format 
-        df['elapsed(sec)'] = [a.seconds for a in elapsed]# number of seconds elasped 
+        df['surveyTime'] = times # times in python datetime format
+        
+        if tcol != 'none':
+            elapsed = times - times[0]
+            df['elapsed(sec)'] = [a.seconds for a in elapsed]# number of seconds elasped 
             
         self.df = df
-    
     
     
     def filterRepeated(self, tolerance=0.2):
