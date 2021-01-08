@@ -78,17 +78,20 @@ BibTex code:
 
 Frequently Asked Question (FAQ)
 -------------------------------
-- How to format the input files?
+
+### How to format the input files?
 
 EMagPy requires input file to be formated as .csv with one header row. Headers include `x`, `y` and `elevation` for the locations. Other headers are formatted as
- <coilOrientation><coilSpacing>f<frequency>h<heightAboveGround><suffix>.
+ `<coilOrientation><coilSpacing>f<frequency>h<heightAboveGround><suffix>`.
 e.g.: VCP0.32f30000h1 means the coils are in vertical coplanar (VCP) orientation, spaced by 0.32 meters, operated at a frequency of 300000 Hz and are at 1 meter above the ground surface.
 
-<coilOrientation> could be: VCP (=HMD), HCP (=VMD) or PRP
-<coilSpacing> is the distance between the transmitter coil and the receiving coil expressed in meters
-<frequency> is the operating frequency in Hz
-<heightAboveGround> is the height at which the device was operated above the surface in meters
-<suffix> is optional and be set to `_inph` for inphase value in ppt or `_quad` for quadrature value in ppt
+With:
+
+* `<coilOrientation>` could be: VCP (=HMD), HCP (=VMD) or PRP
+* `<coilSpacing>` is the distance between the transmitter coil and the receiving coil expressed in meters
+* `<frequency>` is th operating frequency in Hz
+* `<heightaboveGround>` is the height at which the device was operated above the surface in meters
+* `<suffix>` is optional and be set to `_inph` for inphase value in ppt or `_quad` for quadrature value in ppt
 
 example: 
 | x | y | elevation | VCP0.71 | VCP1.18 |
@@ -98,12 +101,12 @@ example:
 | 2 | 0 | 0         | 35.79   | 39.21   |
 
 
-- What is ERT calibration and do I need it?
+### What is ERT calibration and do I need it?
 
 Electrical Resistivity Tomography (ERT) is an electrical method that measure the ground resistivity using electrodes in contact with the subsurface. Given its larger number of measurements compared to FDEM, it usually gives a better representation of the subsurface. FDEM instruments usually provide qualitative values. In order to convert these qualitative value to *quantitative values*, co-located ERT and FDEM measurement can be taken. FDEM measurements are then calibrated according to the ERT data.
 
 
-- When to convert to LIN ECa?
+### When to convert to LIN ECa?
 
 To the best of our knowledge, this is specific to *GF-Instruments* (CMD Mini-Explorer, CMD Explorer). GF Instruments used a custom linear relationship to convert quadrature values to ECa (F-Ground, F-0m or F-1m) while other instruments usually rely on the Low Induction Number (LIN) approximation (McNeil, 1980). For 'F-1m' for instance, the ECa values displayed by the GF instruments are gained by this relationship to appear closer to the actual ground EC. However, this relationship comes in the way for proper inversion as it is not physically based (while LIN is). It is then recommended that if the data comes from a GF-Instruments, such conversion is applied. While this correction has minimal effect on the F-Ground and F-0m calibrations, it has big implication for the F-1m of the CMD Explorer. More information is provided in the EMagPy paper. 
 
