@@ -622,6 +622,7 @@ class Problem(object):
         # data misfit
         def dataMisfit(p, obs, ini0):
             misfit = fmodel(p, ini0) - obs
+            # TODO maybe set default to relative misfit?
             if forwardModel == 'Q':
                 #misfit = misfit*1e6 # to help the solver with small Q
                 misfit = np.abs(misfit/obs)
@@ -858,7 +859,7 @@ class Problem(object):
                             out = outt
                         depth[j,vd] = out[:np.sum(vd)]
                         model[j,vc] = out[np.sum(vd):]
-                        rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, ini0)**2)/np.sum(obs**2)/len(obs))*100
+                        rmse[j] = np.sqrt(np.sum((dataMisfit(out, obs, ini0)/obs)**2)/len(obs))*100
                     except Exception as e:
                         print('Killed')
                         return
@@ -893,7 +894,7 @@ class Problem(object):
                                 # ['{:.2f}'.format(a) for a in cond[:,0]]))
                         depth[j,vd] = out[:np.sum(vd)]
                         model[j,vc] = out[np.sum(vd):]
-                        rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, ini0)**2)/np.sum(obs**2)/len(obs))*100
+                        rmse[j] = np.sqrt(np.sum((dataMisfit(out, obs, ini0)/obs)**2)/len(obs))*100
                     except Exception as e:
                         print('Killed')
                         return
@@ -943,7 +944,7 @@ class Problem(object):
                         out = outt
                     depth[j,vd] = out[:np.sum(vd)]
                     model[j,vc] = out[np.sum(vd):]
-                    rmse[j] = np.sqrt(np.sum(dataMisfit(out, obs, params[j][-1])**2)/np.sum(obs**2)/len(obs))*100
+                    rmse[j] = np.sqrt(np.sum((dataMisfit(out, obs, params[j][-1])/obs)**2)/len(obs))*100
             dump('\n')
             self.models.append(model)
             self.depths.append(depth)
@@ -1162,7 +1163,7 @@ class Problem(object):
                     cond = cond + solution # it's an iterative process but it converges in one iteration as it's linear
                 out = cond.flatten()
                 model[j,:] = out
-                rmse[j] = np.sqrt(np.sum(dataMisfit(out, app)**2)/np.sum(app**2)/len(app))*100
+                rmse[j] = np.sqrt(np.sum((dataMisfit(out, app)/app)**2)/len(app))*100
                 dump('\r{:d}/{:d} inverted'.format(j+1, apps.shape[0]))
             self.models.append(model)
             self.misfits.append(rmse)
@@ -2169,19 +2170,16 @@ class Problem(object):
         # plotting
         if contour is True:
             centroid = np.mean(coordinates, axis=1)
-            xc = np.r_[centroid[:nsample,0], centroid[:,0], centroid[:nsample,0]]
-            yc = np.r_[np.zeros(nsample), centroid[:,1], -np.ones(nsample)*maxDepth]
-            zc = np.c_[sig[:,0], sig, sig[:,-1]]
+            centroidx = centroid[:,0].reshape((-1, nsample))
+            centroidz = centroid[:,1].reshape((-1, nsample))
+            xc = np.vstack([centroidx[0,:], centroidx, centroidx[-1,:]])
+            zc = np.vstack([np.zeros(nsample), centroidz, -np.ones(nsample)*maxDepth])
+            val = np.c_[sig[:,0], sig, sig[:,-1]].T
             if vmax > vmin:
                 levels = np.linspace(vmin, vmax, 14)
             else:
                 levels = None
-            # cax = ax.tricontourf(xc, yc, zc.flatten('F'),
-                                 # cmap=cmap, levels=levels, extend='both')
-            xc = centroid[:,0].reshape((-1, nsample)).T
-            yc = centroid[:,1].reshape((-1, nsample)).T
-            zc = sig
-            cax = ax.contourf(xc, yc, zc, cmap=cmap, levels=levels, extend='both')
+            cax = ax.contourf(xc, zc, val, cmap=cmap, levels=levels, extend='both')
             # set clip path
             # pathvert = np.c_[np.r_[xs[:,0], xs[::-1,0]], np.r_[ys[:,-1], ys[::-1,0]]]
             # path = mpath.Path(pathvert)
@@ -2535,7 +2533,9 @@ class Problem(object):
         
     
     def getRMSE(self, forwardModel=None):
-        """Returns RMSE for all coils (columns) and all surveys (row).
+        """Returns RMSPE for all coils (columns) and all surveys (row).
+        
+        np.sqrt(np.sum(((sim-obs)/obs)**2)/len(obs))
         
         Parameters
         ----------
@@ -2549,8 +2549,8 @@ class Problem(object):
         if forwardModel is None:
             forwardModel = self.forwardModel
         dfsForward = self.forward(forwardModel=forwardModel)
-        def rmse(x, y):
-            return np.sqrt(np.sum((x - y)**2)/len(x))
+        def rmse(sim, obs):
+            return np.sqrt(np.sum(((sim - obs)/obs)**2)/len(x))
         
         dfrmse = pd.DataFrame(columns=np.r_[self.coils, ['all']])
         for i in range(len(self.surveys)):
@@ -2558,10 +2558,10 @@ class Problem(object):
             for coil in self.coils:
                 obsECa = survey.df[coil].values
                 simECa = dfsForward[i][coil].values
-                dfrmse.loc[i, coil] = rmse(obsECa, simECa)
+                dfrmse.loc[i, coil] = rmse(simECa, obsECa)
             obsECa = survey.df[self.coils].values.flatten()
             simECa = dfsForward[i][self.coils].values.flatten()
-            dfrmse.loc[i, 'all'] = rmse(obsECa, simECa)
+            dfrmse.loc[i, 'all'] = rmse(simECa, obsECa)
         
         return dfrmse
         

@@ -76,7 +76,7 @@ k.showProfile(errorbar=True)
 #%% inversion
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
-k.surveys[0].df = k.surveys[0].df[:4] # only keep first measurements to make it faster
+k.surveys[0].df = k.surveys[0].df[:10] # only keep first measurements to make it faster
 k.lcurve()
 
 titles = []
@@ -91,7 +91,9 @@ for m in ['L-BFGS-B', 'ROPE']:
         title = '{:s} {:s} ({:.2f}s)'.format(fm, m, time.time()-t0)
         titles.append(title)
         fig.suptitle(title)
+        fig.show()
 print('\n'.join(titles))
+# Q for both ROPE or L-BFGS-B failed, FSeq with L-BFGS-B is not good either
 
 k.showMisfit()
 k.showOne2one()
