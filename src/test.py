@@ -79,24 +79,57 @@ k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.surveys[0].df = k.surveys[0].df[:10] # only keep first measurements to make it faster
 k.lcurve()
 
-titles = []
+infos = []
 for m in ['L-BFGS-B', 'ROPE']:
     for fm in ['CS','FSlin','FSeq','Q']:
         t0 = time.time()
         fig, axs = plt.subplots(1, 3, figsize=(10,3))
-        k.invert(forwardModel=fm, method=m, njobs=-1)
+        alpha = 0 if fm == 'Q' else 0.07
+        k.invert(forwardModel=fm, method=m, alpha=alpha, njobs=-1)
+        elapsed = time.time() - t0
         k.showResults(ax=axs[2])
         k.showMisfit(ax=axs[1])
         k.showOne2one(ax=axs[0])
-        title = '{:s} {:s} ({:.2f}s)'.format(fm, m, time.time()-t0)
-        titles.append(title)
-        fig.suptitle(title)
+        fig.suptitle('{:s} {:s} ({:.2f}s)'.format(fm, m, elapsed))
+        infos.append('{:8s} {:8s} ({:5.2f}s) RMSPE: {:6.2f} %'.format(
+            fm, m, elapsed, k.getRMSE()['all'].values[0]))
         # fig.show()
-print('\n'.join(titles))
-# Q for both ROPE or L-BFGS-B failed, FSeq with L-BFGS-B is not good either
+print('\n'.join(infos))
+# Q is quite sensitive to alpha
 
-k.showMisfit()
-k.showOne2one()
+
+#%% testing algorithms on synthetic data
+nlayer = 2
+npos = 10
+conds = np.ones((npos, nlayer))*[20, 30]
+x = np.linspace(0.1, 1.5, npos)[:,None]
+depths = 0 + 2/(1+np.exp(-4*(x-1)))
+# fig, ax = plt.subplots()
+# ax.plot(depths, 'r-')
+# fig.show()
+
+coils0 = ['VCP1.48f10000h0', 'VCP2.82f10000h0', 'VCP4.49f10000h0',
+          'HCP1.48f10000h0', 'HCP2.82f10000h0', 'HCP4.49f10000h0']
+
+infos = []
+for m in ['L-BFGS-B', 'ROPE']:
+    for fm in ['CS', 'FSlin', 'FSeq','Q']:
+        t0 = time.time()
+        k = Problem()
+        k.setModels([depths], [conds])
+        dfs = k.forward(forwardModel='FSeq', coils=coils0, noise=0.0)
+        fig, axs = plt.subplots(1, 2, figsize=(8,3), sharex=True, sharey=True)
+        k.showResults(ax=axs[0])
+        k.setInit(depths0=[0.5], fixedDepths=[False], conds0=[20, 30])
+        k.invert(forwardModel=fm, method=m, alpha=0.01, njobs=-1)
+        k.showResults(ax=axs[1], rmse=True)
+        fig.suptitle('{:s} {:s} ({:.2f}s)'.format(fm, m, elapsed))
+        infos.append('{:8s} {:8s} ({:5.2f}s) RMSPE: {:6.2f} %'.format(
+            fm, m, elapsed, k.getRMSE()['all'].values[0]))
+        # fig.show()
+print('\n'.join(infos))
+
+
 
 #%% testing gauss-Newton
 k = Problem()

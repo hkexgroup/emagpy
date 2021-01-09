@@ -462,6 +462,9 @@ class Problem(object):
                 print('Regularization autommatically set to L2 for Gauss-Newton')
             if beta != 0:
                 print('No lateral smoothing possible with Gauss-Newton for now.')
+            if any(self.fixedDepths) is False:
+                raise ValueError('As of the current implementation, all depths should be fixed for Gauss-Newton inversion')
+                return
         
         self.forwardModel = forwardModel # for future RMSE or misfit computation
         self.models = []
@@ -623,11 +626,15 @@ class Problem(object):
         def dataMisfit(p, obs, ini0):
             misfit = fmodel(p, ini0) - obs
             # TODO maybe set default to relative misfit?
-            if forwardModel == 'Q':
-                #misfit = misfit*1e6 # to help the solver with small Q
-                misfit = np.abs(misfit/obs)
+            # if forwardModel == 'Q':
+                # misfit = misfit*1e6 # to help the solver with small Q
+                # misfit = np.abs(misfit/obs)
             if forwardModel == 'QP':
-                misfit[len(misfit)//2:] *= 1e5 # TODO to be tested out
+                misfit = np.sqrt(np.imag(misfit)**2 + 1e-9*np.real(misfit)**2)
+                # the inphase part makes this misfit quite stable (and so
+                # difficult for solver to optimize), adding a coefficient helps
+                # misfit = np.imag(misfit)
+            #     misfit[len(misfit)//2:] *= 1e5 # TODO to be tested out
             return misfit 
         
         # model misfit only for conductivities not depths
@@ -707,7 +714,8 @@ class Problem(object):
                 x0 = np.r_[ini0[0][vd], ini0[1][vc]]
                 res = minimize(objfunc, x0, args=(obs, pn, spn, alpha, beta, gamma, ini0),
                                method=method, bounds=bounds, options=options)
-                out = res.x     
+                out = res.x  
+                print(res)
             elif method in mMCMC: # MCMC based methods
                 spotpySetup = spotpy_setup(obs, bounds, pn, spn, alpha, beta, 
                                            gamma, ini0, fmodel)
@@ -801,7 +809,7 @@ class Problem(object):
             dist0 = np.sqrt(np.sum((xy - xy[0,:])**2, axis=1))
             iorder = np.argsort(dist0)
             if len(self.surveys) > 1: # if only one survey, this isn't needed
-                dump('Survey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
+                dump('\nSurvey {:d}/{:d}\n'.format(i+1, len(self.surveys)))
             params = []
             outs = []
             nrows = survey.df.shape[0]
@@ -812,6 +820,7 @@ class Problem(object):
                     obs = np.array([eca2Q(a*1e-3, s) for a, s in zip(obs, self.cspacing)])
                 if forwardModel == 'QP':
                     obs = np.array([eca2Q(a*1e-3, s) for a, s in zip(obs, self.cspacing)])
+                    obs = 1j*obs + inph[j,:]
                     
                 # define previous profile in case we want to lateral constrain
                 if j == 0:
@@ -859,6 +868,8 @@ class Problem(object):
                             out = outt
                         depth[j,vd] = out[:np.sum(vd)]
                         model[j,vc] = out[np.sum(vd):]
+                        if forwardModel == 'QP':
+                            obs = np.sqrt(np.imag(obs)**2 + 1e-9*np.real(obs)**2)
                         rmse[j] = np.sqrt(np.sum((dataMisfit(out, obs, ini0)/obs)**2)/len(obs))*100
                     except Exception as e:
                         print('Killed')
@@ -894,6 +905,8 @@ class Problem(object):
                                 # ['{:.2f}'.format(a) for a in cond[:,0]]))
                         depth[j,vd] = out[:np.sum(vd)]
                         model[j,vc] = out[np.sum(vd):]
+                        if forwardModel == 'QP':
+                            obs = np.sqrt(np.real(obs)**2 + np.imag(obs)**2)
                         rmse[j] = np.sqrt(np.sum((dataMisfit(out, obs, ini0)/obs)**2)/len(obs))*100
                     except Exception as e:
                         print('Killed')
@@ -945,7 +958,6 @@ class Problem(object):
                     depth[j,vd] = out[:np.sum(vd)]
                     model[j,vc] = out[np.sum(vd):]
                     rmse[j] = np.sqrt(np.sum((dataMisfit(out, obs, params[j][-1])/obs)**2)/len(obs))*100
-            dump('\n')
             self.models.append(model)
             self.depths.append(depth)
             self.misfits.append(rmse)
@@ -2533,9 +2545,10 @@ class Problem(object):
         
     
     def getRMSE(self, forwardModel=None):
-        """Returns RMSPE for all coils (columns) and all surveys (row).
+        """Returns RMSPE for all coils (columns) and all surveys (row) as
+        percentage.
         
-        np.sqrt(np.sum(((sim-obs)/obs)**2)/len(obs))
+        np.sqrt(np.sum(((sim-obs)/obs)**2)/len(obs))*100
         
         Parameters
         ----------
@@ -2550,7 +2563,7 @@ class Problem(object):
             forwardModel = self.forwardModel
         dfsForward = self.forward(forwardModel=forwardModel)
         def rmse(sim, obs):
-            return np.sqrt(np.sum(((sim - obs)/obs)**2)/len(obs))
+            return np.sqrt(np.sum(((sim - obs)/obs)**2)/len(obs))*100
         
         dfrmse = pd.DataFrame(columns=np.r_[self.coils, ['all']])
         for i in range(len(self.surveys)):
