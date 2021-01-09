@@ -2550,7 +2550,7 @@ class Problem(object):
             forwardModel = self.forwardModel
         dfsForward = self.forward(forwardModel=forwardModel)
         def rmse(sim, obs):
-            return np.sqrt(np.sum(((sim - obs)/obs)**2)/len(x))
+            return np.sqrt(np.sum(((sim - obs)/obs)**2)/len(obs))
         
         dfrmse = pd.DataFrame(columns=np.r_[self.coils, ['all']])
         for i in range(len(self.surveys)):

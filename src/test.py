@@ -69,7 +69,7 @@ k.surveys[0].df = k.surveys[0].df[:20]
 k.setInit(depths0=[0.3, 0.7], fixedDepths=[True, False], fixedConds=[False, True, False])
 k.invert(method='DREAM', rep=500, njobs=-1, bnds=[(0.1, 0.5),(0,50,),(0,50)])
 k.showResults(errorbar=True, overlay=True)
-k.showResults(errorbar=True, overlay=True, contour=True)
+k.showResults(errorbar=True, overlay=False, contour=True)
 k.showProfile(errorbar=True)
 
 
@@ -91,7 +91,7 @@ for m in ['L-BFGS-B', 'ROPE']:
         title = '{:s} {:s} ({:.2f}s)'.format(fm, m, time.time()-t0)
         titles.append(title)
         fig.suptitle(title)
-        fig.show()
+        # fig.show()
 print('\n'.join(titles))
 # Q for both ROPE or L-BFGS-B failed, FSeq with L-BFGS-B is not good either
 
