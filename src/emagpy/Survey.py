@@ -860,7 +860,10 @@ class Survey(object):
         ax.loglog(means, error, '.')
         ax.loglog(meansBinned, errorBinned, 'o')
         predError = 10**(intercept + slope * np.log10(means))
-        eq = r'$\epsilon = {:.2f} \times \sigma^{{{:.2f}}}$'.format(10**intercept, slope)
+        if slope < 0.01 or 10**intercept < 0.01: # switch to scientific notation
+            eq = r'$\epsilon = {:.2e} \times \sigma^{{{:.2e}}}$'.format(10**intercept, slope)
+        else:
+            eq = r'$\epsilon = {:.2f} \times \sigma^{{{:.2f}}}$'.format(10**intercept, slope)
         isort = np.argsort(means)
         ax.loglog(means[isort], predError[isort], 'k-', label=eq)
         ax.legend()

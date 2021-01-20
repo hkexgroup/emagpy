@@ -892,7 +892,7 @@ class Problem(object):
                         # rrmse = np.sqrt(1/len(app)*np.sum(dataMisfit(cond[:,0], app, ini0)**2)/np.sum(app**2))
                         # print('ini: RMSE: {:.5f}%'.format(rrmse), ' '.join(
                                 # ['{:.2f}'.format(a) for a in cond[:,0]]))
-                        maxiter = options['maxiter'] if 'maxiter' in options else 1
+                        maxiter = options['maxiter'] if 'maxiter' in options else 3
                         for l in range(maxiter): # only one iteration as the jacobian doesn't depend on the cond
                             d = -dataMisfit(cond.flatten(), app, ini0) # NOTE we need minus to get the right direction
                             LHS = np.dot(J.T, J) + alpha*L
@@ -2774,6 +2774,8 @@ class Problem(object):
         survey = Survey(fnameECa)
         if calib is not None:
             survey.gfCorrection(calib=calib)
+        if meshType is None:
+            print('Please specify meshType, either "tri" or "quad"')
 
         survey = Survey(fnameECa)
         eca = survey.df[['x'] + survey.coils].values
@@ -2793,9 +2795,10 @@ class Problem(object):
             raise ValueError('You have specified {:d} bins but you only have {:d} data points.'.format(
                 nbins, eca.shape[0]))
 
-        if meshType != 'quad' and 'tri':
-            print("Please specify mesh type as 'tri' or 'quad'.")
-            return
+        if meshType is not None:
+            if meshType != 'quad' and meshType != 'tri':
+                print("Please specify mesh type as 'tri' or 'quad'.")
+                return
 
         #crop ert mesh based on location of EMI calibration data
         resmod = resmod[np.where((resmod[:,0] >= minX) & (resmod[:,0] <= maxX)),:][0]
@@ -2836,24 +2839,24 @@ class Problem(object):
                 for i in range(0, len(uniqueX)):
                     resmod[np.where(resmod[:,0] == uniqueX[i]),1] = newZ #this is done to avoid errors arising from rounding
 
-            if meshType == 'tri':
-                print('Mesh is triangular, topography shift is not implement and will be assumed negligible.')
-                return
+        if meshType == 'tri':
+            print('Mesh is triangular, topography shift is not implement and will be assumed negligible.')
+            return
 
-                #TODO method define upper surface of mesh when topography is involved
-                x = resmod[:,0]
-                z = resmod[:,1]
-                res = resmod[:,2]
-                xi = np.arange(np.min(x), np.max(x), 0.25)
-                zi = np.linspace(np.min(z), np.max(z), 15) # 15 layers in Y
-                xi, zi = np.meshgrid(xi, zi)
-                resi = griddata((x,z), res, (xi, zi), method='linear') # linear interpolation
-                x = np.unique(xi)
-                z = np.unique(zi)
-                resmodxz = np.array(np.meshgrid(x,z)).T.reshape(-1,2)            
-                res = resi.T.flatten()
-                resmod = np.concatenate((resmodxz, res[:,None]), axis=1)
-                resmod = resmod[~np.isnan(resmod[:,2]),:]
+            #TODO method define upper surface of mesh when topography is involved
+            x = resmod[:,0]
+            z = resmod[:,1]
+            res = resmod[:,2]
+            xi = np.arange(np.min(x), np.max(x), 0.25)
+            zi = np.linspace(np.min(z), np.max(z), 15) # 15 layers in Y
+            xi, zi = np.meshgrid(xi, zi)
+            resi = griddata((x,z), res, (xi, zi), method='linear') # linear interpolation
+            x = np.unique(xi)
+            z = np.unique(zi)
+            resmodxz = np.array(np.meshgrid(x,z)).T.reshape(-1,2)            
+            res = resi.T.flatten()
+            resmod = np.concatenate((resmodxz, res[:,None]), axis=1)
+            resmod = resmod[~np.isnan(resmod[:,2]),:]
 
             midDepths = -np.unique(resmod[:,1])
             # compute mean EC for each bin
