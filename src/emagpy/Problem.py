@@ -2841,47 +2841,47 @@ class Problem(object):
 
         if meshType == 'tri':
             print('Mesh is triangular, topography shift is not implement and will be assumed negligible.')
-            return
 
-            #TODO method define upper surface of mesh when topography is involved
-            x = resmod[:,0]
-            z = resmod[:,1]
-            res = resmod[:,2]
-            xi = np.arange(np.min(x), np.max(x), 0.25)
-            zi = np.linspace(np.min(z), np.max(z), 15) # 15 layers in Y
-            xi, zi = np.meshgrid(xi, zi)
-            resi = griddata((x,z), res, (xi, zi), method='linear') # linear interpolation
-            x = np.unique(xi)
-            z = np.unique(zi)
-            resmodxz = np.array(np.meshgrid(x,z)).T.reshape(-1,2)            
-            res = resi.T.flatten()
-            resmod = np.concatenate((resmodxz, res[:,None]), axis=1)
-            resmod = resmod[~np.isnan(resmod[:,2]),:]
+        # below is common to tri and quad mesh
+        #TODO method define upper surface of mesh when topography is involved
+        x = resmod[:,0]
+        z = resmod[:,1]
+        res = resmod[:,2]
+        xi = np.arange(np.min(x), np.max(x), 0.25)
+        zi = np.linspace(np.min(z), np.max(z), 15) # 15 layers in Y
+        xi, zi = np.meshgrid(xi, zi)
+        resi = griddata((x,z), res, (xi, zi), method='linear') # linear interpolation
+        x = np.unique(xi)
+        z = np.unique(zi)
+        resmodxz = np.array(np.meshgrid(x,z)).T.reshape(-1,2)            
+        res = resi.T.flatten()
+        resmod = np.concatenate((resmodxz, res[:,None]), axis=1)
+        resmod = resmod[~np.isnan(resmod[:,2]),:]
 
-            midDepths = -np.unique(resmod[:,1])
-            # compute mean EC for each bin
-            bins = np.linspace(minX, maxX, nbins+1)
-            binID = np.digitize(np.unique(resmod[:,0]), bins+1)
-            ec = np.empty((nbins, len(midDepths)))
-            midDepthsr = midDepths[::-1]
-            for i in range(0, nbins):
-                for j in range(0, len(midDepths)):
-                    idepth = resmod[:,1] == -midDepthsr[j]
-                    ibins = binID == i+1
-                    ec[i,j] = 1000/np.mean(resmod[idepth,:][ibins, 2])
+        midDepths = -np.unique(resmod[:,1])
+        # compute mean EC for each bin
+        bins = np.linspace(minX, maxX, nbins+1)
+        binID = np.digitize(np.unique(resmod[:,0]), bins+1)
+        ec = np.empty((nbins, len(midDepths)))
+        midDepthsr = midDepths[::-1]
+        for i in range(0, nbins):
+            for j in range(0, len(midDepths)):
+                idepth = resmod[:,1] == -midDepthsr[j]
+                ibins = binID == i+1
+                ec[i,j] = 1000/np.mean(resmod[idepth,:][ibins, 2])
 
-            # compute mean ECa for each bin
-            binID = np.digitize(np.unique(eca[:,0]), bins)
-            depths = (midDepthsr[1:] + midDepthsr[:-1])/2
-            eca2 = np.zeros((nbins, eca.shape[1]))
-            for i in range(0, nbins):
-                ie = binID == i+1
-                if np.sum(ie) > 0:
-                    eca2[i,:] = np.mean(eca[ie,:], axis=0)
-            eca2 = np.array(eca2)
-            eca2 = eca2[~np.isnan(eca2).any(axis=1)]
-            eca2[np.all(eca2 == 0, axis=1)] = np.nan
-            dist = (bins[1:] + bins[:-1]) / 2
+        # compute mean ECa for each bin
+        binID = np.digitize(np.unique(eca[:,0]), bins)
+        depths = (midDepthsr[1:] + midDepthsr[:-1])/2
+        eca2 = np.zeros((nbins, eca.shape[1]))
+        for i in range(0, nbins):
+            ie = binID == i+1
+            if np.sum(ie) > 0:
+                eca2[i,:] = np.mean(eca[ie,:], axis=0)
+        eca2 = np.array(eca2)
+        eca2 = eca2[~np.isnan(eca2).any(axis=1)]
+        eca2[np.all(eca2 == 0, axis=1)] = np.nan
+        dist = (bins[1:] + bins[:-1]) / 2
             
         #ec is electrical conductivtiy from ERT model, depths are depths from resmodel, eca2 is eca data in same dimension as ec
         return ec, depths, eca2[:, 1:], dist
