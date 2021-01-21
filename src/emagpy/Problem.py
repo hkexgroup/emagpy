@@ -2328,7 +2328,7 @@ class Problem(object):
         # create plotter is none specified
         if pl is None:
             pl = pv.Plotter()
-        try:: # PlotterITK doesn't have .set_background()
+        try: # PlotterITK doesn't have .set_background()
             pl.set_background(background_color)
         except Exception:
             pass
@@ -2368,7 +2368,7 @@ class Problem(object):
                                 show_edges=edges,
                                 scalar_bar_args={'color':'k'})
         else:
-            if type(pl) != type(pv.PlotterITK()): # PlotterITK is strange
+            try: # PlotterITK is strange
                 pl.add_mesh(self.pvmesh,
                             cmap=cmap,
                             clim=[vmin,vmax],
@@ -2377,7 +2377,7 @@ class Problem(object):
                                              'vertical':False,
                                              'title_font_size':16,
                                              'label_font_size':14})
-            else:
+            except:
                 pl.add_mesh(self.pvmesh)
         
         # show mesh
