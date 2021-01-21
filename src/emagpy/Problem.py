@@ -2328,8 +2328,10 @@ class Problem(object):
         # create plotter is none specified
         if pl is None:
             pl = pv.Plotter()
-        if type(pl) != type(pv.PlotterITK()): # PlotterITK doesn't have .set_background()
+        try:: # PlotterITK doesn't have .set_background()
             pl.set_background(background_color)
+        except Exception:
+            pass
         
         # thresholding between pvthreshold[0] and pvthreshold[1]
         if pvthreshold is not None:
