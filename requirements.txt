@@ -8,3 +8,4 @@ joblib
 tqdm
 ipympl
 voila
+pyvista
