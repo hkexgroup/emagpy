@@ -24,14 +24,14 @@ The python API is available by simply importing the `emagpy` module from the pyt
 ```python
 import emagpy
 k = Problem()
-k.createSurvey('./test/coverCrop.csv')
+k.createSurvey('examples/cover-crop/coverCrop.csv')
 k.invert(forwardModel='CS') # specify the forward model (here the Cumulative Sensitivty of McNeil1980)
 k.showResults() # display the section
 k.showMisfit() # display predicted and observed apparent EC
 k.showOne2one() # 1:1 line of misfit of apparent EC
 ```
 
-For more example, check out the [jupyter-notebook](jupyter notebooks).
+For more example, check out the [jupyter-notebook](https://gitlab.com/hkex/emagpy/-/tree/master/jupyter-notebook).
 
 
 Downloads
@@ -111,17 +111,59 @@ Electrical Resistivity Tomography (ERT) is an electrical method that measure the
 To the best of our knowledge, this is specific to *GF-Instruments* (CMD Mini-Explorer, CMD Explorer). GF Instruments used a custom linear relationship to convert quadrature values to ECa (F-Ground, F-0m or F-1m) while other instruments usually rely on the Low Induction Number (LIN) approximation (McNeil, 1980). For 'F-1m' for instance, the ECa values displayed by the GF instruments are gained by this relationship to appear closer to the actual ground EC. However, this relationship comes in the way for proper inversion as it is not physically based (while LIN is). It is then recommended that if the data comes from a GF-Instruments, such conversion is applied. While this correction has minimal effect on the F-Ground and F-0m calibrations, it has big implication for the F-1m of the CMD Explorer. More information is provided in the EMagPy paper. 
 
 
+
+Building the software
+----
+Note that you can run EMagPy fully from source. However, if you want to distribute it to other clients without
+needing them to install Python, it might be more convenient to bundle the app.
+
+Bundles are build using `pyinstaller` (`pip install pyinstaller`). Different types of bundles can be produced:
+- `.zip` bundle, the user unzip it and inside can run `EMagPy.exe` (Windows) or just `EMagPy` (linux), or extractthe `.app` (mac)
+- `.exe` (Windows), no extension (linux), `.dmg` (mac). Windows and Linux are self-extractable archives which auto-extract themselves to a temporary directory at run-time (while the splashscreen is loading). Mac dmg image can be mounted and the .app can be drag and dropped to the Applications folder.
+
+Building is automated by the `build.sh` (linux), `build.bat` (windows), `build-app.sh` (mac) scripts.
+An additional `build-pypi.sh` is supplied to build PyPi packages.
+
+Note that you need to setup a python environment `pyenv`, as referenced by the scripts, which contains the necessary packages to run EMagPy (see requirements.txt and requirments-gui.txt). `pyenv` should be located at the same level as the repository folder. The scripts should be run from withing the `src` folder.
+
+e.g.
+```
+pyenv/
+resipy/
+    doc/
+    jupyter-notebook/
+    src/
+        build.sh
+        build.bat
+        build-app.sh
+        build-pypi.sh
+```
+
+To build the Windows bundle, do:
+```sh
+cd emagpy/src
+build.bat
+```
+
+The bundles produced will be located in `emagpy/src/dist/`.
+
+
+
+Current version
+---------------
+v 1.1.0
+[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.1.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-windows.exe)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.1.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-macos.dmg)
+[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.1.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-linux)
+
+
 Older versions
 --------------
 v 1.0.0
-
 [![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.0.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-windows.exe)
 [![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.0.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-macos.dmg)
 [![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.0.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-linux)
 
-[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.0.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-windows.zip)
-[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.0.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-macos.app.zip)
-[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.0.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-linux.zip)
 
 
 
