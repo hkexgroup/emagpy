@@ -1551,7 +1551,7 @@ class Problem(object):
     
     
     def showMap(self, index=0, coil=None, contour=False, ax=None, vmin=None, vmax=None,
-                pts=False, cmap='viridis_r', xlab='x', ylab='y', nlevel=7):
+                pts=False, cmap='viridis_r', xlab='x', ylab='y', levels=[]):
         """ Display a map of the measurements.
         
         Parameters
@@ -1574,12 +1574,12 @@ class Problem(object):
             X label.
         ylab : str, optional
             Y label.
-        nlevel : int, optional
-            Number of levels for the contourmap. Default is 7.
+        levels list of float, optional
+            If `contour == True`, levels are the contour intervals.
         """
         self.surveys[index].showMap(coil=coil, vmin=vmin, vmax=vmax,
                     contour=contour, pts=pts, cmap=cmap, ax=ax, xlab=xlab,
-                    ylab=ylab, nlevel=nlevel)
+                    ylab=ylab, levels=levels)
         
     
     def showPseudo(self, index=0, coil='all', ax=None, vmin=None, vmax=None, 
@@ -2086,7 +2086,7 @@ class Problem(object):
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, padding=1, cmap='viridis_r', dist=True,
                     contour=False, rmse=False, errorbar=False, overlay=False,
-                    elev=False, doi=False):
+                    elev=False, doi=False, levels=[]):
         """Show inverted model.
         
         Parameters
@@ -2126,6 +2126,8 @@ class Problem(object):
             If `True` and `computeDOI()` was called, the estimated DOI from 
             above which 70% of the deeper coil configuration is coming from will
             be plotted on top of the graph as a red dotted line.
+        levels list of float, optional
+            If `contour == True`, levels are the contour intervals.
         """
         try:
             sig = self.models[index]
@@ -2187,10 +2189,11 @@ class Problem(object):
             xc = np.vstack([centroidx[0,:], centroidx, centroidx[-1,:]])
             zc = np.vstack([np.zeros(nsample), centroidz, -np.ones(nsample)*maxDepth])
             val = np.c_[sig[:,0], sig, sig[:,-1]].T
-            if vmax > vmin:
-                levels = np.linspace(vmin, vmax, 14)
-            else:
-                levels = None
+            if len(levels) == 0:
+                if vmax > vmin:
+                    levels = np.linspace(vmin, vmax, 14)
+                else:
+                    levels = None
             cax = ax.contourf(xc, zc, val, cmap=cmap, levels=levels, extend='both')
             # set clip path
             # pathvert = np.c_[np.r_[xs[:,0], xs[::-1,0]], np.r_[ys[:,-1], ys[::-1,0]]]
@@ -2310,10 +2313,11 @@ class Problem(object):
             return
         fpl = True if pl is not None else False # flag if pl is supplied
         
-        # save vtk to temporary folder
-        folder = tempfile.TemporaryDirectory()
-        fname = os.path.join(folder.name, 'emagpyMesh.vtk')
-        self.saveVTK(fname, index=index, elev=elev)
+        # save vtk to temporary folder and read it
+        with tempfile.TemporaryDirectory() as folder:
+            fname = os.path.join(folder, 'emagpyMesh.vtk')
+            self.saveVTK(fname, index=index, elev=elev)
+            self.pvmesh = pv.read(fname)
         
         # vmin/vmax values
         if vmin is None:
@@ -2326,7 +2330,6 @@ class Problem(object):
             pl = pv.Plotter()
         if type(pl) != type(pv.PlotterITK()): # PlotterITK doesn't have .set_background()
             pl.set_background(background_color)
-        self.pvmesh = pv.read(fname)
         
         # thresholding between pvthreshold[0] and pvthreshold[1]
         if pvthreshold is not None:
@@ -2375,10 +2378,9 @@ class Problem(object):
             else:
                 pl.add_mesh(self.pvmesh)
         
-        # show mesh and clean temporary folder
+        # show mesh
         if fpl is False:
             pl.show()
-        folder.cleanup()
         
         
     
@@ -2557,6 +2559,7 @@ class Problem(object):
                 - CS : Cumulative sensitivity (default)
                 - FS : Full Maxwell solution with low-induction number (LIN) approximation
                 - FSeq : Full Maxwell solution without LIN approximation (see Andrade 2016)
+                
             If `None` (default), the forward model used for the inversion is used.
         """
         if forwardModel is None:
@@ -2594,6 +2597,7 @@ class Problem(object):
                 - CS : Cumulative sensitivity (default)
                 - FS : Full Maxwell solution with low-induction number (LIN) approximation
                 - FSeq : Full Maxwell solution without LIN approximation (see Andrade 2016)
+            
             If `None` (default), the forward model used for the inversion is used.
         ax : matplotlib.Axes, optional
             If specified the graph will be plotted on this axis.
@@ -2633,6 +2637,7 @@ class Problem(object):
                 - CS : Cumulative sensitivity (default)
                 - FS : Full Maxwell solution with low-induction number (LIN) approximation
                 - FSeq : Full Maxwell solution without LIN approximation (see Andrade 2016)
+            
             If `None` (default), the forward model used for the inversion is used.
         ax : matplotlib.Axes, optional
             If specified the graph will be plotted on this axis.
@@ -3139,7 +3144,7 @@ class Problem(object):
         
         
     def showDepths(self, index=0, idepth=0, contour=False, vmin=None, vmax=None,
-                  cmap='viridis_r', ax=None, pts=False):
+                  cmap='viridis_r', ax=None, pts=False, levels=[]):
         """Show depth slice.
         
         Parameters
@@ -3160,6 +3165,8 @@ class Problem(object):
             If specified, the graph will be plotted against it.
         pts : boolean, optional
             If `True` (default) the data points will be plotted over the contour.
+        levels list of float, optional
+            If `contour == True`, levels are the contour intervals.
         """
         z = self.depths[index][:,idepth]
         x = self.surveys[index].df['x'].values
@@ -3179,7 +3186,8 @@ class Problem(object):
             ax.set_xlim([np.nanmin(x), np.nanmax(x)])
             ax.set_ylim([np.nanmin(y), np.nanmax(y)])
         else:
-            levels = np.linspace(vmin, vmax, 7)
+            if len(levels) == 0:
+                levels = np.linspace(vmin, vmax, 7)
             cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
             if pts:
                 ax.plot(x, y, 'k+')

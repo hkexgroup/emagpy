@@ -5,6 +5,7 @@ Created on Thu Jul 11 20:36:28 2019
 
 @author: jkl
 """
+import os
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -256,6 +257,11 @@ k.importModel(datadir + 'saprolite/inv_regolith.csv')
 k.showSlice()
 k.showSlice(contour=True, pts=True)
 
+# remove artifacts
+os.remove(datadir + 'saprolite/map.tiff')
+os.remove(datadir + 'saprolite/slice.tiff')
+os.remove(datadir + 'saprolite/inv_regolith.csv')
+
 
 #%% forward modelling
 nlayer = 2
@@ -287,6 +293,7 @@ k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.setInit(depths0=[0.5], fixedDepths=[False])
 k.invert(threed=True, beta=0.1)
 k.saveVTK(datadir + 'cover-crop/inv.vtk')
+os.remove(datadir + 'cover-crop/inv.vtk')
 try:
     import pyvista as pv
     pl = pv.BackgroundPlotter()

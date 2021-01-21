@@ -53,9 +53,9 @@ extensions = [
 example_gallery_config = {
     'examples_dirs': '../jupyter-notebook',
     'gallery_dirs': 'auto_examples',
-    'dont_preprocess': '../jupyter-notebook/nb_comparison-inversion-cover-crop.ipynb',
+    'dont_preprocess': ['../jupyter-notebook/nb_comparison-inversion-cover-crop.ipynb','../jupyter-notebook/nb_paper-cs-vs-fs.ipynb','../jupyter-notebook/nb_paper-noise-height.ipynb','../jupyter-notebook/nb_paper-ert-calibration.ipynb','../jupyter-notebook/nb_paper-river-fdem.ipynb','../jupyter-notebook/nb_multi-frequency.ipynb'],
     'pattern': 'nb_.+.ipynb',
-    'urls': 'https://github.com/hkexgroup/emagpy/blob/stable/jupyter-notebook',
+    'urls': 'https://github.com/hkexgroup/emagpy/blob/stable/jupyter-notebook', # only for github, not gitlab support
     'binder_url': 'https://mybinder.org/v2/gl/hkex%2Femagpy/stable?filepath=jupyter-notebook',
 }
 

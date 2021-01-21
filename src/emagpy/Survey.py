@@ -564,7 +564,7 @@ class Survey(object):
         
     
     def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None,
-                pts=False, cmap='viridis_r', xlab='x', ylab='y', nlevel=7):
+                pts=False, cmap='viridis_r', xlab='x', ylab='y', levels=[]):
         """ Display a map of the measurements.
         
         Parameters
@@ -585,8 +585,8 @@ class Survey(object):
             X label.
         ylab : str, optional
             Y label.
-        nlevel : int, optional
-            Number of levels for the contourmap. Default is 7.
+        levels list of float, optional
+            If `contour == True`, levels are the contour intervals.
         """
         if coil is None:
             coil = self.coils[0]
@@ -605,7 +605,8 @@ class Survey(object):
             vmax = np.nanpercentile(val, 95)
         ax.set_title(coil)
         if contour is True:
-            levels = np.linspace(vmin, vmax, nlevel)
+            if len(levels) == 0:
+                levels = np.linspace(vmin, vmax, 7)
             cax = ax.tricontourf(x, y, val, levels=levels, extend='both', cmap=cmap)
             if pts is True:
                 ax.plot(x, y, 'k+')
