@@ -49,6 +49,8 @@ as a zip file:
 [![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.1.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-linux.zip)
 
 
+If you just want to give it a try on the web, without installing anything, you can try this [**beta UI on binder**](https://mybinder.org/v2/gl/hkex%2Femagpy/stable?urlpath=voila/render/jupyter-notebook/ui.ipynb).
+
 Citing EMagPy
 -------------
 If you use EMagPy for you work, please cite [this paper](https://doi.org/10.1016/j.cageo.2020.104561) as:
@@ -168,5 +170,3 @@ v 1.0.0
 
 
 [![coverage report](https://gitlab.com/hkex/emagpy/badges/master/coverage.svg)](https://gitlab.com/hkex/emagpy/-/commits/master)
-
-(alpha) EMagPy online based on Voila: replace `tree` with `voila/tree` once the binder url is loaded, then load `ui.ipynb`.
