@@ -465,7 +465,7 @@ class Survey(object):
             killed.figure.canvas.draw()
     
         ax.set_title(coil)
-        caxs = ax.plot(xpos, self.df[cols].values, '.-', picker=5)
+        caxs = ax.plot(xpos, self.df[cols].values, '.-', picker=True, pickradius=5)
         ax.legend(cols)
         ax.set_ylim([vmin, vmax])
         ax.set_xlabel('Measurements')
