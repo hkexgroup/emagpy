@@ -616,6 +616,10 @@ class Survey(object):
         ax.set_ylabel(ylab)
         ax.set_xlim([np.nanmin(x), np.nanmax(x)])
         ax.set_ylim([np.nanmin(y), np.nanmax(y)])
+        ax.get_xaxis().get_major_formatter().set_useOffset(False) # prevent exponent notation
+        ax.get_yaxis().get_major_formatter().set_useOffset(False)
+        ax.get_xaxis().get_major_formatter().set_scientific(False)
+        ax.get_yaxis().get_major_formatter().set_scientific(False)
         if coil[-5:] == '_inph':
             fig.colorbar(cax, ax=ax, label='Inphase [ppt]')
         else:
@@ -908,6 +912,10 @@ class Survey(object):
         ax.plot(xcoord[icross], ycoord[icross], 'ro', label='crossing points')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
+        ax.get_xaxis().get_major_formatter().set_useOffset(False) # prevent exponent notation
+        ax.get_yaxis().get_major_formatter().set_useOffset(False)
+        ax.get_xaxis().get_major_formatter().set_scientific(False)
+        ax.get_yaxis().get_major_formatter().set_scientific(False)
 
 
     
