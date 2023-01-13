@@ -1583,7 +1583,7 @@ class Problem(object):
         
     
     def showPseudo(self, index=0, coil='all', ax=None, vmin=None, vmax=None, 
-             dist=True, cmap='viridis_r'):
+             plot_colorbar=True, dist=True, cmap='viridis_r'):
         """Show the raw data of the survey.
         
         Parameters
@@ -1598,6 +1598,8 @@ class Problem(object):
             Minimal Y value.
         vmax : float, optional
             Maximial Y value.
+        plot_colorbar : bool, optional
+            If `True` the colorbar will be plotted.
         dist : bool, optional
             If `True` the true distance between points will be computed else
             the sample index is used as X index.
@@ -1650,7 +1652,8 @@ class Problem(object):
         ax.invert_yaxis()
         ax.set_ylabel('Pseudo depth [m]')
         ax.set_xlabel(xlab)
-        fig.colorbar(cax, ax=ax, label='ECa [mS/m]')
+        if plot_colorbar:
+            fig.colorbar(cax, ax=ax, label='ECa [mS/m]')
 
     
     
@@ -2083,9 +2086,10 @@ class Problem(object):
         
 
     
-    def showResults(self, index=0, ax=None, vmin=None, vmax=None,
-                    maxDepth=None, padding=1, cmap='viridis_r', dist=True,
-                    contour=False, rmse=False, errorbar=False, overlay=False,
+    def showResults(self, index=0, ax=None, vmin=None, vmax=None, 
+                    plot_colorbar=True, maxDepth=None, padding=1,
+                    cmap='viridis_r', dist=True, contour=False,
+                    rmse=False, errorbar=False, overlay=False,
                     elev=False, doi=False, levels=[]):
         """Show inverted model.
         
@@ -2099,6 +2103,8 @@ class Problem(object):
             Minimum value of the colorbar.
         vmax : float, optional
             Maximum value of the colorbar.
+        plot_colorbar : bool, optional
+            If `True` the colorbar will be plotted.
         maxDepth : float, optional
             Maximum negative depths of the graph.
         padding : float, optional
@@ -2202,14 +2208,15 @@ class Problem(object):
             # ax.add_patch(patch)
             # for col in cax.collections:
             #     col.set_clip_path(patch)
-    
-            fig.colorbar(cax, ax=ax, label='EC [mS/m]')
+            if plot_colorbar:
+                fig.colorbar(cax, ax=ax, label='EC [mS/m]')
         else:
             coll = PolyCollection(coordinates, array=sig.flatten('F'), cmap=cmap)
             coll.set_clim(vmin=vmin, vmax=vmax)
             ax.add_collection(coll)
             pad = 0.15 if rmse else 0.05
-            fig.colorbar(coll, label='EC [mS/m]', ax=ax, pad=pad)
+            if plot_colorbar:
+                fig.colorbar(coll, label='EC [mS/m]', ax=ax, pad=pad)
         
         if rmse:
             ax2 = ax.twinx()
@@ -2269,7 +2276,7 @@ class Problem(object):
 
 
 
-    def show3D(self, index=0, pl=None, vmin=None, vmax=None,
+    def show3D(self, index=0, pl=None, vmin=None, vmax=None, plot_colorbar=True,
                 maxDepth=None, cmap='viridis_r', elev=False, edges=False,
                 background_color=(0.8,0.8,0.8), pvslices=([],[],[]),
                 pvthreshold=None, pvgrid=False, pvcontour=[]): # pragma: no cover
@@ -2285,6 +2292,8 @@ class Problem(object):
             Minimum value of the colorbar.
         vmax : float, optional
             Maximum value of the colorbar.
+        plot_colorbar : bool, optional
+            If `True` the colorbar will be plotted.
         maxDepth : float, optional
             Maximum negative depths of the graph.
         cmap : str, optional
@@ -3143,7 +3152,8 @@ class Problem(object):
         ax.get_yaxis().get_major_formatter().set_useOffset(False)
         ax.get_xaxis().get_major_formatter().set_scientific(False)
         ax.get_yaxis().get_major_formatter().set_scientific(False)
-        fig.colorbar(cax, ax=ax, label=label)
+        if plot_colorbar:
+            fig.colorbar(cax, ax=ax, label=label)
         # depths = np.r_[[0], self.depths0, [-np.inf]]
         # ax.set_title('{:.2f}m - {:.2f}m'.format(depths[islice], depths[islice+1]))
         ax.set_title(title.format(islice+1))
@@ -3165,6 +3175,8 @@ class Problem(object):
             Minimum value for colorscale.
         vmax : float, optional
             Maximum value for colorscale.
+        plot_colorbar : bool, optional
+            If `True` the colorbar will be plotted.        
         cmap : str, optional
             Name of colormap. Default is viridis_r.
         ax : Matplotlib.Axes, optional
@@ -3199,7 +3211,8 @@ class Problem(object):
                 ax.plot(x, y, 'k+')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
-        fig.colorbar(cax, ax=ax, label='Depth [m]')
+        if plot_colorbar:
+            fig.colorbar(cax, ax=ax, label='Depth [m]')
         ax.set_title('Depths[{:d}]'.format(idepth))
 
     def computeDOI(self, conds=None, depths=None, nlayers=50):

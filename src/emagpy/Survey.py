@@ -564,7 +564,8 @@ class Survey(object):
         
     
     def showMap(self, coil=None, contour=False, ax=None, vmin=None, vmax=None,
-                pts=False, cmap='viridis_r', xlab='x', ylab='y', levels=[]):
+                plot_colorbar=True, pts=False, cmap='viridis_r',xlab='x',
+                ylab='y', levels=[]):
         """ Display a map of the measurements.
         
         Parameters
@@ -579,6 +580,8 @@ class Survey(object):
             Minimum of the colorscale.
         vmax : float, optional
             Maximum of the colorscale.
+        plot_colorbar : bool, optional
+            If `True` the colorbar will be plotted.            
         pts : bool, optional
             If `True` the measurements location will be plotted on the graph.
         xlab : str, optional
@@ -620,11 +623,12 @@ class Survey(object):
         ax.get_yaxis().get_major_formatter().set_useOffset(False)
         ax.get_xaxis().get_major_formatter().set_scientific(False)
         ax.get_yaxis().get_major_formatter().set_scientific(False)
-        if coil[-5:] == '_inph':
-            fig.colorbar(cax, ax=ax, label='Inphase [ppt]')
-        else:
-            fig.colorbar(cax, ax=ax, label='ECa [mS/m]')
-        
+        if plot_colorbar:
+            if coil[-5:] == '_inph':
+                fig.colorbar(cax, ax=ax, label='Inphase [ppt]')
+            else:
+                fig.colorbar(cax, ax=ax, label='ECa [mS/m]')
+            
 
     def saveMap(self, fname, coil=None, nx=100, ny=100, method='linear',
                 xmin=None, xmax=None, ymin=None, ymax=None, color=True,
@@ -657,7 +661,7 @@ class Survey(object):
         cmap : str, optional
             If `color == True`, name of the colormap. Default is viridis.
         vmin : float, optional
-            Minimum value for colomap.
+            Minimum value for colormap.
         vmax : float, optional
             Maximum value for colormap.
         nlevel : int, optional
