@@ -3092,7 +3092,7 @@ class Problem(object):
         
     
     def showSlice(self, index=0, islice=0, contour=False, vmin=None, vmax=None,
-                  cmap='viridis_r', ax=None, pts=False):
+                  plot_colorbar=True, cmap='viridis_r', ax=None, pts=False):
         """Show depth slice of EC (if islice > 0) and depth (if islice < 0).
         
         Parameters
@@ -3109,6 +3109,8 @@ class Problem(object):
             Minimum value for colorscale.
         vmax : float, optional
             Maximum value for colorscale.
+        plot_colorbar : bool, optional
+            If `True` the colorbar will be plotted.
         cmap : str, optional
             Name of colormap. Default is viridis_r.
         ax : Matplotlib.Axes, optional
@@ -3160,7 +3162,7 @@ class Problem(object):
         
         
     def showDepths(self, index=0, idepth=0, contour=False, vmin=None, vmax=None,
-                  cmap='viridis_r', ax=None, pts=False, levels=[]):
+                  plot_colorbar=True, cmap='viridis_r', ax=None, pts=False, levels=[]):
         """Show depth slice.
         
         Parameters
