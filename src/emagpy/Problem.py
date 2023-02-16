@@ -3021,7 +3021,7 @@ class Problem(object):
             # replot the same graph but with corrected EC
             ax.clear()
             ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
-            for i, s in enumerate(self.coils):
+            for i, coil in enumerate(self.coils):
                 # obsECaCorr = (obsECa[:,i] - offsets[i])/slopes[i]
                 obsECaCorr = obsECa[:,i] + offsets[i] - (1-slopes[i]) * obsECa[:,i]
                 x, y = obsECaCorr, simECa[:,i]
