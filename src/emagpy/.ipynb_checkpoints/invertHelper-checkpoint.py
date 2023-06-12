@@ -120,7 +120,7 @@ def getR0_1(lamb, sigg, f, d):
     omega = 2*np.pi*f # assume single omega here as lamb is already a vector
     u = np.sqrt(lamb**2+1j*sigma*mu_0*omega)
     N = u/(1j*mu_0*omega)
-    Y = np.zeros(N.shape, dtype=complex)*np.nan # Y is actually -1 smaller than N but easier like this for index
+    Y = np.zeros(N.shape, dtype=np.complex)*np.nan # Y is actually -1 smaller than N but easier like this for index
     Y[-1] = N[-1]
     for i in range(len(N)-2, 0, -1):
         Y[i] = N[i]*(Y[i+1]+N[i]*np.tanh(d[i]*u[i]))/ \
@@ -153,7 +153,7 @@ def getR0_2(lamb, sigg, f, d):
     # first zero won't be used because we never use hn, always hn+1, just
     # for easier indexing
     gamma = np.sqrt(lamb**2 + 1j*2*np.pi*f*mu_0*sigma)
-    R = np.zeros((len(sigma)), dtype=complex)#*np.nan
+    R = np.zeros((len(sigma)), dtype=np.complex)#*np.nan
 #    R[-1] = 0 # no waves from the lower half space
     for i in range(len(sigma)-2, -1, -1):
         num = (gamma[i]-gamma[i+1])/(gamma[i]+gamma[i+1]) \
@@ -290,7 +290,7 @@ def getRn2(lamb, sigg, f, d): # compute reflexion coefficients
     imagPart = 2*np.pi*f*mu_0*np.repeat(sigma[:,None], len(lamb), axis=1)
     gamma = np.sqrt(realPart.T + 1j*imagPart)
 #    gamma = np.sqrt(lamb**2 + 1j*2*np.pi*f*mu_0*sigma)
-    R = np.zeros((sigmaLen, len(lamb)), dtype=complex)#*np.nan
+    R = np.zeros((sigmaLen, len(lamb)), dtype=np.complex)#*np.nan
     R[-1,:] = 0+0j # no waves from the lower half space
     for i in range(sigmaLen-2, -1, -1): # it's recursive so needs for loop
         R[i,:] = (gamma[i,:]-gamma[i+1,:])/(gamma[i,:]+gamma[i+1,:]) \
