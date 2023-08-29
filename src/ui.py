@@ -835,7 +835,7 @@ class App(QMainWindow):
             self.showParams['cmap'] = psMapCmaps[index]
             self.replot()
         self.cmapCombo = QComboBox()
-        psMapCmaps = ['viridis', 'viridis_r', 'Greys', 'seismic', 'rainbow', 'jet','jet_r']
+        psMapCmaps = ['viridis', 'viridis_r', 'Greys', 'seismic', 'rainbow', 'jet', 'jet_r', 'turbo']
 
         self.cmapCombo.addItems(psMapCmaps)
         self.cmapCombo.activated.connect(cmapComboFunc)
@@ -1598,7 +1598,7 @@ class App(QMainWindow):
             showInvParams['cmap'] = self.cmapInvCombo.itemText(index)
             self.mwInv.replot(**showInvParams)
         self.cmapInvCombo = QComboBox()
-        invCmaps = ['viridis_r', 'viridis', 'Greys', 'seismic', 'rainbow', 'jet']
+        invCmaps = ['viridis_r', 'viridis', 'Greys', 'seismic', 'rainbow', 'jet', 'turbo']
         self.cmapInvCombo.addItems(invCmaps)
         self.cmapInvCombo.activated.connect(cmapInvComboFunc)
         
@@ -1663,7 +1663,7 @@ class App(QMainWindow):
             showInvMapParams['cmap'] = self.cmapInvMapCombo.itemText(index)
             self.mwInvMap.replot(**showInvMapParams)
         self.cmapInvMapCombo = QComboBox()
-        invMapCmaps = ['viridis_r', 'viridis', 'Greys', 'seismic', 'rainbow', 'jet']
+        invMapCmaps = ['viridis_r', 'viridis', 'Greys', 'seismic', 'rainbow', 'jet', 'turbo']
         self.cmapInvMapCombo.addItems(invMapCmaps)
         self.cmapInvMapCombo.activated.connect(cmapInvMapComboFunc)
         
