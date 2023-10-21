@@ -9,3 +9,4 @@ tqdm
 ipympl
 voila
 pyvista
+rasterio

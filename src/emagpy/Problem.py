@@ -715,7 +715,6 @@ class Problem(object):
                 res = minimize(objfunc, x0, args=(obs, pn, spn, alpha, beta, gamma, ini0),
                                method=method, bounds=bounds, options=options)
                 out = res.x  
-                print(res)
             elif method in mMCMC: # MCMC based methods
                 spotpySetup = spotpy_setup(obs, bounds, pn, spn, alpha, beta, 
                                            gamma, ini0, fmodel)
@@ -2177,7 +2176,7 @@ class Problem(object):
         n = vertices.shape[0]
         connection = np.c_[np.arange(n).reshape(-1,2),
                            2*nsample + np.arange(n).reshape(-1,2)[:,::-1]]
-        ie = (connection >= len(vertices)).any(1)
+        ie = (connection >= len(vertices)).any(axis=1)
         connection = connection[~ie, :]
         coordinates = vertices[connection]
         

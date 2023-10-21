@@ -357,7 +357,7 @@ class Survey(object):
         """
         cols = ['x','y'] + self.coils + self.coilsInph
         self.df[cols] = self.df[cols].rolling(window).mean()
-        i2discard = self.df[self.coils].isna().any(1)
+        i2discard = self.df[self.coils].isna().any(axis=1)
         self.df = self.df[~i2discard]
         print('dataset shrunk of {:d} measurements'.format(np.sum(i2discard)))        
     
@@ -554,7 +554,8 @@ class Survey(object):
         # plotting histogram
         bins = np.linspace(vmin, vmax, nbins+1) # for 20 bins, we need 21 bin limits
         for c in coils:
-            color = next(ax._get_lines.prop_cycler)["color"]
+            cax = ax.plot([], [])
+            color = cax[0].get_color()
             ax.hist(self.df[c].values, bins=bins, label=c, color=color, 
                     alpha=0.3, edgecolor=color, lw=3)
         ax.legend()
@@ -595,6 +596,10 @@ class Survey(object):
         x = self.df['x'].values
         y = self.df['y'].values
         val = self.df[coil].values
+        inan = ~np.isnan(val)
+        val = val[inan]
+        x = x[inan]
+        y = y[inan]
         if ax is None:
             fig, ax = plt.subplots()
         else:
@@ -614,8 +619,9 @@ class Survey(object):
             cax = ax.scatter(x, y, s=15, c=val, vmin=vmin, vmax=vmax, cmap=cmap)
         ax.set_xlabel(xlab)
         ax.set_ylabel(ylab)
-        ax.set_xlim([np.nanmin(x), np.nanmax(x)])
-        ax.set_ylim([np.nanmin(y), np.nanmax(y)])
+        if len(x) > 0:
+            ax.set_xlim([np.nanmin(x), np.nanmax(x)])
+            ax.set_ylim([np.nanmin(y), np.nanmax(y)])
         ax.get_xaxis().get_major_formatter().set_useOffset(False) # prevent exponent notation
         ax.get_yaxis().get_major_formatter().set_useOffset(False)
         ax.get_xaxis().get_major_formatter().set_scientific(False)
