@@ -102,6 +102,26 @@ example:
 | 1 | 0 | 0         | 36.69   | 40.16   |
 | 2 | 0 | 0         | 35.79   | 39.21   |
 
+See examples of .csv files in `src/examples/`.
+
+
+### My file is a .csv but cannot be read?
+
+**Make sure your file a TRUE csv with ',' as separator**. In a few language, because the ',' is used as decimal separator, the ';' is used to separate the fields of the .csv. This need to be changed as EMagPy only use real .csv with '.' as decimal separator and ',' as field separator. If you are in this case, you can easily open the .csv in a text editor and make the change with "find and replace all".
+
+### How to deal with NMEA string?
+
+Often, GPS instrument provide location as [NMEA string](https://docs.arduino.cc/learn/communication/gps-nmea-data-101) which are then stored in the datafile as this. For instance `5224.461265N,00220.673206W` is formatted as DDMM.MMMMMM (D for degree and M for minutes of arc) + N or S (North or South). Similar notation for is found for the longitude: DDDMM.MMMMMM.
+
+EMagPy can convert these NMEA string into a projected coordinate system directly if they are passed in a ´Latitude` and `Longitude` columns (with a capital "L").
+
+example:
+| Latitude | Longitude | elevation | VCP0.71 | VCP1.18 |
+|--------------|---------------|---|---------|---------|
+| 5224.461265N | 00220.673206W | 0  | 34.67 | 38.32 |
+| 5224.461265N | 00220.673206W | 0  | 36.69 | 40.16 |
+| 5224.461265N | 00220.673206W | 0  | 35.79 | 39.21 |
+
 
 ### What is ERT calibration and do I need it?
 
