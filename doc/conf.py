@@ -21,7 +21,7 @@ from emagpy import EMagPy_version
 # -- Project information -----------------------------------------------------
 
 project = 'EMagPy'
-copyright = '2020, G. Blanchy and P. McLachlan'
+copyright = '2024, G. Blanchy and P. McLachlan'
 author = 'G. Blanchy and P. McLachlan'
 
 # The short X.Y version
@@ -44,9 +44,12 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'numpydoc',
-    #'nbsphinx', # to include jupyter notebook as sphinx doc page
+    'nbsphinx', # to include jupyter notebook as sphinx
+    'sphinxcontrib.rsvgconverter',  # for SVG->PDF conversion in LaTeX output
+#    'sphinx_last_updated_by_git',  # get "last updated" from Git
+    'sphinx_codeautolink',  # automatic links from code to documentation
     #'sphinx_gallery.gen_gallery', # to generate the gallery
-    'sphinx_nbexamples', # needs pandoc (apt-get install pandoc)
+    #'sphinx_nbexamples', # needs pandoc (apt-get install pandoc)
 ]
 
 
@@ -164,6 +167,53 @@ latex_documents = [
 ]
 
 
+# This is processed by Jinja2 and inserted before each notebook
+nbsphinx_prolog = r"""
+{% set docname = env.doc2path(env.docname, base=None).replace('gallery/', '') %}
+
+.. raw:: html
+
+    <div class="admonition note">
+      This page was generated from
+      <a class="reference external" href="https://gitlab.com/hkex/emagpy/-/blob/stable/jupyter-notebook/{{ docname|e }}">jupyter-notebook/{{ docname|e }}</a>.
+      Interactive online version:
+      <span style="white-space: nowrap;"><a href="https://mybinder.org/v2/gl/hkex%2Femagpy/stable?filepath=jupyter-notebook/{{ docname|e }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>.</span>
+      <a href="{{ env.docname.split('/')|last|e + '.ipynb' }}" class="reference download internal" download>Download notebook</a>.
+      <script>
+        if (document.location.host) {
+          let nbviewer_link = document.createElement('a');
+          nbviewer_link.setAttribute('href',
+            'https://nbviewer.org/url' +
+            (window.location.protocol == 'https:' ? 's/' : '/') +
+            window.location.host +
+            window.location.pathname.slice(0, -4) +
+            'ipynb');
+          nbviewer_link.innerHTML = 'Or view it on <em>nbviewer</em>';
+          nbviewer_link.classList.add('reference');
+          nbviewer_link.classList.add('external');
+          document.currentScript.replaceWith(nbviewer_link, '.');
+        }
+      </script>
+    </div>
+
+.. raw:: latex
+
+    \nbsphinxstartnotebook{\scriptsize\noindent\strut
+    \textcolor{gray}{The following section was generated from
+    \sphinxcode{\sphinxupquote{\strut {{ docname | escape_latex }}}} \dotfill}}
+"""
+
+# This is processed by Jinja2 and inserted after each notebook
+nbsphinx_epilog = r"""
+{% set docname = 'doc/' + env.doc2path(env.docname, base=None) %}
+.. raw:: latex
+
+    \nbsphinxstopnotebook{\scriptsize\noindent\strut
+    \textcolor{gray}{\dotfill\ \sphinxcode{\sphinxupquote{\strut
+    {{ docname | escape_latex }}}} ends here.}}
+"""
+
+
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
@@ -187,3 +237,5 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
+
+# python3 -m sphinx . _build -j4

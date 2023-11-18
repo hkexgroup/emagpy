@@ -10,6 +10,13 @@ EMagPy python API and standalone GUI
 Installation
 ------------
 
+**You can find executables for Windows, Mac and Linux on:**
+
+https://gitlab.com/hkex/emagpy
+
+
+See below instruction if you want to run EMagPy from source (for development purpose) or if you want to only install the API (pypi package "emagpy") without graphical user interface.
+
 Clone the gitlab repository::
 
     git clone https://gitlab.com/hkex/emagpy
@@ -31,8 +38,7 @@ From the same `src` directory you can import the module from source using python
    getting-started
    gui
    api
-   auto_examples/index
-
+   gallery/index
 
 Indices and tables
 ==================

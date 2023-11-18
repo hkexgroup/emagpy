@@ -1,4 +1,4 @@
-image: python:3.7-stretch
+image: python:3.10-bookworm
 
 test:
   script:
@@ -14,9 +14,9 @@ pages:
   - pip install -r requirements.txt
   - apt-get update
   - apt-get install --assume-yes pandoc
-  - pip install sphinx==1.8.4 numpydoc==0.7.0 sphinx_rtd_theme sphinx-nbexamples
+  - pip install sphinx==7.2.6 numpydoc==1.6.0 sphinx_rtd_theme nbsphinx sphinxcontrib-svg2pdfconverter sphinx-codeautolink
   - cd doc
-  - make html
+  - sphinx-build -M html . _build
   - cd ..
   - mv doc/_build/html/ public/
   - ls public

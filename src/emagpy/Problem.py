@@ -3112,7 +3112,7 @@ class Problem(object):
             title = 'Layer {:d}'
         else:
             islice = np.abs(islice) - 1
-            z = self.depth[index][:,islice]
+            z = self.depths[index][:,islice]
             label = 'Depth [m]'
             title = 'Bottom depth of layer {:d}'
         x = self.surveys[index].df['x'].values
