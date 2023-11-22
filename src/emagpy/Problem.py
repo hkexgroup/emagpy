@@ -397,7 +397,7 @@ class Problem(object):
             an artificial neural network on synthetic data and use it for inversion.
             Note that smoothing (alpha, beta, gamma) and regularization are not
             supported by ANN, MCMC, DREAM and SCUEA (but well by ROPE).
-            Another option is the use of the Gauss-Newton algorithm which can be 
+            Another option is the use of the Gauss-Newton (GN) algorithm which can be 
             faster in some situation. Maximum number of GN iteration can be specified as
             options={maxiter:3}. Default is 1.
         regularization : str, optional
@@ -412,7 +412,13 @@ class Problem(object):
             Function to print the progression. Default is `print`.
         bnds : list of float, optional
             If specified, will create bounds for the inversion. Doesn't work with
-            Nelder-Mead solver.
+            Nelder-Mead solver. Bounds need to be specified only for the parameters not fixed,
+            starting with the depths, then the EC. For instance,
+            if you **fix** 2 depths and fit 3 layer EC:
+            [(layer1_ec_min, layer1_ec_max), (layer2_ec_min, layer2_ec_max), (layer3_ec_min, layer3_ec_max)]
+            If you **fit** 2 depths and fit 3 layer EC:
+            [(depth1_min, depth1_max),(depth2_min, depth2_max),
+            (layer1_ec_min, layer1_ec_max),	(layer2_ec_min, layer2_ec_max),	(layer3_ec_min, layer3_ec_max)].
         options : dict, optional
             Additional dictionary arguments will be passed to `scipy.optimize.minimize()`.
         Lscaling : bool, optional
@@ -1809,7 +1815,7 @@ class Problem(object):
     def saveInvData(self, outputdir):
         """Save inverted data as one .csv per file with columns for
         layer conductivity (in mS/m) and columns for depth (in meters).
-        The filename will be the same as the survey name prefixed with 'inv_'.
+        The filename will be the same as the survey name prefixed with ´inv_´.
         
         Parameters
         ----------
@@ -2389,7 +2395,7 @@ class Problem(object):
         """ Writes a vtk file.
         
         Parameters
-        ------------
+        ----------
         fname : str
             Path where to save the file.
         index : int, optional
