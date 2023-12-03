@@ -92,8 +92,8 @@ jobs:
         run: |
           brew reinstall python@3.10
           cd ..
-          /usr/local/python3.10 -m pip install virtualenv
-          /usr/local/python3.10 -m virtualenv -p /usr/local/python3.10 pyenv
+          /usr/local/bin/python3.10 -m pip install virtualenv
+          /usr/local/bin/python3.10 -m virtualenv -p /usr/local/bin/python3.10 pyenv
           source pyenv/bin/activate
           cd emagpy
           pip install setuptools==65.6.3
