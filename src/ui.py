@@ -421,7 +421,7 @@ class App(QMainWindow):
         self.fnoise.setValidator(QDoubleValidator())
         def fforwardBtnFunc():
             coils = self.coilTable.getTable()
-            forwardModel = fforwardModels[self.fforwardCombo.currentIndex()]
+            forwardModel = fforwardModels[self.fforwardCombo.current()]
             noise = float(self.fnoise.text())/100
             self.problem.forward(forwardModel, coils=coils, noise=noise)
             self.writeLog('k.forward("{:s}", coils={:s}, noise={:.2f}'.format(
@@ -483,13 +483,14 @@ class App(QMainWindow):
         # select type of sensors
         def sensorComboFunc(index):
             print('sensor selected is:', sensors[index])
-            if index == 1 or index == 2:
+            if index == 1 or index == 2 or index == 3:
                 showGF(True)
             else:
                 showGF(False)
         self.sensorCombo = QComboBox()
         sensors = ['CMD Mini-Explorer',
-                   'CMD Explorer'
+                   'CMD Explorer',
+                   'CMD Mini-Explorer 6L'
                    ]
         sensors = sorted(sensors)
         sensors = ['All'] + sensors
@@ -535,11 +536,19 @@ class App(QMainWindow):
         self.hxEdit.setToolTip('Height above the ground [m]')
         
         def importGFApplyFunc():
+            print(self.fnameLo)
             hx = float(self.hxEdit.text()) if self.hxEdit.text() != '' else 0
             device = self.sensorCombo.itemText(self.sensorCombo.currentIndex())
             self.problem.importGF(self.fnameLo, self.fnameHi, device, hx)
-            self.writeLog('k.importGF("{:s}", "{:s}", "device={:s}", hx={:.2f})'.format(
-                self.fnameLo, self.fnameHi, device, hx))
+            if self.fnameLo is not None and self.fnameHi is not None:
+                self.writeLog('k.importGF("{:s}", "{:s}", "device={:s}", hx={:.2f})'.format(
+	        self.fnameLo, self.fnameHi, device, hx))
+            if self.fnameLo is not None:
+                self.writeLog('k.importGF("{:s}", "device={:s}", hx={:.2f})'.format(
+	        self.fnameLo, device, hx))
+            if self.fnameHi is not None:
+                self.writeLog('k.importGF("{:s}", "device={:s}", hx={:.2f})'.format(
+	        self.fnameHi, device, hx))
             self.infoDump('Surveys well imported')
             self.setupUI()
         self.importGFApply = QPushButton('Import')

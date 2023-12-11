@@ -957,7 +957,21 @@ class Survey(object):
                        'HCP1.18': 13.42529324,
                        'VCP0.32': 167.10523718,
                        'VCP0.71': 34.50404729,
-                       'VCP1.18': 12.744378}
+                       'VCP1.18': 12.744378,
+                       'HCP0.20': 515.4639175,
+                       'HCP0.33': 190.839695,
+                       'HCP0.50': 84.03361345,
+                       'HCP0.72': 41.32231405,
+                       'HCP1.03': 20.661157025,
+                       'VCP1.50': 10.1419878296,
+                       'HCP0.20': 515.46391753,
+                       'VCP0.33': 190.47619048,
+                       'VCP0.50': 83.33333333,
+                       'VCP0.72': 40.6504065,
+                       'VCP1.03': 20.08032129,
+                       'VCP1.50': 9.64320154}
+
+                       
             for i, coil in enumerate(coils):
                 qvalues = 0+df[self.coils[i]].values/gfcoefs[coil]*1e-3j
                 df.loc[:, self.coils[i]] = Q2eca(qvalues, self.cspacing[i], f=self.freqs[i])*1000 # mS/m
@@ -1023,7 +1037,7 @@ class Survey(object):
             csep = [1.48, 2.82, 4.49]
         elif device == 'CMD Mini-Explorer 6L':
             freq = 30000
-            csep = [0.2, 0.33, 0.5, 0.72, 1.03, 1.5]
+            csep = [0.20, 0.33, 0.50, 0.72, 1.03, 1.50]
         else:
             raise ValueError('Device ' + device + ' unknown.')
 
