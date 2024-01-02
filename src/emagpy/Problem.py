@@ -1531,7 +1531,7 @@ class Problem(object):
             dfs = self.forward(forwardModel=forwardModel, coils=coils,
                                models=lmodels, depths=ldepths,
                                noise=0.0)
-            eca = np.dstack([df[coils].values for df in dfs]) # Nsample x Ncoils x Nprofiles
+            eca = np.dstack([df.values for df in dfs]) # Nsample x Ncoils x Nprofiles
             # sens = eca[:-1,:,:] / eca[-1,:,:][None,:,:] - 1 # dividing by ref (undisturbed ECa)
             sens = eca[:-1,:,:] - eca[-1,:,:][None,:,:] # subtracting the ref ECa (slighly better up to 1e-16)
             sens = sens/np.max(sens, axis=0)[None,:,:] # normalising
