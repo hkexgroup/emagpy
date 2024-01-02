@@ -1,5 +1,5 @@
 numpy
-matplotlib==3.2.1
+matplotlib
 pandas
 scipy
 pyproj
