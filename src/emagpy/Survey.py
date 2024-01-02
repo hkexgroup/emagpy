@@ -513,7 +513,10 @@ class Survey(object):
             for the British Grid.
         """
         self.projection = targetProjection
-        self.df = convertFromCoord(self.df, targetProjection)
+        if 'latitude' in self.df.columns.str.lower().tolist():
+            self.df = convertFromCoord(self.df, targetProjection)
+        else:
+            print('No "latitude"/"longitude" columns found.')
 
 
         

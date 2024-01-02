@@ -255,6 +255,7 @@ class App(QMainWindow):
         self.optBtn = QPushButton('Options')
         self.menu = QMenu()
         self.menu.addAction('Save API log', self.saveLog)
+        self.menu.addAction('Save processed data', self.saveData)
         self.optBtn.setMenu(self.menu)
         self.tabs.setCornerWidget(self.optBtn, Qt.TopRightCorner)
         
@@ -422,7 +423,7 @@ class App(QMainWindow):
         self.fnoise.setValidator(QDoubleValidator())
         def fforwardBtnFunc():
             coils = self.coilTable.getTable()
-            forwardModel = fforwardModels[self.fforwardCombo.current()]
+            forwardModel = fforwardModels[self.fforwardCombo.currentIndex()]
             noise = float(self.fnoise.text())/100
             self.problem.forward(forwardModel, coils=coils, noise=noise)
             self.writeLog('k.forward("{:s}", coils={:s}, noise={:.2f}'.format(
@@ -2428,6 +2429,12 @@ the ERT calibration will account for it.</p>
             self.apiLog = self.apiLog.replace('"None"', 'None')
             with open(fname, 'w') as f:
                 f.write(self.apiLog)
+
+    def saveData(self):
+        fdir = QFileDialog.getExistingDirectory(self, 'Choose directory where to save the files')
+        if fdir != '':
+            self.problem.saveData(fdir)
+            self.writeLog('k.saveData("{:s}"'.format(fdir))
         
         
     def keyPressEvent(self, e):

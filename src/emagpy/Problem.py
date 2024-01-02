@@ -1839,7 +1839,28 @@ class Problem(object):
                                crs=self.projection, transform=tt) as dst:
                 dst.write(Z, 1)
         
-    
+    def saveData(self, outputdir):
+        """Save processed data and inverted data (if available)
+        as one .csv per file with both processed data and inverted 
+        (if available) with columns for layer conductivity (in mS/m) and columns for depth (in meters).
+        The filename will be the same as the survey name previx with `data_`.
+        
+        Parameters
+        ----------
+        outputdir : str
+            Path where the .csv files will be saved.
+        """
+        for i, survey in enumerate(self.surveys):
+            fname = os.path.join(outputdir, 'data_' + survey.name + '.csv')
+            df = survey.df.copy()
+            if i < len(self.models):  # add inverted data if available
+                lcol = ['layer{:d}'.format(a+1) for a in range(self.models[0].shape[1])]
+                dcol = ['depth{:d}'.format(a+1) for a in range(self.depths[0].shape[1])]
+                data = np.c_[self.models[i], self.depths[i]]
+                invdf = pd.DataFrame(data, columns=lcol + dcol)
+                df = pd.concat([df, invdf], axis=1)
+            df.to_csv(fname, index=False)
+
     def saveInvData(self, outputdir):
         """Save inverted data as one .csv per file with columns for
         layer conductivity (in mS/m) and columns for depth (in meters).
