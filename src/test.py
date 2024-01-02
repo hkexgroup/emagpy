@@ -293,6 +293,7 @@ k.saveMap(fname=datadir + 'saprolite/map-idw.tiff', method='idw')
 # k.saveMap(fname=datadir + 'saprolite/map-krig.tiff', method='kriging', color=True)
 k.saveSlice(fname=datadir + 'saprolite/slice.tiff', color=True)
 k.saveInvData(datadir + 'saprolite/')
+k.saveData(datadir + 'saprolite/')
 k.importModel(datadir + 'saprolite/inv_regolith.csv')
 k.showSlice()
 k.showSlice(contour=True, pts=True)
@@ -302,6 +303,7 @@ os.remove(datadir + 'saprolite/map-idw.tiff')
 # os.remove(datadir + 'saprolite/map-krig.tiff')
 os.remove(datadir + 'saprolite/slice.tiff')
 os.remove(datadir + 'saprolite/inv_regolith.csv')
+os.remove(datadir + 'saprolite/data_regolith.csv')
 
 
 #%% forward modelling
