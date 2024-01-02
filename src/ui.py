@@ -999,10 +999,6 @@ class App(QMainWindow):
                 self.fnameEC = None
                 self.ecImportBtn.setText('Import EC profiles')
                 self.ertImportBtn.setText(os.path.basename(fname))
-                if self.meshTypeBtn.currentText() == 'Quadrilateral ERT Mesh':
-                    self.meshType = 'quad'
-                if self.meshTypeBtn.currentText() == 'Triangular ERT Mesh':
-                    self.meshType = 'tri'
         self.ertImportBtn = QPushButton('Import ERT model')
         self.ertImportBtn.clicked.connect(ertImportBtnFunc)
         self.meshTypeBtn = QComboBox()
@@ -1027,6 +1023,10 @@ class App(QMainWindow):
         
         # perform the fit (equations display in the console)
         def fitCalibBtnFunc():
+            if self.meshTypeBtn.currentText() == 'Quadrilateral ERT Mesh':
+                self.meshType = 'quad'
+            if self.meshTypeBtn.currentText() == 'Triangular ERT Mesh':
+                self.meshType = 'tri'
             forwardModel = self.forwardCalibCombo.itemText(self.forwardCalibCombo.currentIndex())
             calib = self.gfCalibCalibCombo.currentText() if self.gfCalibCalibCombo.currentText() != 'None' else None 
             self.mwCalib.setCallback(self.problem.calibrate)

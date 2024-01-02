@@ -801,11 +801,16 @@ class Survey(object):
             ymax = np.max(yknown)
         X, Y = np.meshgrid(np.linspace(xmin, xmax, nx),
                            np.linspace(ymin, ymax, ny))
-        inside = np.ones(nx*ny)
-        inside2 = clipConvexHull(self.df['x'].values,
-                                 self.df['y'].values,
-                                 X.flatten(), Y.flatten(), inside)
-        ie = ~np.isnan(inside2)
+        
+        # check if data are all on a line (so 1D, not 2D)
+        if len(np.unique(yknown)) > 2:
+            inside = np.ones(nx*ny)
+            inside2 = clipConvexHull(self.df['x'].values,
+                                    self.df['y'].values,
+                                    X.flatten(), Y.flatten(), inside)
+            ie = ~np.isnan(inside2)
+        else:
+            ie = np.ones(nx*ny, dtype=bool)
         df = pd.DataFrame()
         df['x'] = X.flatten()
         df['y'] = Y.flatten()

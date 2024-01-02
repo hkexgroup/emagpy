@@ -2856,8 +2856,8 @@ class Problem(object):
         survey = Survey(fnameECa)
         if calib is not None:
             survey.gfCorrection(calib=calib)
-        if meshType is None:
-            print('Please specify meshType, either "tri" or "quad"')
+        # if meshType is None:
+        #     print('Please specify meshType, either "tri" or "quad"')
 
         survey = Survey(fnameECa)
         eca = survey.df[['x'] + survey.coils].values
@@ -2894,19 +2894,19 @@ class Problem(object):
             if len(np.where(resmod[:,1] == maxTopo)[0]) < len(np.unique(x)):
                 print('Mesh has topograpy and will be flattened.')
 
-                #x location of maximum topography
+                # get x location of maximum topography
                 xMaxTopo = x[np.where(resmod[:,1] == maxTopo)]
 
-                #determine new z values for mesh
+                # determine new z values for mesh
                 newZ = resmod[np.where(resmod[:,0] == xMaxTopo),1] - maxTopo
 
-                #count number of layers for each x position along transect
+                # count number of layers for each x position along transect
                 uniqueX = np.unique(x)
                 nlayers = []
                 for i in range(0, len(uniqueX)):
                     nlayers = np.append(nlayers, resmod[np.where(resmod[:,0] == uniqueX[i]),1].shape[1])
 
-                #normalize layer depths for each x position
+                # normalize layer depths for each x position
                 for i in range(0, len(uniqueX)):
                     resmodCol = resmod[np.where(resmod[:,0] == uniqueX[i]),:]
                     shiftZ = np.max(resmodCol[0][:,1]) - maxTopo
@@ -2914,7 +2914,7 @@ class Problem(object):
 
                 resmod[:,1] = resmod[:,1] - maxTopo
 
-                #model needs homogenous layer number, layers exceeding minimum number of layers deleted
+                # model needs homogenous layer number, layers exceeding minimum number of layers deleted
                 nlayer = np.min(nlayers)
                 resmod = resmod[np.where(resmod[:,1] > np.mean(newZ[0][::-1][:2])),:][0]
                 newZ = newZ[0][:int(nlayer)]        
@@ -2943,14 +2943,14 @@ class Problem(object):
         midDepths = -np.unique(resmod[:,1])
         # compute mean EC for each bin
         bins = np.linspace(minX, maxX, nbins+1)
-        binID = np.digitize(np.unique(resmod[:,0]), bins+1)
+        binID = np.digitize(resmod[:,0], bins+1)
         ec = np.empty((nbins, len(midDepths)))
         midDepthsr = midDepths[::-1]
         for i in range(0, nbins):
             for j in range(0, len(midDepths)):
                 idepth = resmod[:,1] == -midDepthsr[j]
                 ibins = binID == i+1
-                ec[i,j] = 1000/np.mean(resmod[idepth,:][ibins, 2])
+                ec[i,j] = 1000/np.mean(resmod[idepth & ibins, 2])
 
         # compute mean ECa for each bin
         binID = np.digitize(np.unique(eca[:,0]), bins)
@@ -2967,8 +2967,6 @@ class Problem(object):
             
         #ec is electrical conductivtiy from ERT model, depths are depths from resmodel, eca2 is eca data in same dimension as ec
         return ec, depths, eca2[:, 1:], dist
-
-
 
     def calibrate(self, fnameECa, fnameEC=None, fnameResMod=None, 
                   forwardModel='CS', ax=None, apply=False, meshType=None, dump=None,
