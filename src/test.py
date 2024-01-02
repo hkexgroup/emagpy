@@ -21,6 +21,7 @@ k.importGF(datadir + 'cover-crop/coverCropLo.dat')
 k.importGF(datadir + 'cover-crop/coverCropHi.dat')
 k.importGF(datadir + 'cover-crop/coverCropLo.dat',
            datadir + 'cover-crop/coverCropHi.dat', device='CMD Explorer', calib='F-0m')
+k.gfCorrection(calib='F-0m')
 
 # filtering
 k.filterRange(vmin=0, vmax=25)
@@ -45,10 +46,16 @@ k.showMap()
 k = Problem()
 k.createMergedSurvey([datadir + 'potatoes/potatoesLo.csv',
                       datadir + 'potatoes/potatoesHi.csv'],
-                     targetProjection='EPSG:27700')
+                     targetProjection='EPSG:27700', how='first')
+
+k = Problem()
+k.createMergedSurvey([datadir + 'potatoes/potatoesLo.csv',
+                      datadir + 'potatoes/potatoesHi.csv'],
+                     targetProjection='EPSG:27700', how='add')
 df0 = k.surveys[0].df.copy()
 k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
 k.surveys[0].driftCorrection(radius=5, fit='each')
+k.surveys[0].driftCorrection(radius=5, fit='each', apply=True)
 k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all', apply=True)
 k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
 # k.surveys[0].crossOverPointsDrift()
@@ -97,6 +104,20 @@ for m in ['L-BFGS-B', 'ROPE']:
         # fig.show()
 print('\n'.join(infos))
 # Q is quite sensitive to alpha
+
+#%% testing l1
+k = Problem()
+k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+k.surveys[0].df = k.surveys[0].df[:10] # only keep first measurements to make it faster
+k.removeCoil(icoil=0)
+k.removeCoil(coilName=k.coils[1])
+k.invert(forwardModel='CS', method='DREAM', regularization='l1')
+
+#%% testing grid parameter search (GPS) -- TODO finish the implementation
+# k = Problem()
+# k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+# k.setInit(depths0=[0.4, 0.7, 1], conds0=[20, 20, 20, 20])
+# k.invert(method='GPS', bnds=[(1, 100), (1, 100), (1, 100), (1, 100)])
 
 
 #%% testing algorithms on synthetic data
@@ -166,6 +187,19 @@ k.showResults(errorbar=True)
 
 
 #%% from background survey (time-lapse)
+# try a few variants
+k = Problem()
+try:
+    k.createTimeLapseSurvey([
+        datadir + 'timelapse-wheat/eca2017-03-16.csv'])
+except Exception as e:
+    print(e)
+
+k = Problem()
+k.createTimeLapseSurvey([
+    datadir + 'timelapse-wheat/eca2017-03-16.csv',
+    datadir + 'timelapse-wheat/eca2017-04-03.csv'])
+
 k = Problem()
 k.createTimeLapseSurvey(datadir + 'timelapse-wheat')
 ss = []
@@ -237,6 +271,11 @@ k.invert(forwardModel='CSgn')
 k.getRMSE()
 k.showResults(index=1, cmap='bwr', dist=True)
 
+#%% check if project already set
+k = Problem()
+k.setProjection('EPSG:27700')
+k.createSurvey(datadir + 'saprolite/regolith.csv')
+
 
 #%% mapping and save georeferenced slice
 k = Problem()
@@ -246,11 +285,11 @@ try:
 except:
     pass
 k.createSurvey(datadir + 'saprolite/regolith.csv')
-k.convertFromNMEA()
+k.convertFromCoord()
 k.invert(forwardModel='CSgn')
 k.showSlice()
-k.saveMap(fname=datadir + 'saprolite/map.tiff', method='idw')
-# k.saveMap(fname=datadir + 'saprolite/map2.tiff', method='kriging', color=True)
+k.saveMap(fname=datadir + 'saprolite/map-idw.tiff', method='idw')
+# k.saveMap(fname=datadir + 'saprolite/map-krig.tiff', method='kriging', color=True)
 k.saveSlice(fname=datadir + 'saprolite/slice.tiff', color=True)
 k.saveInvData(datadir + 'saprolite/')
 k.importModel(datadir + 'saprolite/inv_regolith.csv')
@@ -258,7 +297,8 @@ k.showSlice()
 k.showSlice(contour=True, pts=True)
 
 # remove artifacts
-os.remove(datadir + 'saprolite/map.tiff')
+os.remove(datadir + 'saprolite/map-idw.tiff')
+# os.remove(datadir + 'saprolite/map-krig.tiff')
 os.remove(datadir + 'saprolite/slice.tiff')
 os.remove(datadir + 'saprolite/inv_regolith.csv')
 

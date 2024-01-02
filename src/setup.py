@@ -9,7 +9,6 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="emagpy",
     version=EMagPy_version,
-#    version="1.1.11",
     author="HKEx",
     description="API for FDEM inversion and data manipulation",
     long_description=long_description,

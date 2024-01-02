@@ -64,7 +64,7 @@ def convertFromCoord(df, targetProjection=None):
     Parameters
     ----------
     df : pandas.DataFrame
-        Dataframe with a 'Latitude' and 'Longitude' columns that contains NMEA
+        Dataframe with a 'latitude' and 'longitude' columns that contains NMEA
         string.
     targetProjection : str, optional
         Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
@@ -105,30 +105,34 @@ def convertFromCoord(df, targetProjection=None):
         secs = float(arg[(min_idx+1):sec_idx])
         DD = deg + (mins/60) + (secs/3600) # decimal degree calculation
         return sign*DD # return with sign
+
+    def gps2gps(x):
+        return float(x)
     
-    check = df['Latitude'][0]
+    check = df['latitude'][0]
     if check.find('°') !=-1 and check.find("'") != -1:
         print("Coordinates appear to be given as Degrees, minutes, seconds ... adjusting conversion scheme")
         gps2deg = np.vectorize(DMS)
-    else:
+    elif any([a in check for a in ['N','S','W','E']]):
         gps2deg = np.vectorize(NMEA)
+    else:  # assume in decimal degree
+        gps2deg = np.vectorize(gps2gps)
     
-    
-    df['lat'] = gps2deg(df['Latitude'].values)
-    df['lon'] = gps2deg(df['Longitude'].values)
+    df['lat'] = gps2deg(df['latitude'].values)
+    df['lon'] = gps2deg(df['longitude'].values)
     
     if targetProjection is not None:
-        wgs84 = pyproj.Proj("EPSG:4326") # LatLon with WGS84 datum used by GPS units and Google Earth
-        targetCRS = pyproj.Proj(targetProjection) # target EPSG
-        df['x'], df['y'] = pyproj.transform(wgs84, targetCRS, 
-                              df['lat'].values, df['lon'].values)
-    else:
+        try:
+            transformer = pyproj.Transformer.from_crs('EPSG:4326', targetProjection)
+            df['x'], df['y'] = transformer.transform(
+                df['lat'].values, df['lon'].values)
+        except Exception as e:
+            raise ValueError('You may need to upgrade pyproj (pip install -U pyproj) to have Transformer')
+    else:  # set decimal degree as x,y if no projection given
         df['x'] = df['lon']
         df['y'] = df['lat']
 
     return df
-    
-    
 
     
 class Survey(object):
@@ -144,7 +148,7 @@ class Survey(object):
         The height of the instrument above the ground. Can be specified per coil
         in the .csv.
     targetProjection : str, optional
-        If specified, the 'Latitude' and 'Longitude' NMEA string will be
+        If specified, the 'latitude' and 'longitude' NMEA string will be
         converted to the targeted grid e.g. : 'EPSG:27700'.
     unit : str, optional
         Unit for the _quad and _inph columns. By default assume to be in ppt 
@@ -186,7 +190,7 @@ class Survey(object):
         sensor : str, optional
             Name of the sensor (for metadata only).
         targetProjection : str, optional
-            EPSG string describing the projection of a 'Latitude' and 'Longitude'
+            EPSG string describing the projection of a 'latitude' and 'longitude'
             column is found in the dataframe. e.g. 'EPSG:27700' for the British grid.
         unit : str, optional
             Unit for the _quad and _inph columns. By default assume to be in ppt 
@@ -217,7 +221,7 @@ class Survey(object):
         sensor : str, optional
             A string describing the sensor (for metadata only).
         targetProjection : str, optional
-            EPSG string describing the projection of a 'Latitude' and 'Longitude'
+            EPSG string describing the projection of a 'latitude' and 'longitude'
             column is found in the dataframe. e.g. 'EPSG:27700' for the British grid.
         unit : str, optional
             Unit for the _quad and _inph columns. By default assume to be in ppt 
@@ -245,8 +249,16 @@ class Survey(object):
                 else:
                     self.coils.append(c)
         
+        # rename columns to lowercase
+        cols = ['x', 'y', 'elevation', 'latitude', 'longitude']
+        for col in cols:
+            icol = df.columns.str.lower() == col
+            if np.sum(icol) > 0:
+                ocol = df.columns[icol].values[0]
+                if ocol != col:
+                    df = df.rename(columns={ocol: col})
+
         # extracting x, y, elevation data
-        df = df.rename(columns={'X':'x','Y':'y','ELEVATION':'elevation'})
         if 'x' not in df.columns:
             df['x'] = np.arange(df.shape[0])
         if 'y' not in df.columns:
@@ -283,9 +295,7 @@ class Survey(object):
         
         # setting projection if any
         if targetProjection is not None:
-            self.convertFromNMEA(targetProjection=targetProjection)
-
-            
+            self.convertFromCoord(targetProjection=targetProjection)
         
     def getCoilInfo(self, arg):
         arg = arg.lower()
@@ -487,24 +497,8 @@ class Survey(object):
         i2keep = ~self.iselect
         print('{:d}/{:d} data removed (filterDiff).'.format(np.sum(~i2keep), len(i2keep)))
         self.df = self.df[i2keep].reset_index(drop=True)
-
-
-    def tcorrECa(self, tdepths, tprofile):
-        """Temperature correction using XXXX formula.
-        
-        Parameters
-        ----------
-        tdepths : array-like
-            Depths in meters of the temperature sensors (negative downards).
-        tprofile : array-like
-            Temperature values corresponding in degree Celsius.
-        """
-        # TODO if ECa -> compute an 'apparent' temperature
-        # TODO what about per survey ?
-        pass
-
-
-    def convertFromNMEA(self, targetProjection='EPSG:27700'): # British Grid 1936
+    
+    def convertFromCoord(self, targetProjection='EPSG:27700'): # British Grid 1936
         """Convert coordinates string (NMEA or DMS) to selected CRS projection.
     
         Parameters
@@ -1015,8 +1009,8 @@ class Survey(object):
             `gfCorrection()` function will be called and ECa values will be
             converted to LIN ECa (this is recommended for inversion).
         targetProjection : str, optional
-            If both Lo and Hi dataframe contains 'Latitude' with NMEA values
-            a conversion first is done using `self.convertFromNMEA()` before
+            If both Lo and Hi dataframe contains 'latitude' with NMEA values
+            a conversion first is done using `self.convertFromCoord()` before
             being regrid using nearest neightbours. If not supplied, regridding
             is done using WGS84 latitude and longitude.
         """
@@ -1074,14 +1068,16 @@ class Survey(object):
         if fnameLo is not None:
             loFile = pd.read_csv(fnameLo, sep='\t')
             loFile = harmonizeHeaders(loFile)
+            loFile = loFile.rename(columns={'Latitude': 'latitude', 'Longitude': 'longitude'})
             loFile = loFile.rename(columns=dict(zip(cols, loCols)))
         if fnameHi is not None:
             hiFile = pd.read_csv(fnameHi, sep='\t')
             hiFile = harmonizeHeaders(hiFile)
+            hiFile = hiFile.rename(columns={'Latitude': 'latitude', 'Longitude': 'longitude'})
             hiFile = hiFile.rename(columns=dict(zip(cols, hiCols)))
 
         if fnameLo is not None and fnameHi is not None:
-            if 'Latitude' not in loFile.columns and 'Latitude' not in hiFile.columns:
+            if 'latitude' not in loFile.columns and 'latitude' not in hiFile.columns:
                 if loFile.shape[0] == hiFile.shape[0]:
                     print('importGF: joining on rows.')
                     df = loFile[loCols].join(hiFile[hiCols])
@@ -1159,7 +1155,7 @@ class Survey(object):
             
         Notes
         -----
-        Requires projected spatial data (using convertFromNMEA() if needed).
+        Requires projected spatial data (using convertFromCoord() if needed).
         """
         df = self.df
         x = df['x'].values
@@ -1437,6 +1433,21 @@ class Survey(object):
         ax.set_xlabel('Number of samples between two pass at same location')
         ax.set_ylabel('Misfit between the two pass [mS/m]')
         #TODO not sure about this
+
+    # deprecated methods
+    def convertFromNMEA(self, targetProjection='EPSG:27700'): # British Grid 1936
+        """**deprecated, use convertFromCoord() instead.**
+        Convert coordinates string (NMEA or DMS) to selected CRS projection.
+    
+        Parameters
+        ----------
+        targetProjection : str, optional
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            for the British Grid.
+        """
+        warnings.warn('The function is deprecated, use convertFromCoord() instead.',
+                      DeprecationWarning)
+        self.convertFromCoord(targetProjection=targetProjection)
         
         
 

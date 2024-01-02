@@ -588,6 +588,7 @@ class App(QMainWindow):
         
         # projection (only if GPS data are available)
         self.projLabel = QLabel('Map CRS:')
+        self.projLabel.setToolTip('Project columns "Latitude" and "Longitude" to specified coordinate system (CRS)')
         self.projLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         
         ### Preparing the ~5000 projections:
@@ -604,8 +605,8 @@ class App(QMainWindow):
         self.projEdit.setCompleter(self.pcsCompleter)
         # self.projEdit.setEnabled(False)
 
-        self.projBtn = QPushButton('Convert NMEA')
-        self.projBtn.setToolTip('Convert NMEA string coordinates to EPSG coordinates - select a CRS first')
+        self.projBtn = QPushButton('Apply CRS')
+        self.projBtn.setToolTip('Convert NMEA/DMS string or decimal degree to selected coordinate system (CRS) - select a CRS first')
         self.projBtn.clicked.connect(self.projBtnFunc)
         self.projBtn.setEnabled(False)
         
@@ -656,7 +657,8 @@ class App(QMainWindow):
         def ptsKillerBtnFunc():
             self.problem.surveys[self.showParams['index']].dropSelected()
             self.replot()
-        self.ptsKillerBtn = QPushButton('Delete selected points')
+        self.ptsKillerBtn = QPushButton('Delete points')
+        self.ptsKillerBtn.setToolTip('Click on points in the figure then click to delete them.')
         self.ptsKillerBtn.clicked.connect(ptsKillerBtnFunc)
         self.ptsKillerBtn.setEnabled(False)
         self.ptsKillerBtn.setAutoDefault(True)
@@ -2233,7 +2235,9 @@ the ERT calibration will account for it.</p>
     def setProjection(self):
         val = self.projEdit.text()
         try:
-            if any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
+            if val.split(':')[0].lower() == 'epsg':
+                epsg_code = [val.split(':')[1]]
+            elif any(self.pcs['COORD_REF_SYS_NAME'] == val) is True:
                 epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME'] == val].values
             elif any(self.pcs['COORD_REF_SYS_NAME_rev'] == val) is True:
                 epsg_code = self.pcs['COORD_REF_SYS_CODE'][self.pcs['COORD_REF_SYS_NAME_rev'] == val].values
@@ -2244,14 +2248,16 @@ the ERT calibration will account for it.</p>
             self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
     
     def projBtnFunc(self):
-        try:
-            if self.projEdit.text() != '':
+        if self.projEdit.text() == '':
+            self.errorDump('Define CRS first')
+        else:
+            try:
                 self.setProjection()
-            self.problem.convertFromNMEA(targetProjection=self.problem.projection)
-            self.writeLog('k.convertFromNMEA(targetProjection="{:s}")'.format(self.problem.projection))
-            self.replot()
-        except Exception as e:
-            self.errorDump(e)
+                self.problem.convertFromCoord(targetProjection=self.problem.projection)
+                self.writeLog('k.convertFromCoord(targetProjection="{:s}")'.format(self.problem.projection))
+                self.replot()
+            except Exception as e:
+                self.errorDump(e)
 
     def replot(self):
         index = self.showParams['index']
@@ -2346,9 +2352,9 @@ the ERT calibration will account for it.</p>
         self.contourCheck.setChecked(False)
 
         # enable widgets
-        if 'Latitude' in survey.df.columns:
+        if 'latitude' in survey.df.columns:
             try:
-                float(survey.df['Latitude'][0]) # coordinates are not string
+                float(survey.df['latitude'][0]) # coordinates are not string
             except: # coordinates are string
                 self.problem.projection = 'EPSG:27700' # a default CRS if user hasn't defined anything
                 self.projBtnFunc() # automatically convert NMEA string

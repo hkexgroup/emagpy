@@ -95,7 +95,7 @@ class Problem(object):
         hx : float, optional
             Height of the instrument above the ground (can also be specified for each coil in the file).
         targetProjection : str, optional
-            If specified, a conversion from NMEA string in 'Latitude' and 'Longitude'
+            If specified, a conversion from NMEA string in 'latitude' and 'longitude'
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         unit : str, optional
             Unit for the _quad and _inph columns. By default assume to be in ppt 
@@ -142,7 +142,7 @@ class Problem(object):
         fnames : list of str
             List of file to be parsed or directory where the files are.
         targetProjection : str, optional
-            If specified, a conversion from NMEA string in 'Latitude' and 'Longitude'
+            If specified, a conversion from NMEA string in 'latitude' and 'longitude'
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         unit : str, optional
             Unit for the _quad and _inph columns. By default assume to be in ppt 
@@ -183,7 +183,7 @@ class Problem(object):
                 - 'add': add all positions from all surveys and interpolate
                 - 'first': use positions from first survey only and interpolate on other surveys
         targetProjection : str, optional
-            If specified, a conversion from NMEA string in 'Latitude' and 'Longitude'
+            If specified, a conversion from NMEA string in 'latitude' and 'longitude'
             columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
         unit : str, optional
             Unit for the _quad and _inph columns. By default assume to be in ppt 
@@ -257,8 +257,8 @@ class Problem(object):
             `gfCorrection()` function will be called and ECa values will be
             converted to LIN ECa (this is recommended for inversion).
         targetProjection : str, optional
-            If both Lo and Hi dataframe contains 'Latitude' with NMEA values
-            a conversion first is done using `self.convertFromNMEA()` before
+            If both Lo and Hi dataframe contains 'latitude' with NMEA values
+            a conversion first is done using `self.convertFromCoord()` before
             being regrid using nearest neightbours.
         """
         if self.projection is not None:
@@ -567,11 +567,13 @@ class Problem(object):
 
 
         # gridded parameter search as an inversion method
-        if method == 'GPS':
+        if method == 'GPS':  # pragma: no cover
             if alpha !=0 or gamma != 0 or beta != 0:
                 dump('WARNING: Gridded Parameter Search does not accept any smoothing parameters.\n')
             
             dump('Inverting data using Gridded Parameter Search\n')
+            if bnds is None:
+                raise ValueError('You need to provide bounds (bnds argument) for a grid search')
             if len(self.conds0) > 0:
                 fixedParamsD = []
                 for i in range(0, len(self.depths0[0][0])):
@@ -1191,31 +1193,46 @@ class Problem(object):
            
 
 
-    def tcorrECa(self, tdepths, tprofile):
+    def tcorrECa(self, tdepths, tprofile, a=0.02, tref=20): # pragma: no cover
         """Temperature correction based on temperature profile.
         An 'apparent' temperature is computed for each coil configuration
         using the CS function and the observed ECa is corrected according
         to a 2% increase in EC per degC.
         
+        EC_t = EC * (1 - a * (t - tref))
+        
+        where a = 0.02 (2% by default) and tref = 20 degC
+        
         Parameters
         ----------
-        tdepths : list of arrays
+        tdepths : array-like
             Depths in meters of the temperature sensors (negative downards).
-        tprofile : list of arrays
+        tprofile : array-like
             Temperature values corresponding in degree Celsius.
+        a : float, optional
+            Correction coefficient. By default a 2% (a=0.02) of EC per degC
+            is assumed.
+
+        Note
+        ----
+        If you plan to invert the data, apply the temperature correction
+        AFTER inversion only usin the tcorr() method. If you only plan to use the 
+        apparent values, then you can use the tcorrECa() functions. Don't use tcorrECa()
+        then invert your data but rather invert you data then apply tcorr().
         """
+        print('NOT IMPLEMENTED YET')
+
         for i, s in enumerate(self.surveys):
-            s.tcorr(tdepths[i], tprofile[i])
+            pass
 
 
-            
-    def tcorrEC(self, tdepths, tprofile, a=0.02):
+    def tcorrEC(self, tdepths, tprofile, a=0.02, tref=20):  # pragma: no cover
         """Temperature correction for inverted models using a 2% increase
         of EC per degC.
         
-        EC_t = EC * (1 - a * (t - 25))
+        EC_t = EC * (1 - a * (t - tref))
         
-        where a == 0.02 (2% by default)
+        where a = 0.02 (2% by default) and tref = 20 degC
         
         Parameters
         ----------
@@ -1300,7 +1317,7 @@ class Problem(object):
             
         Notes
         -----
-        Requires projected spatial data (using convertFromNMEA() if needed).
+        Requires projected spatial data (using convertFromCoord() if needed).
         """
         for s in self.surveys:
             s.computeStat(timef=timef)
@@ -1319,21 +1336,35 @@ class Problem(object):
             s.filterRepeated(tolerance=tolerance)
             
             
-    def removeCoil(self, icoil):
-        """Remove coil by index.
+    def removeCoil(self, icoil=-9999, coilName=''):
+        """Remove coil by index or provide coil name as string.
         
         Parameters
         ----------
-        icoil : int
-            Index of the coil to be remmoved.
+        icoil : int, optional
+            Index of the coil to be removed. This has priority over coilName.
+        coilName : str, optional
+            Name of the coil to be removed. Use print(k.coils) to see the names.
+            This argument is ignored if icoil is used.
         """
-        del self.coils[icoil]
-        del self.cpos[icoil]
-        del self.cspacing[icoil]
-        del self.hx[icoil]
-        del self.freqs[icoil]
-        for s in self.surveys:
-            s.removeCoil(icoil)
+        if icoil == -9999:
+            if coilName in self.coils:
+                icoil = np.where(np.array(self.coils) == coilName)[0][0]
+            else:
+                raise ValueError('coilName not found in coil list: ' + str(self.coils))
+                return
+        else:
+            if icoil >= len(self.coils):
+                raise ValueError('icoil is too large for coil list: ' + str(self.coils))
+                return
+        if icoil != -9999:
+            del self.coils[icoil]
+            del self.cpos[icoil]
+            del self.cspacing[icoil]
+            del self.hx[icoil]
+            del self.freqs[icoil]
+            for s in self.surveys:
+                s.removeCoil(icoil)
         
         
     def forward(self, forwardModel='CS', coils=None, noise=0.0,
@@ -2013,6 +2044,23 @@ class Problem(object):
 
     
     def convertFromNMEA(self,  targetProjection='EPSG:27700'): # British Grid 1936
+        """**DECPRECATED: use convertFromCoord() instead.**
+        Convert NMEA string to selected CRS projection.
+        
+        Parameters
+        ----------
+        targetProjection : str, optional
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            for the British Grid.
+        """
+        warnings.warn('The function is deprecated, use convertFromCoord() instead.',
+                      DeprecationWarning)
+        if self.projection is not None:
+            targetProjection = self.projection
+        for survey in self.surveys:
+            survey.convertFromCoord(targetProjection=targetProjection)
+
+    def convertFromCoord(self,  targetProjection='EPSG:27700'): # British Grid 1936
         """ Convert NMEA string to selected CRS projection.
         
         Parameters
@@ -2024,7 +2072,7 @@ class Problem(object):
         if self.projection is not None:
             targetProjection = self.projection
         for survey in self.surveys:
-            survey.convertFromNMEA(targetProjection=targetProjection)
+            survey.convertFromCoord(targetProjection=targetProjection)
     
     def setProjection(self, targetProjection='EPSG:27700'):
         """Set surveys projection to the targetProjection.
@@ -3273,7 +3321,7 @@ class Problem(object):
 
 
     def gridParamSearch(self, forwardModel, nlayers=2, step=25, misfitMax=0.1,
-                        regularization='l1', fixedParams=None, bnds=None):
+                        regularization='l1', fixedParams=None, bnds=None):  # pragma: no cover
         """Using a grid based parameter search method this returns a list of
         best models for a specified number of layers, the minimum and maximum
         parameter bounds for the the top x percentage of models is also returned.
