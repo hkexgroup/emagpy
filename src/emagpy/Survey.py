@@ -114,6 +114,7 @@ def convertFromCoord(df, targetProjection=None):
         print("Coordinates appear to be given as Degrees, minutes, seconds ... adjusting conversion scheme")
         gps2deg = np.vectorize(DMS)
     elif any([a in check for a in ['N','S','W','E']]):
+        print('Coordinates converted from NMEA string')
         gps2deg = np.vectorize(NMEA)
     else:  # assume in decimal degree
         gps2deg = np.vectorize(gps2gps)
@@ -123,9 +124,13 @@ def convertFromCoord(df, targetProjection=None):
     
     if targetProjection is not None:
         try:
-            transformer = pyproj.Transformer.from_crs('EPSG:4326', targetProjection)
+            transformer = pyproj.Transformer.from_crs('EPSG:4326', targetProjection, always_xy=True)
             df['x'], df['y'] = transformer.transform(
-                df['lat'].values, df['lon'].values)
+                df['lon'].values, df['lat'].values)
+            # wgs84 = pyproj.Proj("EPSG:4326") # LatLon with WGS84 datum used by GPS units and Google Earth
+            # targetCRS = pyproj.Proj(targetProjection) # target EPSG
+            # df['x'], df['y'] = pyproj.transform(wgs84, targetCRS, 
+            #                   df['lat'].values, df['lon'].values)
         except Exception as e:
             raise ValueError('You may need to upgrade pyproj (pip install -U pyproj) to have Transformer')
     else:  # set decimal degree as x,y if no projection given
@@ -626,17 +631,19 @@ class Survey(object):
             fig.colorbar(cax, ax=ax, label='ECa [mS/m]')
         
 
-    def saveMap(self, fname, coil=None, nx=100, ny=100, method='linear',
-                xmin=None, xmax=None, ymin=None, ymax=None, color=True,
-                cmap='viridis_r', vmin=None, vmax=None, nlevel=14):
+    def saveMap(self, fname, coils=None, nx=100, ny=100, method='linear',
+                xmin=None, xmax=None, ymin=None, ymax=None, color=False,
+                cmap='viridis_r', vmin=None, vmax=None, nlevel=14, coil=None):
         """Save a georeferenced raster TIFF file.
         
         Parameters
         ----------
         fname : str
             Path of where to save the .tiff file.
-        coil : str, optional
-            Name of the coil to plot. By default, the first coil is plotted.
+        coils : list of str, optional
+            Name of the coil to plot. By default all coils are plotted.
+            If color = True, one different .tif is saved suffixes by the coil configuration as RGB.
+            If color = False, one unique .tif  is saved with all coils as different layers
         nx : int, optional
             Number of points in x direction.
         ny : int, optional
@@ -653,7 +660,8 @@ class Survey(object):
         ymax : float, optional
             Maximum Y value
         color : bool, optional
-            If True a colormap will be applied.
+            If True a colormap will be applied (RGB raster).
+            If False, just float will be saved in different layers of the .tif.
         cmap : str, optional
             If `color == True`, name of the colormap. Default is viridis.
         vmin : float, optional
@@ -663,14 +671,18 @@ class Survey(object):
         nlevel : int, optional
             Number of level in the colormap. Default 7.
         """
+        if coil is not None:
+            warnings.warn('The argument is deprecated and will be removed in future version, use "coils" instead.',
+                      DeprecationWarning)
+            coils = [coil]
         try:
             import rasterio
             from rasterio.transform import from_origin
         except:
             raise ImportError('rasterio is needed to save georeferenced .tif file. Install it with "pip install rasterio"')
         
-        if coil is None:
-            coil = self.coils[0]
+        if coils is None:
+            coils = self.coils
         xknown = self.df['x'].values
         yknown = self.df['y'].values
         if xmin is None:
@@ -684,62 +696,71 @@ class Survey(object):
         X, Y = np.meshgrid(np.linspace(xmin, xmax, nx),
                            np.linspace(ymin, ymax, ny))
         x, y = X.flatten(), Y.flatten()
-        values = self.df[coil].values
-        if method == 'idw':
-            z = idw(x, y, xknown, yknown, values)
-            z = z.reshape(X.shape)
-        elif method == 'kriging':
-            from pykrige.ok import OrdinaryKriging
-            gridx = np.linspace(xmin, xmax, nx)
-            gridy = np.linspace(ymin, ymax, ny)
-            OK = OrdinaryKriging(xknown, yknown, values, variogram_model='linear',
-                                 verbose=True, enable_plotting=False, nlags=25)
-            z, ss = OK.execute('grid', gridx, gridy)
-        else:
-            z = griddata(np.c_[xknown, yknown], values, (X, Y), method=method)
+
+        # compute convex hull
         inside = np.ones(nx*ny)
         inside2 = clipConvexHull(xknown, yknown, x, y, inside)
-        ie = np.isnan(inside2).reshape(z.shape)
-        z[ie] = np.nan
-        Z = np.flipud(z.T)
-        
+        ie = np.isnan(inside2).reshape(X.shape)
+
+        layers = []
+        for coil in coils:
+            values = self.df[coil].values
+            if method == 'idw':
+                z = idw(x, y, xknown, yknown, values)
+                z = z.reshape(X.shape)
+            elif method == 'kriging':
+                from pykrige.ok import OrdinaryKriging
+                gridx = np.linspace(xmin, xmax, nx)
+                gridy = np.linspace(ymin, ymax, ny)
+                OK = OrdinaryKriging(xknown, yknown, values, variogram_model='linear',
+                                    verbose=True, enable_plotting=False, nlags=25)
+                z, ss = OK.execute('grid', gridx, gridy)
+            else:
+                z = griddata(np.c_[xknown, yknown], values, (X, Y), method=method)
+            z[ie] = np.nan
+            Z = np.flipud(z.T)
+            Z = np.fliplr(np.flipud(Z.T))
+            layers.append(Z)
+
         # distance between corners
         dist0 = np.abs(xmax - xmin)
         dist1 = np.abs(ymax - ymin)        
-    
-        Z = np.fliplr(np.flipud(Z.T))
         yscale = dist1/Z.shape[0]
         xscale = dist0/Z.shape[1]
-        
+
+        # compute affine transform
         tOffsetScaling = from_origin(xmin - xscale/2, ymax - yscale/2, xscale, yscale)
         tt = tOffsetScaling
         
-        if color == True:
-            if vmin is None:
-                vmin = np.nanpercentile(Z.flatten(), 2)
-            if vmax is None:
-                vmax = np.nanpercentile(Z.flatten(), 98)
-            norm = plt.Normalize(vmin=vmin, vmax=vmax)
-            Z = plt.get_cmap(cmap, nlevel)(norm(Z))
-            Z = 255*Z
-            Z = Z.astype('uint8')
-            for i in range(4):
-                Z[np.fliplr(ie.T).T, i] = 0
-        
-            with rasterio.open(fname, 'w',
-                           driver='GTiff',
-                           height=Z.shape[0],
-                           width=Z.shape[1], count=4, dtype=Z.dtype,
-                           crs=self.projection, transform=tt) as dst:
+        if color is True:  # save one file per coil
+            for j, coil in enumerate(coils):
+                Z = layers[j]
+                if vmin is None:
+                    vmin = np.nanpercentile(Z.flatten(), 2)
+                if vmax is None:
+                    vmax = np.nanpercentile(Z.flatten(), 98)
+                norm = plt.Normalize(vmin=vmin, vmax=vmax)
+                Z = plt.get_cmap(cmap, nlevel)(norm(Z))
+                Z = 255*Z
+                Z = Z.astype('uint8')
                 for i in range(4):
-                    dst.write(Z[:,:,i], i+1)
+                    Z[np.fliplr(ie.T).T, i] = 0
+            
+                with rasterio.open(fname.replace('.tif', '_' + coil + '.tif'), 'w',
+                            driver='GTiff',
+                            height=Z.shape[0],
+                            width=Z.shape[1], count=4, dtype=Z.dtype,
+                            crs=self.projection, transform=tt) as dst:
+                    for i in range(4):  # RGB + mask
+                        dst.write(Z[:,:,i], i+1)
         else:
             with rasterio.open(fname, 'w',
                                driver='GTiff',
                                height=Z.shape[0],
-                               width=Z.shape[1], count=1, dtype=Z.dtype,
+                               width=Z.shape[1], count=len(layers), dtype=Z.dtype,
                                crs=self.projection, transform=tt) as dst:
-                dst.write(Z, 1)
+                for i, layer in enumerate(layers):
+                    dst.write(layer, i+1)
                         
     
     

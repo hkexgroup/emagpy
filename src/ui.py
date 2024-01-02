@@ -25,6 +25,7 @@ print('''
 
 from emagpy import Problem
 from emagpy import EMagPy_version
+print(EMagPy_version)
 import numpy as np
 import pandas as pd
 from multiprocessing import freeze_support
@@ -514,7 +515,7 @@ class App(QMainWindow):
         self.importBtn.clicked.connect(importBtnFunc)
         
         def importGFLoFunc():
-            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.dat *.DAT')
             if fname != '':
                 self.fnameLo = fname
                 self.importGFLo.setText(os.path.basename(fname))
@@ -522,7 +523,7 @@ class App(QMainWindow):
         self.importGFLo.clicked.connect(importGFLoFunc)
         
         def importGFHiFunc():
-            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir)
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.dat *.DAT')
             if fname != '':
                 self.fnameHi = fname
                 self.importGFHi.setText(os.path.basename(fname))
@@ -536,7 +537,6 @@ class App(QMainWindow):
         self.hxEdit.setToolTip('Height above the ground [m]')
         
         def importGFApplyFunc():
-            print(self.fnameLo)
             hx = float(self.hxEdit.text()) if self.hxEdit.text() != '' else 0
             device = self.sensorCombo.itemText(self.sensorCombo.currentIndex())
             self.problem.importGF(self.fnameLo, self.fnameHi, device, hx)
@@ -812,7 +812,7 @@ class App(QMainWindow):
                     self.coilCombo.setCurrentIndex(n-1)
                 self.coilCombo.removeItem(n)
                 
-            print([self.coilCombo.itemText(i) for i in range(self.coilCombo.count())])
+            # print([self.coilCombo.itemText(i) for i in range(self.coilCombo.count())])
 
         def xlabComboFunc(index):
             if index == 0:
@@ -876,15 +876,18 @@ class App(QMainWindow):
         
         # export GIS raster layer
         def expPsMap():
+            if self.projEdit.text() == '':
+                self.errorDump('First specify a coordinate system (CRS)')
+                return
             fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
             if fname != '':
                 self.setProjection()
                 self.problem.saveMap(fname=fname, cmap=self.cmapCombo.currentText())
                 self.writeLog('k.saveMap(fname="{:s}", cmap="{:s}")'.format(
                     fname, self.cmapCombo.currentText()))
+                self.infoDump('File saved in ' + fname)
             
-            
-        self.psMapExpBtn = QPushButton('Exp. GIS layer')
+        self.psMapExpBtn = QPushButton('Export GIS')
         self.psMapExpBtn.setToolTip('Export a georeferenced TIFF file to directly be imported in GIS software.\n'
                                     'Choose the correct EPSG CRS projection!')
         self.psMapExpBtn.setVisible(False)
@@ -905,8 +908,8 @@ class App(QMainWindow):
         topLayout.addWidget(self.sensorCombo, 10)
         topLayout.addWidget(self.mergedCheck, 5)
         topLayout.addWidget(self.importBtn, 10)
-        topLayout.addWidget(self.importGFLo, 10)
         topLayout.addWidget(self.importGFHi, 10)
+        topLayout.addWidget(self.importGFLo, 10)
         topLayout.addWidget(self.hxLabel, 5)
         topLayout.addWidget(self.hxEdit, 5)
         topLayout.addWidget(self.importGFApply, 10)
@@ -1731,7 +1734,8 @@ class App(QMainWindow):
                 self.setProjection()
                 self.problem.saveSlice(fname=fname, islice=self.sliceCombo.currentIndex(), cmap=self.cmapInvMapCombo.currentText())
                 self.writeLog('k.saveSlice(fname="{:s}", islice={:d}, cmap="{:s}"'.format(
-                    fname, self.sliceCombo.currentIndex, self.cmapInvMapCombo.currentText()))
+                    fname, self.sliceCombo.currentIndex(), self.cmapInvMapCombo.currentText()))
+                self.infoDump('File saved in ' + fname)
         self.invMapExpBtn = QPushButton('Export GIS')
         self.invMapExpBtn.setToolTip('Export a georeferenced TIFF file to directly be imported in GIS software.\n'
                                      'Choose the correct EPSG CRS projection in the "Importing" tab!')
@@ -1859,14 +1863,17 @@ class App(QMainWindow):
         self.cmapInv3dCombo.addItems(invMapCmaps)
         self.cmapInv3dCombo.activated.connect(cmapInv3dComboFunc)
         
-        def screenshotBtnFunc():
+        def saveVtkBtnFunc():
             fname, _ = QFileDialog.getSaveFileName(self, 'Open File', self.datadir,
-                                                   'PNG (*.png);;TIFF (*.tif)')
+                                                   'VTK (*.vtk)')
             if fname != '':
-                self.vtkWidget.screenshot(fname, transparent_background=True)
-        self.screenshotBtn = QPushButton('Save screenshot')
-        self.screenshotBtn.setAutoDefault(True)
-        self.screenshotBtn.clicked.connect(screenshotBtnFunc)        
+                self.problem.saveVTK(fname, index=self.showInv3dParams['index'],
+                maxDepth=self.showInv3dParams['maxDepth'],
+                elev=self.showInv3dParams['elev'])
+                # self.vtkWidget.screenshot(fname, transparent_background=True)
+        self.saveVtkBtn = QPushButton('Save')
+        self.saveVtkBtn.setAutoDefault(True)
+        self.saveVtkBtn.clicked.connect(saveVtkBtnFunc)        
 
 
         # subtabs
@@ -1976,7 +1983,7 @@ class App(QMainWindow):
         m3dOptionsLayout.addWidget(self.pvapplyBtn)
         m3dOptionsLayout.addWidget(self.cmapInv3dCombo)
         m3dOptionsLayout.addWidget(self.pvgridCheck)
-        m3dOptionsLayout.addWidget(self.screenshotBtn)
+        m3dOptionsLayout.addWidget(self.saveVtkBtn)
         m3dLayout.addLayout(m3dOptionsLayout)
         m3dLayout.addWidget(plotterFrame)
         self.m3dTab.setLayout(m3dLayout)
@@ -2254,13 +2261,13 @@ the ERT calibration will account for it.</p>
         if self.projEdit.text() == '':
             self.errorDump('Define CRS first')
         else:
-            try:
-                self.setProjection()
-                self.problem.convertFromCoord(targetProjection=self.problem.projection)
-                self.writeLog('k.convertFromCoord(targetProjection="{:s}")'.format(self.problem.projection))
-                self.replot()
-            except Exception as e:
-                self.errorDump(e)
+            # try:
+            self.setProjection()
+            self.problem.convertFromCoord(targetProjection=self.problem.projection)
+            self.writeLog('k.convertFromCoord(targetProjection="{:s}")'.format(self.problem.projection))
+            self.replot()
+            # except Exception as e:
+            #     self.errorDump(e)
 
     def replot(self):
         index = self.showParams['index']

@@ -9,6 +9,7 @@ import os
 import sys
 import numpy as np
 import pandas as pd
+import warnings
 import time
 import tempfile
 import matplotlib.pyplot as plt
@@ -273,8 +274,7 @@ class Problem(object):
         self.cspacing = survey.cspacing
         self.cpos = survey.cpos
         self.hx = survey.hx
-        self.surveys.append(survey)
-        
+        self.surveys.append(survey)        
     
     def gfCorrection(self, calib):
         """Apply a correction to convert the calibrated ECa taking using F-0m or
@@ -1475,7 +1475,7 @@ class Problem(object):
             self.surveys = []
             for i, df in enumerate(dfs):
                 s = Survey()
-                s.readDF(df)
+                s.readDF(df.copy())
                 s.name = 'Model {:d}'.format(i+1)
                 self.surveys.append(s)
         
@@ -1531,7 +1531,7 @@ class Problem(object):
             dfs = self.forward(forwardModel=forwardModel, coils=coils,
                                models=lmodels, depths=ldepths,
                                noise=0.0)
-            eca = np.dstack([df.values for df in dfs]) # Nsample x Ncoils x Nprofiles
+            eca = np.dstack([df[coils].values for df in dfs]) # Nsample x Ncoils x Nprofiles
             # sens = eca[:-1,:,:] / eca[-1,:,:][None,:,:] - 1 # dividing by ref (undisturbed ECa)
             sens = eca[:-1,:,:] - eca[-1,:,:][None,:,:] # subtracting the ref ECa (slighly better up to 1e-16)
             sens = sens/np.max(sens, axis=0)[None,:,:] # normalising
@@ -1647,15 +1647,12 @@ class Problem(object):
         out = ksens.computeSens(forwardModel='CS', coils=self.coils, models=[cond], depths=[depth[None,:]])
         sens = out[0].squeeze(-1) # depth x coils
         mdepths = np.r_[depth[0]/2, depth[:-1] + np.diff(depth)/2, depth[-1] + (depth[-1]-depth[-2])/2]
-        #print(mdepths)
         
         # look at 70% cumulate signal
         cs = np.cumsum(sens, axis=0)
         cs = cs/np.max(cs, axis=0)
         idoe = np.argmin(np.abs(cs - 0.7), axis=0)
-        #print([cs[j,i] for i,j in enumerate(idoe)])
         doe = mdepths[idoe]
-        #print(doe)
         
         # figure
         eca = self.surveys[index].df[self.coils].values.flatten()
@@ -1736,7 +1733,7 @@ class Problem(object):
     
     
     def saveSlice(self, fname, index=0, islice=0, nx=100, ny=100, method='linear',
-                xmin=None, xmax=None, ymin=None, ymax=None, color=True,
+                xmin=None, xmax=None, ymin=None, ymax=None, color=False,
                 cmap='viridis', vmin=None, vmax=None, nlevel=14):
         """Save a georeferenced raster TIFF file for the specified inverted depths.
         
@@ -1764,7 +1761,7 @@ class Problem(object):
         ymax : float, optional
             Maximum Y value
         color : bool, optional
-            If True a colormap will be applied.
+            If True a colormap will be applied. If False, float are saved.
         cmap : str, optional
             If `color == True`, name of the colormap. Default is viridis.
         vmin : float, optional
@@ -2529,7 +2526,7 @@ class Problem(object):
             
             # cell data
             f.write('CELL_DATA {:d}\n'.format(nelem))
-            f.write('SCALARS {:s} double 1\n'.format('EC'))
+            f.write('SCALARS {:s} double 1\n'.format('EC(mS/m)'))
             f.write('LOOKUP_TABLE default\n')
             [f.write('{:8.6f} '.format(a)) for a in vals[:nelem]]
             f.write('\n')
