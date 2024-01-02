@@ -1687,9 +1687,9 @@ class Problem(object):
 
     
     
-    def saveMap(self, fname, index=0, coil=None, nx=100, ny=100, method='linear',
+    def saveMap(self, fname, index=0, coils=None, nx=100, ny=100, method='linear',
                 xmin=None, xmax=None, ymin=None, ymax=None, color=True,
-                cmap='viridis_r', vmin=None, vmax=None, nlevel=14):
+                cmap='viridis_r', vmin=None, vmax=None, nlevel=14, coil=None):
         """Save a georeferenced raster TIFF file.
         
         Parameters
@@ -1698,8 +1698,8 @@ class Problem(object):
             Path of where to save the .tiff file.
         index : int, optional
             Survey number, by default, the first survey is chosen.
-        coil : str, optional
-            Name of the coil to plot. By default, the first coil is plotted.
+        coils : list of str, optional
+            Names of the coil to plot. By default, all coils.
         nx : int, optional
             Number of points in x direction.
         ny : int, optional
@@ -1726,7 +1726,11 @@ class Problem(object):
         nlevel : int, optional
             Number of level in the colormap. Default 7.
         """
-        self.surveys[index].saveMap(fname, coil=coil, nx=nx, ny=ny, method=method,
+        if coil is not None:
+            warnings.warn('The argument is deprecated and will be removed in future version, use "coils" instead.',
+                        DeprecationWarning)
+            coils = [coil]
+        self.surveys[index].saveMap(fname, coils=coils, nx=nx, ny=ny, method=method,
                 xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, color=color,
                 cmap=cmap, vmin=vmin, vmax=vmax, nlevel=nlevel)
     
