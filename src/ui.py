@@ -1723,13 +1723,16 @@ class App(QMainWindow):
         self.saveInvMapDataBtn.clicked.connect(saveInvMapDataBtnFunc)
         
         def expInvMap():
+            if self.projEdit.text() == '':
+                self.errorDump('First specify a coordinate system (CRS)')
+                return
             fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
             if fname != '':
                 self.setProjection()
                 self.problem.saveSlice(fname=fname, islice=self.sliceCombo.currentIndex(), cmap=self.cmapInvMapCombo.currentText())
                 self.writeLog('k.saveSlice(fname="{:s}", islice={:d}, cmap="{:s}"'.format(
                     fname, self.sliceCombo.currentIndex, self.cmapInvMapCombo.currentText()))
-        self.invMapExpBtn = QPushButton('Exp. GIS layer')
+        self.invMapExpBtn = QPushButton('Export GIS')
         self.invMapExpBtn.setToolTip('Export a georeferenced TIFF file to directly be imported in GIS software.\n'
                                      'Choose the correct EPSG CRS projection in the "Importing" tab!')
         self.invMapExpBtn.clicked.connect(expInvMap)

@@ -9,12 +9,12 @@ test:
   - coverage run --source=emagpy test.py
   - coverage report --omit emagpy/invertHelper.py
   - coverage xml
-coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)/'
-artifacts:
-  reports:
-    coverage_report:
-      coverage_format: cobertura
-      path: src/coverage.xml
+  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: src/coverage.xml
 
 
   
