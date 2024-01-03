@@ -762,7 +762,7 @@ class App(QMainWindow):
         self.xlabCombo = QComboBox()
         self.xlabCombo.addItem('Distance')
         self.xlabCombo.addItem('Samples')
-        self.xlabCombo.currentIndexChanged.connect(xlabComboFunc)
+        self.xlabCombo.activated.connect(xlabComboFunc)
         self.xlabCombo.setEnabled(False)
         
         # apply the display vmin/vmax for colorbar or y label                
@@ -1382,7 +1382,7 @@ class App(QMainWindow):
         methods = mMinimize + ['Gauss-Newton'] + mMCMC + ['ANN']
         for method in methods:
             self.methodCombo.addItem(method)
-        self.methodCombo.currentIndexChanged.connect(methodComboFunc)
+        self.methodCombo.activated.connect(methodComboFunc)
         
         self.alphaLabel = QLabel('Vertical smooth:')
         self.alphaEdit = QLineEdit('0.07')
