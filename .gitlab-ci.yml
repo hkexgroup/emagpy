@@ -11,10 +11,7 @@ test:
   - coverage html
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)/'
   artifacts:
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: src/htmlcov
+    path: src/htmlcov
 
 
   
