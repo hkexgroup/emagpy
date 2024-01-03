@@ -1477,7 +1477,7 @@ class Problem(object):
                 s = Survey()
                 s.readDF(df.copy())
                 s.name = 'Model {:d}'.format(i+1)
-                self.surveys.append(s)
+                self.surveys.append(s)            
         
         return dfs
     

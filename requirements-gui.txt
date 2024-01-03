@@ -9,3 +9,4 @@ tqdm
 pyvista
 pyvistaqt
 PyQt5
+rasterio

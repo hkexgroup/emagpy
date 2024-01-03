@@ -249,6 +249,7 @@ class App(QMainWindow):
         self.problem = Problem()
         self.problem.runningUI = True
         self.writeLog('# ======= EMagPy API log ======')
+        self.writeLog('# EMagPy version: ' + EMagPy_version)
         self.writeLog('from emagpy import Problem')
         self.writeLog('k = Problem()')
         
@@ -364,7 +365,6 @@ class App(QMainWindow):
             depths, conds = self.paramTable.getTable(int(self.fnsample.text()))
             self.problem.setModels([depths], [conds])
             self.mwf.replot()
-            
         self.fgenerateBtn = QPushButton('Generate Model')
         self.fgenerateBtn.clicked.connect(generateModel)
         
@@ -422,6 +422,9 @@ class App(QMainWindow):
         self.fnoise = QLineEdit('0')
         self.fnoise.setValidator(QDoubleValidator())
         def fforwardBtnFunc():
+            if len(self.problem.models) == 0:
+                self.errorDump('Generate a model first')
+                return
             coils = self.coilTable.getTable()
             forwardModel = fforwardModels[self.fforwardCombo.currentIndex()]
             noise = float(self.fnoise.text())/100
@@ -543,6 +546,7 @@ class App(QMainWindow):
             if self.fnameLo is None and self.fnameHi is None:
                 self.errorDump('Specify at least one file to import (Lo and/or Hi)')
                 return
+            self.problem.surveys = []  # remove all previous surveys
             self.problem.importGF(self.fnameLo, self.fnameHi, device, hx)
             if self.fnameLo is not None and self.fnameHi is not None:
                 self.writeLog('k.importGF("{:s}", "{:s}", "device={:s}", hx={:.2f})'.format(
@@ -708,75 +712,6 @@ class App(QMainWindow):
         self.coilCombo.activated.connect(coilComboFunc)
         self.coilCombo.setEnabled(False)
         
-        
-        # switch between Raw data and map view
-#        def showRadioFunc(state):
-#            mwRaw.setCallback(self.problem.show)
-#            mwRaw.replot(**self.showParams)
-#        showRadio = QRadioButton('Raw')
-#        showRadio.setChecked(True)
-#        showRadio.toggled.connect(showRadioFunc)
-#        showRadio.setEnabled(False)
-#        def mapRadioFunc(state):
-#            showMapOptions(state)
-#            mwRaw.setCallback(self.problem.showMap)
-#            mwRaw.replot(**self.showParams)
-#        mapRadio = QRadioButton('Map')
-#        mapRadio.setEnabled(False)
-#        mapRadio.setChecked(False)
-#        mapRadio.toggled.connect(mapRadioFunc)
-#        showGroup = QGroupBox()
-#        showGroupLayout = QHBoxLayout()
-#        showGroupLayout.addWidget(showRadio)
-#        showGroupLayout.addWidget(mapRadio)
-#        showGroup.setLayout(showGroupLayout)
-#        showGroup.setFlat(True)
-#        showGroup.setContentsMargins(0,0,0,0)
-#        showGroup.setStyleSheet('QGroupBox{border: 0px;'
-#                                'border-style:inset;}')
-        
-        # alternative button checkable
-        # def showRadioFunc(state):
-        #     if state:
-        #         self.mapRadio.setChecked(False)
-        #         showMapOptions(False)
-        #         self.mwRaw.setCallback(self.problem.show)
-        #         self.replot()
-        #     else:
-        #         self.mapRadio.setChecked(True)
-        # self.showRadio = QPushButton('Raw')
-        # self.showRadio.setCheckable(True)
-        # self.showRadio.setChecked(True)
-        # self.showRadio.toggled.connect(showRadioFunc)
-        # self.showRadio.setEnabled(False)
-        # self.showRadio.setAutoDefault(True)
-        # def mapRadioFunc(state):
-        #     if state:
-        #         self.showRadio.setChecked(False)
-        #         showMapOptions(True)
-        #         self.mwRaw.setCallback(self.problem.showMap)
-        #         if self.showParams['coil'] == 'all':
-        #             self.coilCombo.setCurrentIndex(0)
-        #             coilComboFunc(0)
-        #         self.replot()
-        #     else:
-        #         self.showRadio.setChecked(True)
-        # self.mapRadio = QPushButton('Map')
-        # self.mapRadio.setCheckable(True)
-        # self.mapRadio.setEnabled(False)
-        # self.mapRadio.setChecked(False)
-        # self.mapRadio.setAutoDefault(True)
-        # self.mapRadio.toggled.connect(mapRadioFunc)
-        # showGroup = QGroupBox()
-        # showGroupLayout = QHBoxLayout()
-        # showGroupLayout.addWidget(self.showRadio)
-        # showGroupLayout.addWidget(self.mapRadio)
-        # showGroup.setLayout(showGroupLayout)
-        # showGroup.setFlat(True)
-        # showGroup.setContentsMargins(0,0,0,0)
-        # showGroup.setStyleSheet('QGroupBox{border: 0px;'
-        #                         'border-style:inset;}')
-        
         # show dots, map or pseudo
         def showComboFunc(index):
             if self.showCombo.currentText() == 'Dots':
@@ -799,7 +734,7 @@ class App(QMainWindow):
         self.showCombo.addItem('Dots')
         self.showCombo.addItem('Pseudo')
         self.showCombo.addItem('Map')
-        self.showCombo.currentIndexChanged.connect(showComboFunc)
+        self.showCombo.activated.connect(showComboFunc)
         self.showCombo.setEnabled(False)
         
         def showMapOptions(arg):
@@ -2337,6 +2272,11 @@ the ERT calibration will account for it.</p>
         self.setupUI()
         
     def setupUI(self):
+        # reset parameters
+        self.showParams = {'index': 0, 'coil':'all', 'contour':False, 'vmin':None,
+                           'vmax':None,'pts':False, 'cmap':'viridis_r', 'dist':True} 
+
+        # draw default plot
         self.mwRaw.setCallback(self.problem.show)
         self.mwRaw.replot()
         
@@ -2361,6 +2301,7 @@ the ERT calibration will account for it.</p>
         
         # set to default values
         # self.showRadio.setChecked(True)
+        self.showCombo.setCurrentIndex(0)
         self.showCombo.setEnabled(True)
         self.xlabCombo.setEnabled(True)
         self.contourCheck.setChecked(False)
