@@ -540,6 +540,9 @@ class App(QMainWindow):
         def importGFApplyFunc():
             hx = float(self.hxEdit.text()) if self.hxEdit.text() != '' else 0
             device = self.sensorCombo.itemText(self.sensorCombo.currentIndex())
+            if self.fnameLo is None and self.fnameHi is None:
+                self.errorDump('Specify at least one file to import (Lo and/or Hi)')
+                return
             self.problem.importGF(self.fnameLo, self.fnameHi, device, hx)
             if self.fnameLo is not None and self.fnameHi is not None:
                 self.writeLog('k.importGF("{:s}", "{:s}", "device={:s}", hx={:.2f})'.format(
@@ -2364,12 +2367,12 @@ the ERT calibration will account for it.</p>
 
         # enable widgets
         if 'latitude' in survey.df.columns:
-            try:
-                float(survey.df['latitude'][0]) # coordinates are not string
-            except: # coordinates are string
-                self.problem.projection = 'EPSG:27700' # a default CRS if user hasn't defined anything
-                self.projBtnFunc() # automatically convert NMEA string
-                self.projBtn.setEnabled(True)
+            #try:
+            #    float(survey.df['latitude'][0]) # coordinates are not string
+            #except: # coordinates are string
+                #self.problem.projection = 'EPSG:27700' # a default CRS if user hasn't defined anything
+                #self.projBtnFunc() # automatically convert NMEA string
+            self.projBtn.setEnabled(True)
             # self.projEdit.setEnabled(True)
         self.keepApplyBtn.setEnabled(True)
         self.rollingBtn.setEnabled(True)

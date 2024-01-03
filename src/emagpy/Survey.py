@@ -109,7 +109,7 @@ def convertFromCoord(df, targetProjection=None):
     def gps2gps(x):
         return float(x)
     
-    check = df['latitude'][0]
+    check = df['latitude'].values[0]
     if check.find('°') !=-1 and check.find("'") != -1:
         print("Coordinates appear to be given as Degrees, minutes, seconds ... adjusting conversion scheme")
         gps2deg = np.vectorize(DMS)
