@@ -11,7 +11,8 @@ test:
   - coverage html
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)/'
   artifacts:
-    path: src/htmlcov
+    paths:
+    - src/htmlcov
 
 
   
