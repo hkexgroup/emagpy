@@ -36,17 +36,18 @@ For more example, check out the [jupyter-notebook](https://gitlab.com/hkex/emagp
 
 Downloads
 ---------
-as a self-extractable executable:
-
-[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.1.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-windows.exe)
-[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.1.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-macos.dmg)
-[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.1.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-linux)
 
 as a zip file:
 
-[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.1.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-windows.zip)
-[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.1.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-macos.zip)
-[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.1.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-linux.zip)
+[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.3.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.3.0/EMagPy-windows.zip)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.3.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.3.0/EMagPy-macos.app.zip)
+[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.3.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.3.0/EMagPy-linux.zip)
+
+as a self-extractable executable:
+
+[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.3.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.3.0/EMagPy-windows.exe)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.3.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.3.0/EMagPy-macos.dmg)
+[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.3.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.3.0/EMagPy-linux)
 
 
 If you just want to give it a try on the web, without installing anything, you can try this [**beta UI on binder**](https://mybinder.org/v2/gl/hkex%2Femagpy/stable?urlpath=voila/render/jupyter-notebook/ui.ipynb).
@@ -173,18 +174,24 @@ The bundles produced will be located in `emagpy/src/dist/`.
 
 Current version
 ---------------
-v 1.1.0
-[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.1.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-windows.exe)
-[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.1.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-macos.dmg)
-[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.1.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-linux)
+v 1.3.0
+[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.3.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.3.0/EMagPy-windows.zip)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.3.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.3.0/EMagPy-macos.app.zip)
+[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.3.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.3.0/EMagPy-linux.zip)
 
 
 Older versions
 --------------
+
+v 1.1.0
+[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.1.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-windows.zip)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.1.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-macos.app.zip)
+[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.1.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.1.0/EMagPy-linux.zip)
+
 v 1.0.0
-[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.0.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-windows.exe)
-[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.0.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-macos.dmg)
-[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.0.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-linux)
+[![win](https://img.shields.io/badge/Windows%2064bit-EMagPy%20v1.0.0-blue.svg?style=flat&logo=Microsoft&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-windows.zip)
+[![mac](https://img.shields.io/badge/macOS%2064bit-EMagPy%20v1.0.0-lightgrey.svg?style=flat&logo=Apple&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-macos.app.zip)
+[![linux](https://img.shields.io/badge/Linux%2064bit-EMagPy%20v1.0.0-orange.svg?style=flat&logo=Linux&logoColor=white)](https://github.com/hkexgroup/emagpy/releases/download/v1.0.0/EMagPy-linux.zip)
 
 
 
