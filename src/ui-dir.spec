@@ -36,8 +36,9 @@ datas += extra_datas('examples')
 datas += extra_datas('image', outdir='.')
 
 # rasterio fix with pyinstaller
-rdir = '../../pyenv/lib/site-packages/rasterio/'
-rasterio_imports_paths = glob.glob(rdir + '*.py')
+import rasterio
+rdir = os.path.dirname(rasterio.__file__)
+rasterio_imports_paths = glob.glob(os.path.join(rdir, '*.py'))
 rasterio_imports = ['rasterio._shim']
 for item in rasterio_imports_paths:
     current_module_filename = os.path.split(item)[-1]
@@ -47,7 +48,6 @@ for item in rasterio_imports_paths:
 # the projection are stored in separate folders and also need to included
 for d in ['gdal_data', 'proj_data']:
     datas.append((os.path.join(rdir, d), os.path.join('rasterio', d)))
-print(datas)
 
 a = Analysis(['ui.py'],
              pathex=[],
