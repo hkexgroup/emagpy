@@ -1,3 +1,8 @@
 **/__pycache__/**
 *.pyc
 **/.ipynb_checkpoints/**
+src/dist/*
+src/build/*
+src/.coverage
+.vscode/*
+

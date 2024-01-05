@@ -1688,7 +1688,7 @@ class Problem(object):
     
     
     def saveMap(self, fname, index=0, coils=None, nx=100, ny=100, method='linear',
-                xmin=None, xmax=None, ymin=None, ymax=None, color=True,
+                xmin=None, xmax=None, ymin=None, ymax=None, color=False,
                 cmap='viridis_r', vmin=None, vmax=None, nlevel=14, coil=None):
         """Save a georeferenced raster TIFF file.
         

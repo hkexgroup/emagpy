@@ -821,9 +821,8 @@ class App(QMainWindow):
             fname, _ = QFileDialog.getSaveFileName(importTab,'Export raster map', self.datadir, 'TIFF (*.tif)')
             if fname != '':
                 self.setProjection()
-                self.problem.saveMap(fname=fname, cmap=self.cmapCombo.currentText())
-                self.writeLog('k.saveMap(fname="{:s}", cmap="{:s}")'.format(
-                    fname, self.cmapCombo.currentText()))
+                self.problem.saveMap(fname=fname)
+                self.writeLog('k.saveMap(fname="{:s}"'.format(fname))
                 self.infoDump('File saved in ' + fname)
             
         self.psMapExpBtn = QPushButton('Export GIS')
