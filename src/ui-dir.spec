@@ -71,7 +71,7 @@ exe = EXE(pyz,
           debug=False,
           strip=False,
           upx=True,
-          console=False,
+          console=False,  # set to True for debugging
           icon='logo.ico')
           
 coll = COLLECT(exe,

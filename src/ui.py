@@ -58,6 +58,9 @@ except:
     pvfound = False
     print('WARNING: pyvista not found, 3D plotting will be disabled.')
 
+# to automatically check version online
+from urllib import request as urlRequest
+import webbrowser
 
 # debug options
 DEBUG = True # set to false to not display message in the console
@@ -223,6 +226,11 @@ class App(QMainWindow):
     '''
     def __init__(self, parent=None):
         super().__init__()
+
+        # check for new version
+        tupdate = customThread(self.updateChecker)
+        tupdate.signal.connect(self.updateCheckerShow)
+        tupdate.start()
         
         self.setWindowTitle('EMagPy v{:s}'.format(EMagPy_version))
         self.setGeometry(100,100,1100,600)
@@ -583,12 +591,12 @@ class App(QMainWindow):
         self.gfCorrectionBtn.setVisible(False)
         
         def showGF(arg):
-            visibles = np.array([True, True, False, False, False, False, False, False, False])
+            visibles = [True, True, False, False, False, False, False, False, False]
             objs = [self.importBtn, self.mergedCheck, self.importGFLo, self.importGFHi,
                     self.gfCalibCombo, self.gfCorrectionBtn,
                     self.hxLabel, self.hxEdit, self.importGFApply]
             if arg is True:
-                [o.setVisible(v) for o,v in zip(objs, ~visibles)]
+                [o.setVisible(~v) for o,v in zip(objs, visibles)]
             else:
                 [o.setVisible(v) for o,v in zip(objs, visibles)]
         showGF(False)
@@ -1975,7 +1983,7 @@ class App(QMainWindow):
         <p>
         <br>
 
-        <img width=800 src="image/fig1.png"></img>
+        <img width=800 src="''' + resource_path('image/fig1.png') + '''"></img>
         </p>
         <p>The depth of sensitivity of EMI measurements is dependent upon:
             <ul>
@@ -2017,7 +2025,7 @@ class App(QMainWindow):
          </p>  
          <p>        
 
-        <img width=800 src="image/fig3.png"></img>
+        <img width=800 src="''' + resource_path('image/fig3.png') + '''"></img>
 
         </p>
 
@@ -2051,7 +2059,7 @@ class App(QMainWindow):
    <p>
         <br>
 
-        <img width=800 src="image/datalayout.png"></img>
+        <img width=800 src="''' + resource_path('image/datalayout.png') + '''"></img>
 </p>
 <p> Additionally, if data from either the GF Instruments Mini-Explorer or Explorer is loaded an additional correction can be done to convert the raw EMI ECa values into LIN-ECa values. This is done because the GF Instruments contain a specific manufacturer calibration to link <b>Q</b> and <b>ECa</b>.
 </p>
@@ -2077,8 +2085,8 @@ the ERT calibration will account for it.</p>
 </ul>
 </p>
 <p>
-        <img width=300 src="image/calibfile.png"></img>
-        <img width=500 src="image/ec_header.png"></img>
+        <img width=300 src="''' + resource_path('image/calibfile.png') + '''"></img>
+        <img width=500 src="''' + resource_path('image/ec_header.png') + '''"></img>
 </p>
 
 
@@ -2102,7 +2110,7 @@ the ERT calibration will account for it.</p>
             unfeasible models.
         </p>
         <p>
-            <img src='image/smooth-sharp.png' width=600></img>
+            <img src="''' + resource_path('image/smooth-sharp.png') + '''" width=600></img>
         </p>
         <p><b><i>Inverse Settings</i></b></p>
         <p>The starting model parameters can be supplied in the '<i>Inversion Settings</i>' 
@@ -2110,7 +2118,7 @@ the ERT calibration will account for it.</p>
         <p> The user can also choose to fit an L-curve which will plot a graph of model and data misfit 
         for a number of vertical smoothing values. </p>
         <p>
-            <img width=250 src="image/lcurve.png"></img>
+            <img width=250 src="''' + resource_path('image/lcurve.png') + '''"></img>
 
         </p>
         <p><b><i>Inversion</i></b></p>
@@ -2388,33 +2396,33 @@ the ERT calibration will account for it.</p>
 
 #%% updater function and wine check
     # based on https://kushaldas.in/posts/pyqt5-thread-example.html
-#    def updateChecker(self): # check for new updates on gitlab
-#        version = ResIPy_version
-#        try:
-#            versionSource = urlRequest.urlopen('https://gitlab.com/hkex/pyr2/raw/master/src/version.txt?inline=false')
-#            versionCheck = versionSource.read().decode()
-#            version = versionCheck.split()[1] # assuming version number is in 2nd line of version.txt
-#            print('online version :', version)
-#        except:
-#            pass
-#        return version
-#    
-#    def updateCheckerShow(self, version):
-#        if ResIPy_version != version:
-#            msg = QMessageBox()
-#            msg.setIcon(QMessageBox.Information)
-#            msg.setText('''<b>ResIPy version %s is available</b>''' % (version))
-#            msg.setInformativeText('''Please download the latest version of ResIPy at:<p><a href='https://gitlab.com/hkex/pyr2#gui-for-r2-family-code'>https://gitlab.com/hkex/pyr2</a></p><br>''')
-#            msg.setWindowTitle("New version available")
-#            bttnUpY = msg.addButton(QMessageBox.Yes)
-#            bttnUpY.setText('Update')
-#            bttnUpN = msg.addButton(QMessageBox.No)
-#            bttnUpN.setText('Ignore')
-#            msg.setDefaultButton(bttnUpY)
-#            msg.exec_()
-#            if msg.clickedButton() == bttnUpY:
-#                webbrowser.open('https://gitlab.com/hkex/pyr2#gui-for-r2-family-code') # can add download link, when we have a direct dl link
-#    
+    def updateChecker(self): # check for new updates on gitlab
+        version = EMagPy_version
+        try:
+            versionSource = urlRequest.urlopen('https://gitlab.com/hkex/emagpy/raw/master/src/version.txt?inline=false')
+            versionCheck = versionSource.read().decode()
+            version = versionCheck.split()[1] # assuming version number is in 2nd line of version.txt
+            print('online version :', version)
+        except:
+            pass
+        return version
+    
+    def updateCheckerShow(self, version):
+        if EMagPy_version != version:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText('''<b>EMagPy version %s is available</b>''' % (version))
+            msg.setInformativeText('''Please download the latest version of EMagPy at:<p><a href='https://gitlab.com/hkex/emagpy#downloads'>https://gitlab.com/hkex/emagpy</a></p><br>''')
+            msg.setWindowTitle("New version available")
+            bttnUpY = msg.addButton(QMessageBox.Yes)
+            bttnUpY.setText('Update')
+            bttnUpN = msg.addButton(QMessageBox.No)
+            bttnUpN.setText('Ignore')
+            msg.setDefaultButton(bttnUpY)
+            msg.exec_()
+            if msg.clickedButton() == bttnUpY:
+                webbrowser.open('https://gitlab.com/hkex/emagpy#downloads') # can add download link, when we have a direct dl link
+   
 
 
 #%% main function
