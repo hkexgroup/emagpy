@@ -2691,11 +2691,11 @@ class Problem(object):
         xx = np.arange(survey.df.shape[0])
         ax.plot(xx, obsECa, '.')
         ax.set_prop_cycle(None)
-        ax.plot(xx, simECa, '^-')
+        ax.plot(xx, simECa, '-')
         ax.legend(cols)
         ax.set_xlabel('Measurements')
-        ax.set_ylabel('EC [mS/m]')
-        ax.set_title('Dots (observed) vs triangles (modelled)')
+        ax.set_ylabel('ECa [mS/m]')
+        ax.set_title('Dots (observed) vs lines (modelled)')
         
         
         
