@@ -110,13 +110,16 @@ def convertFromCoord(df, targetProjection=None):
         return float(x)
     
     check = df['latitude'].values[0]
-    if check.find('°') !=-1 and check.find("'") != -1:
-        print("Coordinates appear to be given as Degrees, minutes, seconds ... adjusting conversion scheme")
-        gps2deg = np.vectorize(DMS)
-    elif any([a in check for a in ['N','S','W','E']]):
-        print('Coordinates converted from NMEA string')
-        gps2deg = np.vectorize(NMEA)
-    else:  # assume in decimal degree
+    if not isinstance(check, float):
+        if check.find('°') !=-1 and check.find("'") != -1:
+            print("Coordinates appear to be given as Degrees, minutes, seconds ... adjusting conversion scheme")
+            gps2deg = np.vectorize(DMS)
+        elif any([a in check for a in ['N','S','W','E']]):
+            print('Coordinates converted from NMEA string')
+            gps2deg = np.vectorize(NMEA)
+        else:  # assume in decimal degree
+            gps2deg = np.vectorize(gps2gps)
+    else:
         gps2deg = np.vectorize(gps2gps)
     
     df['lat'] = gps2deg(df['latitude'].values)
