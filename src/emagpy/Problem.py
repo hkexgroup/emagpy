@@ -2822,7 +2822,7 @@ class Problem(object):
             res = minimize(objfunc, conds0, args=(app, alpha))
             phiData[i] = np.sum(dataMisfit(res.x, app)**2)
             phiModel[i] = np.sum(modelMisfit(res.x)**2)
-            
+                    
         if ax is None:
             fig, ax = plt.subplots()
         ax.set_title('L curve')

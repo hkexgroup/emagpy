@@ -1551,7 +1551,7 @@ class App(QMainWindow):
         
         # profile display
         showInvParams = {'index':0, 'vmin':None, 'vmax':None, 
-                         'cmap':'viridis_r', 'contour':False, 'dist':True}
+                         'cmap':'viridis_r', 'contour':False, 'dist':True, 'elev':True}
         
         def cmapInvComboFunc(index):
             showInvParams['cmap'] = self.cmapInvCombo.itemText(index)
