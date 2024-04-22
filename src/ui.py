@@ -1691,7 +1691,7 @@ class App(QMainWindow):
         
         # 3D options tab
         self.showInv3dParams = {'index':0, 'vmin':None, 'vmax':None,
-                                'maxDepth':None, 'cmap':'viridis_r', 'elev':False,
+                                'maxDepth':None, 'cmap':'viridis_r', 'elev':True,
                                 'edges':False, 'pvslices':([],[],[]),
                                 'pvthreshold':None, 'pvgrid':False,
                                 'pvcontour':[]}
