@@ -2519,7 +2519,6 @@ class Problem(object):
             # create path and check if centroids are inside the concave hull
             path = mpath.Path(segs)
             ie = path.contains_points(centroid)
-            print(ie.sum(), len(ie))
             triangles = triang.triangles[ie]  # only take triangles inside concave hull
 
         except ImportError as e:
