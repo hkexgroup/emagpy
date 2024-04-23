@@ -17,7 +17,7 @@ from matplotlib.collections import PolyCollection
 from matplotlib.colors import ListedColormap
 import matplotlib.tri as mtri
 # import matplotlib.patches as mpatches
-# import matplotlib.path as mpath
+import matplotlib.path as mpath
 from scipy.optimize import minimize
 from scipy.stats import linregress, gaussian_kde
 from scipy import interpolate
@@ -29,7 +29,7 @@ from tqdm import tqdm
 # emagpy custom import
 from emagpy.invertHelper import (fCS, fMaxwellECa, fMaxwellQ, buildSecondDiff,
                                  buildJacobian, getQs, eca2Q)
-from emagpy.Survey import Survey, idw, clipConvexHull, griddata
+from emagpy.Survey import Survey, idw, clipConvexHull, griddata, tricontourf_clipped, clipConcaveHull
 
 
 class HiddenPrints:
@@ -1798,7 +1798,8 @@ class Problem(object):
         else:
             z = griddata(np.c_[xknown, yknown], values, (X, Y), method=method)
         inside = np.ones(nx*ny)
-        inside2 = clipConvexHull(xknown, yknown, x, y, inside)
+        # inside2 = clipConvexHull(xknown, yknown, x, y, inside)
+        inside2 = clipConcaveHull(xknown, yknown, x, y, inside)
         ie = np.isnan(inside2).reshape(z.shape)
         z[ie] = np.nan
         Z = np.flipud(z.T)
@@ -2490,6 +2491,36 @@ class Problem(object):
 
         triang = mtri.Triangulation(xy[:,0], xy[:,1])
         triangles = triang.triangles # connection matrix for 2D
+
+        # mask triangles outside the concave hull
+        try:
+            from concave_hull import concave_hull_indexes
+
+            # compute triangles centroids
+            centroid = np.mean([triang.x[triang.triangles], triang.y[triang.triangles]], axis=-1).T
+
+            # compute concave hull with estimated threshold
+            threshold = np.max([(np.min(triang.x) - np.max(triang.x))/10,
+                                (np.min(triang.y) - np.max(triang.y))/10])
+            points = np.c_[triang.x, triang.y]
+            idxes = concave_hull_indexes(points, length_threshold=threshold)
+
+            # compute edges of the hull
+            segs = []
+            for f, t in zip(idxes[:-1], idxes[1:]):  # noqa
+                seg = points[[f, t]]
+                segs.append(seg[0, :])
+    
+            # create path and check if centroids are inside the concave hull
+            path = mpath.Path(segs)
+            ie = path.contains_points(centroid)
+            print(ie.sum(), len(ie))
+            triangles = triang.triangles[ie]  # only take triangles inside concave hull
+
+        except ImportError as e:
+            print('concave-hull not installed, will use normal convex hull. Install it with `pip install concave-hull`')
+            pass
+
         ntri = triangles.shape[0]
         
         # build node and connection matrix for prism
@@ -3205,7 +3236,8 @@ class Problem(object):
             # ax.set_ylim([np.nanmin(y), np.nanmax(y)])
         else:
             levels = np.linspace(vmin, vmax, 14)
-            cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
+            # cax = ax.tricontourf(x, y, z, levels=levels, cmap=cmap, extend='both')
+            cax = tricontourf_clipped(x, y, z, ax=ax, levels=levels, cmap=cmap, extend='both')
             if pts:
                 ax.plot(x, y, 'k+')
         ax.set_xlabel('x [m]')

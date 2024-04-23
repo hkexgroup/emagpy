@@ -239,6 +239,7 @@ class App(QMainWindow):
             self.datadir = os.path.join(bundle_dir, './examples')
         else:
             self.datadir = os.path.join(bundle_dir, 'emagpy', 'examples')
+        self.lastdir = self.datadir
         self.fnameHi = None
         self.fnameLo = None
         self.fnameEC = None
@@ -275,8 +276,9 @@ class App(QMainWindow):
         
         def fimportBtnFunc():
             self._dialog = QFileDialog()
-            fname, _ = self._dialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
+            fname, _ = self._dialog.getOpenFileName(importTab, 'Select data file', self.lastdir, '*.csv')
             if fname != '':
+                self.lastdir = os.path.dirname(fname)
                 try:
                     df = pd.read_csv(fname)
                     ccols = [c for c in df.columns if c[:5] == 'layer']
@@ -518,8 +520,9 @@ class App(QMainWindow):
         
         def importBtnFunc():
             self._dialog = QFileDialog()
-            fnames, _ = self._dialog.getOpenFileNames(importTab, 'Select data file(s)', self.datadir, '*.csv *.CSV')
+            fnames, _ = self._dialog.getOpenFileNames(importTab, 'Select data file(s)', self.lastdir, '*.csv *.CSV')
             if len(fnames) > 0:
+                self.lastdir = os.path.dirname(fnames[0])
                 self.processFname(fnames, merged=self.mergedCheck.isChecked())
         self.importBtn = QPushButton('Import Dataset(s)')
         self.importBtn.setAutoDefault(True)
@@ -527,16 +530,18 @@ class App(QMainWindow):
         self.importBtn.clicked.connect(importBtnFunc)
         
         def importGFLoFunc():
-            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.dat *.DAT')
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.lastdir, '*.dat *.DAT')
             if fname != '':
+                self.lastdir = os.path.dirname(fname)
                 self.fnameLo = fname
                 self.importGFLo.setText(os.path.basename(fname))
         self.importGFLo = QPushButton('Select Lo')
         self.importGFLo.clicked.connect(importGFLoFunc)
         
         def importGFHiFunc():
-            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.dat *.DAT')
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.lastdir, '*.dat *.DAT')
             if fname != '':
+                self.lastdir = os.path.dirname(fname)
                 self.fnameHi = fname
                 self.importGFHi.setText(os.path.basename(fname))
         self.importGFHi = QPushButton('Select Hi')
@@ -591,12 +596,12 @@ class App(QMainWindow):
         self.gfCorrectionBtn.setVisible(False)
         
         def showGF(arg):
-            visibles = [False, True, False, False, False, False, False, False, False]
+            visibles = [True, True, False, False, False, False, False, False, False]
             objs = [self.importBtn, self.mergedCheck, self.importGFLo, self.importGFHi,
                     self.gfCalibCombo, self.gfCorrectionBtn,
                     self.hxLabel, self.hxEdit, self.importGFApply]
             if arg is True:
-                [o.setVisible(~v) for o,v in zip(objs, visibles)]
+                [o.setVisible(not v) for o,v in zip(objs, visibles)]
             else:
                 [o.setVisible(v) for o,v in zip(objs, visibles)]
         showGF(False)
@@ -917,8 +922,9 @@ class App(QMainWindow):
         
         # import ECa csv (same format, one coil per column)
         def ecaImportBtnFunc():
-            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.lastdir, '*.csv')
             if fname != '':
+                self.lastdir = os.path.dirname(fname)
                 self.fnameECa = fname
                 self.ecaImportBtn.setText(os.path.basename(fname))
         self.ecaImportBtn = QPushButton('Import ECa')
@@ -926,8 +932,9 @@ class App(QMainWindow):
         
         # import EC depth-specific (one depth per column) -> can be from ERT
         def ecImportBtnFunc():
-            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.csv')
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.lastdir, '*.csv')
             if fname != '':
+                self.lastdir = os.path.dirname(fname)
                 self.fnameEC = fname
                 self.fnameResMod = None
                 self.ecImportBtn.setText(os.path.basename(fname))
@@ -938,8 +945,9 @@ class App(QMainWindow):
 
         # import Resistivity model, format should be x, z, resistivity with space delimeter, e.g. R2 'f001_res.dat' format
         def ertImportBtnFunc():
-            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.datadir, '*.dat')
+            fname, _ = QFileDialog.getOpenFileName(importTab, 'Select data file', self.lastdir, '*.dat')
             if fname != '':
+                self.lastdir = os.path.dirname(fname)
                 self.fnameResMod = fname
                 self.fnameEC = None
                 self.ecImportBtn.setText('Import EC profiles')
@@ -1209,9 +1217,10 @@ class App(QMainWindow):
         
         def importModelBtnFunc():
             self._dialog = QFileDialog()
-            fname, _ = self._dialog.getOpenFileName(settingsTab, 'Select data file', self.datadir, '*.csv')
+            fname, _ = self._dialog.getOpenFileName(settingsTab, 'Select data file', self.lastdir, '*.csv')
             if fname != '':
                 # try:
+                self.lastdir = os.path.dirname(fname)
                 self.problem.importModel(fname)
                 self.writeLog('k.importModel("{:s}"'.format(fname))
                 nlayer = self.problem.models[0].shape[1]

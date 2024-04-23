@@ -10,3 +10,4 @@ pyvista
 pyvistaqt
 PyQt5
 rasterio
+concave-hull

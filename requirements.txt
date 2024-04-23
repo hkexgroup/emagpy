@@ -10,3 +10,4 @@ ipympl
 voila
 pyvista
 rasterio
+concave-hull

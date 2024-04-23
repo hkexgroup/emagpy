@@ -12,6 +12,8 @@ from datetime import time, datetime
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.path as mpath
+import matplotlib.tri as mtri
 from scipy.stats import linregress
 from scipy.spatial.distance import cdist
 from scipy.interpolate import griddata, NearestNDInterpolator
@@ -22,15 +24,17 @@ from emagpy.invertHelper import Q2eca
 
 
 
-def clipConvexHull(xdata,ydata,x,y,z):
-    """ set to nan data outside the convex hull of xdata, yxdata
+def clipConvexHull(xdata, ydata, x, y, z):
+    """Set to nan data outside the convex hull of xdata, ydata
     
-    Parameters:
+    Parameters
+    ----------
         xdata, ydata (arrays) : x and y position of the data collected
         x, y (arrays) : x and y position of the computed interpolation points
         z (arrays) : value of the interpolation
     
-    Return:
+    Returns
+    -------
         znew (array) : a copy of z with nan when outside convexHull
     """
     knownPoints = np.array([xdata, ydata]).T
@@ -42,9 +46,117 @@ def clipConvexHull(xdata,ydata,x,y,z):
         
     znew = np.copy(z)
     for i in range(0, len(z)):
-        if hull.find_simplex(newPoints[i,:])<0:
+        if hull.find_simplex(newPoints[i,:]) < 0:
             znew[i] = np.nan
     return znew
+
+
+def clipConcaveHull(xdata, ydata, x, y, z):
+    """Clip according to concave hull.
+
+    Parameters
+    ----------
+    xdata : array_like
+        X positions collected.
+    ydata : array_like
+        Y positions collected.
+    x : array_like
+        X positions of interpolated points
+    y : array_like
+        Y positions of interpolated points
+    z : array_like
+        Z values of interpolated points
+    
+    Returns
+    -------
+    znew : array_like
+        Z values with NaN outside of the concave hull
+    """
+    try:
+        from concave_hull import concave_hull_indexes
+    except ImportError as e:
+        print('concave-hull not installed, will use convexhull instead. Install it with `pip install concave-hull`')
+        znew = clipConvexHull(xdata, ydata, x, y, z)
+        return znew
+    
+    # estimate threshold
+    threshold = np.max([(np.min(xdata) - np.max(xdata))/10,
+                        (np.min(ydata) - np.max(ydata))/10])
+
+    # building concave hull
+    points = np.c_[xdata, ydata]
+    idxes = concave_hull_indexes(points, length_threshold=threshold)
+
+    # creating path of outside segments
+    segs = []
+    for f, t in zip(idxes[:-1], idxes[1:]):  # noqa
+        seg = points[[f, t]]
+        segs.append(seg[0, :])
+    path = mpath.Path(segs)
+    
+    # set to NaN point outside concave hull
+    ie = ~path.contains_points(np.c_[x, y])
+    znew = np.copy(z)
+    znew[ie] = np.nan
+
+    return znew
+
+def tricontourf_clipped(x, y, z, ax=None, **kwargs):
+    """Adaption of matplotlib tricontourf with mask inside concave hull.
+    Note the additional 'ax' argument to specify the axis.
+    
+    Parameters
+    ----------
+    x : array_like
+        X values.
+    y : array_like
+        Y values.
+    z : array_like
+        Z values.
+    ax : maplotlib.axes.Axes
+        Matplotlib axes.
+    kwargs : optional
+        Additional keyword arguments passed to tricontourf.
+
+    Returns
+    -------
+    cax : 
+        Output of matplotlib tricontourf.
+    """
+    try:
+        from concave_hull import concave_hull_indexes
+    except ImportError as e:
+        print('concave-hull not installed, will use normal tricontourf instead. Install it with `pip install concave-hull`')
+        ax.tricontourf(x, y, z, **kwargs)
+        return
+
+    # make a triangulation
+    triang = mtri.Triangulation(x, y)
+
+    # compute triangles centroids
+    centroid = np.mean([triang.x[triang.triangles], triang.y[triang.triangles]], axis=-1).T
+
+    # compute concave hull
+    threshold = np.max([(np.min(x) - np.max(x))/10,
+                        (np.min(y) - np.max(y))/10])
+    points = np.c_[x, y]
+    idxes = concave_hull_indexes(points, length_threshold=threshold)
+
+    # compute edges of the hull
+    segs = []
+    for f, t in zip(idxes[:-1], idxes[1:]):  # noqa
+        seg = points[[f, t]]
+        segs.append(seg[0, :])
+    
+    # create path and check if centroids are inside the concave hull
+    path = mpath.Path(segs)
+    ie = path.contains_points(centroid)
+    triang.set_mask(~ie)
+
+    # call tricontourf
+    cax = ax.tricontourf(triang, z, **kwargs)
+
+    return cax
 
 
 def idw(xnew, ynew, xknown, yknown, zknown, n=1):
@@ -624,7 +736,8 @@ class Survey(object):
         if contour is True:
             if len(levels) == 0:
                 levels = np.linspace(vmin, vmax, 7)
-            cax = ax.tricontourf(x, y, val, levels=levels, extend='both', cmap=cmap)
+            # cax = ax.tricontourf(x, y, val, levels=levels, extend='both', cmap=cmap)
+            cax = tricontourf_clipped(x, y, val, ax=ax, levels=levels, extend='both', cmap=cmap)
             if pts is True:
                 ax.plot(x, y, 'k+')
         else:
@@ -712,7 +825,8 @@ class Survey(object):
 
         # compute convex hull
         inside = np.ones(nx*ny)
-        inside2 = clipConvexHull(xknown, yknown, x, y, inside)
+        # inside2 = clipConvexHull(xknown, yknown, x, y, inside)
+        inside2 = clipConcaveHull(xknown, yknown, x, y, inside)
         ie = np.isnan(inside2).reshape(X.shape)
 
         layers = []
@@ -1146,8 +1260,8 @@ class Survey(object):
                     interpolator = NearestNDInterpolator(pointsHi, values)
                     df.loc[ie, col] = interpolator(pointsLo)
                     
-            coils = loCols[:3] + hiCols[:3]
-            coilsInph = loCols[3:] + hiCols[3:]
+            coils = loCols[:n] + hiCols[:n]
+            coilsInph = loCols[n:] + hiCols[n:]
         elif fnameLo is not None:
             df = loFile
             df['x'] = np.arange(df.shape[0])
