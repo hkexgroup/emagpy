@@ -2253,7 +2253,6 @@ class Problem(object):
         ie = (connection >= len(vertices)).any(axis=1)
         connection = connection[~ie, :]
         coordinates = vertices[connection]
-        print(coordinates.shape)
         
         # plotting
         if contour is True:

@@ -1570,9 +1570,6 @@ class Survey(object):
         ix, iy = ix[ifar], iy[ifar]
         print('found', len(ix), '/', df.shape[0], 'crossing points')
         
-        print(ix.shape)
-        print(iy.shape)
-        
         val = df[coils].values
         x = val[ix,:]
         y = val[iy,:]
