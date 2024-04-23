@@ -2158,7 +2158,7 @@ class Problem(object):
 
     
     def showResults(self, index=0, ax=None, vmin=None, vmax=None,
-                    maxDepth=None, padding=1, cmap='viridis_r', dist=True,
+                    maxDepth=None, cmap='viridis_r', dist=True,
                     contour=False, rmse=False, errorbar=False, overlay=False,
                     elev=False, doi=False, levels=[]):
         """Show inverted model.
@@ -2175,8 +2175,6 @@ class Problem(object):
             Maximum value of the colorbar.
         maxDepth : float, optional
             Maximum negative depths of the graph.
-        padding : float, optional
-            DONT'T KNOW
         cmap : str, optional
             Name of the Matplotlib colormap to use.
         dist : bool, optional
@@ -2222,7 +2220,8 @@ class Problem(object):
         if vmax is None:
             vmax = np.nanpercentile(sig, 95)
         cmap = plt.get_cmap(cmap)
-        if maxDepth is None:
+        if maxDepth is None or maxDepth >= np.max(depths):
+            padding = 1
             maxDepth = np.nanpercentile(depths, 98) + padding
         depths = -np.c_[depths, np.ones(depths.shape[0])*maxDepth]
         if elev:
@@ -2230,7 +2229,7 @@ class Problem(object):
         if dist:
             if len(self.surveys) == 0:
                 dist = False # no survey to take position from
-        
+
         # vertices
         nlayer = sig.shape[1]
         nsample = sig.shape[0]
@@ -2254,14 +2253,17 @@ class Problem(object):
         ie = (connection >= len(vertices)).any(axis=1)
         connection = connection[~ie, :]
         coordinates = vertices[connection]
+        print(coordinates.shape)
         
         # plotting
         if contour is True:
             centroid = np.mean(coordinates, axis=1)
             centroidx = centroid[:,0].reshape((-1, nsample))
             centroidz = centroid[:,1].reshape((-1, nsample))
-            xc = np.vstack([centroidx[0,:], centroidx, centroidx[-1,:]])
-            zc = np.vstack([np.zeros(nsample), centroidz, -np.ones(nsample)*maxDepth])
+            maxz = np.max(coordinates[:, :, 1], axis=1).reshape((-1, nsample))[0, :]
+            minz = np.min(coordinates[:, :, 1], axis=1).reshape((-1, nsample))[-1, :]
+            xc = np.vstack([centroidx[0, :], centroidx, centroidx[-1, :]])
+            zc = np.vstack([maxz, centroidz, minz])
             val = np.c_[sig[:,0], sig, sig[:,-1]].T
             if len(levels) == 0:
                 if vmax > vmin:
@@ -2269,6 +2271,9 @@ class Problem(object):
                 else:
                     levels = None
             cax = ax.contourf(xc, zc, val, cmap=cmap, levels=levels, extend='both')
+            # ax.scatter(xc, zc, s=15, c=val, cmap='jet')
+            # ax.plot(centroidx, centroidz, 'k+')
+            # ax.plot(vertices[:, 0], vertices[:, 1], 'k.')
             # set clip path
             # pathvert = np.c_[np.r_[xs[:,0], xs[::-1,0]], np.r_[ys[:,-1], ys[::-1,0]]]
             # path = mpath.Path(pathvert)
