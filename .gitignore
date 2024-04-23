@@ -5,4 +5,7 @@ src/dist/*
 src/build/*
 src/.coverage
 .vscode/*
-
+doc/_build/*
+src/dev/*
+src/figures/*
+src/emagpy.egg-info/*

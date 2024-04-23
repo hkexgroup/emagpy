@@ -67,7 +67,7 @@ def convertFromCoord(df, targetProjection=None):
         Dataframe with a 'latitude' and 'longitude' columns that contains NMEA
         string.
     targetProjection : str, optional
-        Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+        Target CRS, in EPSG number: e.g. `targetProjection='EPSG:3395'`
         for the British Grid. If None, only WGS84 decimal degree will be returned.
     """
     import pyproj
@@ -75,16 +75,20 @@ def convertFromCoord(df, targetProjection=None):
     def NMEA(arg):
         """ Convert NMEA string to WGS84 (GPS) decimal degree.
         """
-        letter = arg[-1]
-        if (letter == 'W') | (letter == 'S'):
-            sign = -1
-        else:
-            sign = 1
-        arg = arg[:-1]
-        x = arg.index('.')
-        a = float(arg[:x-2]) # degree
-        b = float(arg[x-2:]) # minutes
-        return (a + b/60)*sign
+        try:
+            letter = arg[-1]
+            if (letter == 'W') | (letter == 'S'):
+                sign = -1
+            else:
+                sign = 1
+            arg = arg[:-1]
+            x = arg.index('.')
+            a = float(arg[:x-2]) # degree
+            b = float(arg[x-2:]) # minutes
+            return (a + b/60)*sign
+        except Exception as e:
+            print('ERROR in NMEA string conversion, will set NaN instead')
+            return np.nan
     
     def DMS(arg):
         """Convert convert degrees, minutes, seconds to decimal degrees
@@ -124,6 +128,9 @@ def convertFromCoord(df, targetProjection=None):
     
     df['lat'] = gps2deg(df['latitude'].values)
     df['lon'] = gps2deg(df['longitude'].values)
+
+    # in case some values were not well converted, drop the NaN rows
+    df = df[df['lat'].notnull() & df['lon'].notnull()].reset_index(drop=True)
     
     if targetProjection is not None:
         try:
@@ -157,7 +164,7 @@ class Survey(object):
         in the .csv.
     targetProjection : str, optional
         If specified, the 'latitude' and 'longitude' NMEA string will be
-        converted to the targeted grid e.g. : 'EPSG:27700'.
+        converted to the targeted grid e.g. : 'EPSG:3395'.
     unit : str, optional
         Unit for the _quad and _inph columns. By default assume to be in ppt 
         (part per thousand). ppm (part per million) can also be specified. Note
@@ -199,7 +206,7 @@ class Survey(object):
             Name of the sensor (for metadata only).
         targetProjection : str, optional
             EPSG string describing the projection of a 'latitude' and 'longitude'
-            column is found in the dataframe. e.g. 'EPSG:27700' for the British grid.
+            column is found in the dataframe. e.g. 'EPSG:3395' for the British grid.
         unit : str, optional
             Unit for the _quad and _inph columns. By default assume to be in ppt 
             (part per thousand). ppm (part per million) can also be specified. Note
@@ -230,7 +237,7 @@ class Survey(object):
             A string describing the sensor (for metadata only).
         targetProjection : str, optional
             EPSG string describing the projection of a 'latitude' and 'longitude'
-            column is found in the dataframe. e.g. 'EPSG:27700' for the British grid.
+            column is found in the dataframe. e.g. 'EPSG:3395' for the British grid.
         unit : str, optional
             Unit for the _quad and _inph columns. By default assume to be in ppt 
             (part per thousand). ppm (part per million) can also be specified. Note
@@ -506,13 +513,13 @@ class Survey(object):
         print('{:d}/{:d} data removed (filterDiff).'.format(np.sum(~i2keep), len(i2keep)))
         self.df = self.df[i2keep].reset_index(drop=True)
     
-    def convertFromCoord(self, targetProjection='EPSG:27700'): # British Grid 1936
+    def convertFromCoord(self, targetProjection='EPSG:3395'): # British Grid 1936
         """Convert coordinates string (NMEA or DMS) to selected CRS projection.
     
         Parameters
         ----------
         targetProjection : str, optional
-            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:3395'`
             for the British Grid.
         """
         self.projection = targetProjection
@@ -1467,14 +1474,14 @@ class Survey(object):
         #TODO not sure about this
 
     # deprecated methods
-    def convertFromNMEA(self, targetProjection='EPSG:27700'): # British Grid 1936
+    def convertFromNMEA(self, targetProjection='EPSG:3395'): # British Grid 1936
         """**deprecated, use convertFromCoord() instead.**
         Convert coordinates string (NMEA or DMS) to selected CRS projection.
     
         Parameters
         ----------
         targetProjection : str, optional
-            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:3395'`
             for the British Grid.
         """
         warnings.warn('The function is deprecated, use convertFromCoord() instead.',

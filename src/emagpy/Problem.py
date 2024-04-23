@@ -97,17 +97,17 @@ class Problem(object):
             Height of the instrument above the ground (can also be specified for each coil in the file).
         targetProjection : str, optional
             If specified, a conversion from NMEA string in 'latitude' and 'longitude'
-            columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
+            columns will be performed according to EPSG code: e.g. 'EPSG:3395'.
         unit : str, optional
             Unit for the _quad and _inph columns. By default assume to be in ppt 
             (part per thousand). ppm (part per million) can also be specified. Note
             that ECa columns, if present are assumed to be in mS/m.
         """
         # create Survey object
-        if self.projection is not None:
-            targetProjection = self.projection
+        if targetProjection is not None:
+            self.setProjection(targetProjection)
             
-        survey = Survey(fname, freq=freq, hx=hx, targetProjection=targetProjection, unit=unit)
+        survey = Survey(fname, freq=freq, hx=hx, targetProjection=self.projection, unit=unit)
         
         # remove NaN from survey
         inan = np.zeros(survey.df.shape[0], dtype=bool)
@@ -144,7 +144,7 @@ class Problem(object):
             List of file to be parsed or directory where the files are.
         targetProjection : str, optional
             If specified, a conversion from NMEA string in 'latitude' and 'longitude'
-            columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
+            columns will be performed according to EPSG code: e.g. 'EPSG:3395'.
         unit : str, optional
             Unit for the _quad and _inph columns. By default assume to be in ppt 
             (part per thousand). ppm (part per million) can also be specified. Note
@@ -159,10 +159,10 @@ class Problem(object):
                 # this filter out hidden file as well
             else:
                 raise ValueError('dirname should be a directory path or a list of filenames')
-        if self.projection is not None:
-            targetProjection = self.projection
+        if targetProjection is not None:
+            self.setProjection(targetProjection)
         for fname in fnames:
-            self.createSurvey(fname, targetProjection=targetProjection, unit=unit)
+            self.createSurvey(fname, targetProjection=self.projection, unit=unit)
             
     
     
@@ -185,18 +185,18 @@ class Problem(object):
                 - 'first': use positions from first survey only and interpolate on other surveys
         targetProjection : str, optional
             If specified, a conversion from NMEA string in 'latitude' and 'longitude'
-            columns will be performed according to EPSG code: e.g. 'EPSG:27700'.
+            columns will be performed according to EPSG code: e.g. 'EPSG:3395'.
         unit : str, optional
             Unit for the _quad and _inph columns. By default assume to be in ppt 
             (part per thousand). ppm (part per million) can also be specified. Note
             that ECa columns, if present are assumed to be in mS/m.
         """
         # import all surveys
-        if self.projection is not None:
-            targetProjection = self.projection
+        if targetProjection is not None:
+            self.setProjection(targetProjection)
         surveys = []
         for fname in fnames:
-            surveys.append(Survey(fname, targetProjection=targetProjection, unit=unit))
+            surveys.append(Survey(fname, targetProjection=self.projection, unit=unit))
         
         # check all surveys have different coil configurations
         coils = np.hstack([survey.coils for survey in surveys])
@@ -233,9 +233,7 @@ class Problem(object):
         self.cspacing = mergedSurvey.cspacing
         self.cpos = mergedSurvey.cpos
         self.hx = mergedSurvey.hx
-            
         
-    
     def importGF(self, fnameLo=None, fnameHi=None, device='CMD Mini-Explorer',
                  hx=0, calib=None, targetProjection=None):
         """Import GF instrument data with Lo and Hi file mode. If spatial data
@@ -262,10 +260,10 @@ class Problem(object):
             a conversion first is done using `self.convertFromCoord()` before
             being regrid using nearest neightbours.
         """
-        if self.projection is not None:
-            targetProjection = self.projection
+        if targetProjection is not None:
+            self.setProjection(targetProjection)
         survey = Survey()
-        survey.importGF(fnameLo, fnameHi, device, hx, calib, targetProjection)
+        survey.importGF(fnameLo, fnameHi, device, hx, calib, self.projection)
         self.coils = survey.coils
         self.coilsInph = survey.coilsInph
         self.coilsQuad = survey.coilsQuad
@@ -2065,44 +2063,44 @@ class Problem(object):
                 
 
     
-    def convertFromNMEA(self,  targetProjection='EPSG:27700'): # British Grid 1936
+    def convertFromNMEA(self,  targetProjection='EPSG:3395'): # British Grid 1936
         """**DECPRECATED: use convertFromCoord() instead.**
         Convert NMEA string to selected CRS projection.
         
         Parameters
         ----------
         targetProjection : str, optional
-            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:3395'`
             for the British Grid.
         """
         warnings.warn('The function is deprecated, use convertFromCoord() instead.',
                       DeprecationWarning)
-        if self.projection is not None:
-            targetProjection = self.projection
+        if targetProjection is not None:
+            self.setProjection(targetProjection)
         for survey in self.surveys:
-            survey.convertFromCoord(targetProjection=targetProjection)
+            survey.convertFromCoord(targetProjection=self.projection)
 
-    def convertFromCoord(self,  targetProjection='EPSG:27700'): # British Grid 1936
+    def convertFromCoord(self,  targetProjection='EPSG:3395'): # British Grid 1936
         """ Convert NMEA string to selected CRS projection.
         
         Parameters
         ----------
         targetProjection : str, optional
-            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:3395'`
             for the British Grid.
         """
-        if self.projection is not None:
-            targetProjection = self.projection
+        if targetProjection is not None:
+            self.setProjection(targetProjection)
         for survey in self.surveys:
-            survey.convertFromCoord(targetProjection=targetProjection)
+            survey.convertFromCoord(targetProjection=self.projection)
     
-    def setProjection(self, targetProjection='EPSG:27700'):
+    def setProjection(self, targetProjection='EPSG:3395'):
         """Set surveys projection to the targetProjection.
         
         Parameters
         ----------
         targetProjection : str, optional
-            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:27700'`
+            Target CRS, in EPSG number: e.g. `targetProjection='EPSG:3395'`
             for the British Grid.
         """
         self.projection = targetProjection
