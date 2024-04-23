@@ -591,7 +591,7 @@ class App(QMainWindow):
         self.gfCorrectionBtn.setVisible(False)
         
         def showGF(arg):
-            visibles = [True, True, False, False, False, False, False, False, False]
+            visibles = [False, True, False, False, False, False, False, False, False]
             objs = [self.importBtn, self.mergedCheck, self.importGFLo, self.importGFHi,
                     self.gfCalibCombo, self.gfCorrectionBtn,
                     self.hxLabel, self.hxEdit, self.importGFApply]
@@ -2408,7 +2408,10 @@ the ERT calibration will account for it.</p>
         return version
     
     def updateCheckerShow(self, version):
-        if EMagPy_version != version:
+        version_int = int(''.join(['{:03d}'.format(int(d)) for d in version.split('.')]))
+        EMagPy_version_int = int(''.join(['{:03d}'.format(int(d)) for d in EMagPy_version.split('.')]))
+                 
+        if EMagPy_version_int < version_int:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Information)
             msg.setText('''<b>EMagPy version %s is available</b>''' % (version))
