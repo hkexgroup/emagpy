@@ -14,7 +14,7 @@ jobs:
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up environment
         run: |
@@ -34,12 +34,12 @@ jobs:
           find ./
           cd ..
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: EMagPy-linux.zip
           path: ./src/dist/EMagPy-linux.zip
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: EMagPy-linux
           path: ./src/dist/EMagPy-linux
@@ -50,7 +50,7 @@ jobs:
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up environment
         run: |
@@ -70,12 +70,12 @@ jobs:
           .\build.bat
           cd ..
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: EMagPy-windows.zip
           path: ./src/dist/EMagPy-windows.zip
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: EMagPy-windows.exe
           path: ./src/dist/EMagPy-windows.exe
@@ -86,7 +86,7 @@ jobs:
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up environment
         run: |
@@ -112,12 +112,12 @@ jobs:
           cd ../..
           
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: EMagPy-macos.app
           path: ./src/dist/EMagPy-macos.zip
           
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: EMagPy-macos.dmg
           path: ./src/dist/EMagPy-macos.dmg
