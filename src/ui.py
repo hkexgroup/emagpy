@@ -1036,6 +1036,7 @@ class App(QMainWindow):
         #%% error model
         errTab = QTabWidget()
         self.tabs.addTab(errTab, 'Error Modelling')
+        errTab.setEnabled(False)
         
         self.errLabel = QLabel('EXPERIMENTAL: this tab helps to fit an '
                                'error model based on cross-over measurements. '
@@ -1082,6 +1083,80 @@ class App(QMainWindow):
         errTab.setLayout(errLayout)
         
         
+        #%% drift tab
+        driftTab = QTabWidget()
+        self.tabs.addTab(driftTab, 'Drift correction')
+        
+        self.driftLabel = QLabel('A drift station is a place that you surved multiple times during your EMI mapping. From it we can compute a drift and correct for it.')
+        self.driftLabel.setWordWrap(True)
+        
+        # options
+        self.surveyDriftCombo = QComboBox()
+        self.coilDriftCombo = QComboBox()
+        self.mindLabel = QLabel('Dist. around [m]:')
+        self.mindEdit = QLineEdit('1')
+        self.mindEdit.setValidator(QDoubleValidator())
+        self.mindEdit.setToolTip('Minimum distance around station or cross-over points.')
+        self.xystationLabel = QLabel('Drift station X, Y [m]:')
+        self.xstationEdit = QLineEdit('')
+        self.xstationEdit.setValidator(QDoubleValidator())
+        self.xstationEdit.setToolTip('X projected coordinate of the drift station')
+        self.ystationEdit = QLineEdit('')
+        self.ystationEdit.setValidator(QDoubleValidator())
+        self.ystationEdit.setToolTip('Y projected coordinate of the drift station')
+        self.driftTypeCombo = QComboBox()
+        self.driftTypeCombo.addItem('each')
+        self.driftTypeCombo.addItem('all')
+        self.driftApplyCheck = QCheckBox('Apply correction')
+        self.driftApplyCheck.setToolTip('If unchecked, will just simulate the drift fit')
+        self.driftTypeCombo.setToolTip('Fit a correction between each come back to the drift station (each) or for all points together (all)')
+        
+        def fitDriftBtnFunc():
+            self.mwDrift.setCallback(self.problem.driftCorrection)
+            index = self.surveyDriftCombo.currentIndex()
+            coils = self.coilDriftCombo.currentText()
+            mind = float(self.mindEdit.text())
+            xStation = None if self.xstationEdit.text() == '' else float(self.xstationEdit.text())
+            yStation = None if self.ystationEdit.text() == '' else float(self.ystationEdit.text())
+            if xStation is None:
+                self.errorDump('Specify drift station projected coordinates')
+            driftType = self.driftTypeCombo.currentText()
+            driftApply = self.driftApplyCheck.isChecked()
+            self.mwDrift.replot(index=index, xStation=xStation,
+                yStation=yStation, coils=coils, radius=mind, fit=driftType,
+                apply=driftApply, dump=self.infoDump)
+            self.writeLog('k.driftCorrection(index={:d}, coils={:s}, xStation={:s}, yStation={:s}, radius={:f}, fit={:s}, apply={:s})'.format(
+                index, str(coils), str(xStation), str(yStation), mind, driftType, str(driftApply)))
+        self.fitDriftBtn = QPushButton('Fit drift from station')
+        self.fitDriftBtn.clicked.connect(fitDriftBtnFunc)
+        
+        # graph
+        self.mwDrift = MatplotlibWidget()
+        
+        # layout
+        driftLayout = QVBoxLayout()
+        driftLayout.addWidget(self.driftLabel)
+        driftOptionLayout = QHBoxLayout()
+        driftOptionLayout.addWidget(self.surveyDriftCombo)
+        driftOptionLayout.addWidget(self.coilDriftCombo)
+        driftOptionLayout.addWidget(self.mindLabel)
+        driftOptionLayout.addWidget(self.mindEdit)
+        driftOptionLayout.addWidget(self.xystationLabel)
+        driftOptionLayout.addWidget(self.xstationEdit)
+        driftOptionLayout.addWidget(self.ystationEdit)
+        driftOptionLayout.addWidget(self.driftTypeCombo)
+        driftOptionLayout.addWidget(self.driftApplyCheck)
+        driftOptionLayout.addWidget(self.fitDriftBtn)
+        driftLayout.addLayout(driftOptionLayout)
+        driftLayout.addWidget(self.mwDrift)   
+        
+        #driftStationTab = QTabWidget()
+        driftTab.setLayout(driftLayout)
+        #driftTab.addTab(driftStationTab, 'Drift station')
+        # TODO adding a subtab cause a strange error with the matplotlib widget with has a very small size
+        
+        # from cross-over points
+        # TODO
         
         #%% inversion settings (starting model + lcurve)
         settingsTab = QTabWidget()
@@ -2298,18 +2373,25 @@ the ERT calibration will account for it.</p>
         
         # fill the combobox with survey and coil names
         self.coilErrCombo.clear()
+        self.coilDriftCombo.clear()
         self.coilCombo.clear()
         for coil in self.problem.coils:
             self.coilCombo.addItem(coil)
             self.coilErrCombo.addItem(coil)
+            self.coilDriftCombo.addItem(coil)
         self.coilCombo.addItem('all')
         self.coilCombo.setCurrentIndex(len(self.problem.coils))
+        self.coilDriftCombo.addItem('all')
+        self.coilDriftCombo.setCurrentIndex(len(self.problem.coils))
         self.surveyCombo.clear()
+        self.surveyDriftCombo.clear()
+        self.surveyErrCombo.clear()
         self.surveyInvCombo.clear()
         self.surveyInvMapCombo.clear()
         self.surveyInv3dCombo.clear()
         for survey in self.problem.surveys:
             self.surveyCombo.addItem(survey.name)
+            self.surveyDriftCombo.addItem(survey.name)
             self.surveyErrCombo.addItem(survey.name)
             self.surveyInvCombo.addItem(survey.name)
             self.surveyInvMapCombo.addItem(survey.name)

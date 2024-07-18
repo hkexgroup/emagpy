@@ -1120,6 +1120,34 @@ class Problem(object):
             plot_history(history)
             
     
+    def driftCorrection(self, index=0, xStation=None, yStation=None, coils='all', 
+                        radius=1, fit='all', ax=None, apply=False, dump=print):
+        """Compute drift correction from EMI given a station point and a radius.
+
+        Parameters
+        ----------
+        index : int, optional
+            Index of the survey to which the drift correction is made. Default 0.
+        xStation : float, optional
+            X position of the drift station. Default from first point.
+        yStation : float, optional
+            Y position of the drift station. Default from first point.
+        coil : str or list of str, optional
+            Name of coil for the analysis. Default is 'all'.
+        radius : float, optional
+            Radius around the station point inside which data will be averaged.
+            The default is 1.
+        fit : str, optional
+            Type of fit. Either 'all' if one drift correction is applied on all
+            data (default) or 'each' if one fit is done between each time
+            the user came back to the drift point.
+        ax : matplotlib.Axes, optional
+            If specified, the drift graph will be plotted against. The default is None.
+        apply : bool, optional
+            If `True` the drift correction will be applied. The default is False.
+        """
+        self.surveys[index].driftCorrection(xStation=xStation, yStation=yStation,
+            coils=coils, radius=radius, fit=fit, ax=ax, apply=apply, dump=dump)
     
     def invertGN(self, alpha=0.07, alpha_ref=None, dump=None):
         """Fast inversion usign Gauss-Newton and cumulative sensitivity.
