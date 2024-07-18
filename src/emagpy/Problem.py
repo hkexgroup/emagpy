@@ -410,7 +410,7 @@ class Problem(object):
             Function to print the progression. Default is `print`.
         bnds : list of float, optional
             If specified, will create bounds for the inversion. Doesn't work with
-            Nelder-Mead solver. Bounds need to be specified only for the parameters not fixed,
+            Nelder-Mead or Gauss-Newton solver. Bounds need to be specified only for the parameters not fixed,
             starting with the depths, then the EC. For instance,
             if you **fix** 2 depths and fit 3 layer EC:
             [(layer1_ec_min, layer1_ec_max), (layer2_ec_min, layer2_ec_max), (layer3_ec_min, layer3_ec_max)]
