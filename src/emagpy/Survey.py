@@ -1031,27 +1031,37 @@ class Survey(object):
      
     
     
-    def plotCrossOverMap(self, coil=None, ax=None, minDist=1):
+    def plotCrossOverMap(self, coil=None, minDist=1, ifirst=None, ax=None):
         """Plot the map of the cross-over points for error model.
         
         Parameters
         ----------
         coil : str, optional
             Name of the coil.
-        ax : Matplotlib.Axes, optional
-            Matplotlib axis on which the plot is plotted against if specified.
         minDist : float, optional
             Point at less than `minDist` from each other are considered
             identical (cross-over). Default is 1 meter.
+        ifirst : int, optional
+            If specified, will color the point from this index onwards in 
+            another color. Only cross-over points from this index onwards will
+            be considered. To be used in conjonction with crossOverPointsDrift().
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
         """
         if coil is None:
             coil = self.coils[0]
         df = self.df
         dist = cdist(df[['x', 'y']].values,
                      df[['x', 'y']].values)
-        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
-        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
+        iy, ix = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
+        ifar = (iy - ix) > 200 # they should be at least 200 measuremens apart
         ix, iy = ix[ifar], iy[ifar]
+        if ifirst is not None and ifirst < df.shape[0]:
+            ie = iy > ifirst
+            ix = ix[ie]
+            iy = iy[ie]
+        else:
+            ifirst = -1
         print('found', len(ix), '/', df.shape[0], 'crossing points')
         
         # plot cross-over points
@@ -1063,6 +1073,7 @@ class Survey(object):
             fig1, ax = plt.subplots()
         ax.set_title(coil)
         ax.plot(xcoord, ycoord, '.')
+        ax.plot(xcoord[ifirst:], ycoord[ifirst:], 'g.')
         ax.plot(xcoord[icross], ycoord[icross], 'ro', label='crossing points')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
@@ -1545,7 +1556,7 @@ class Survey(object):
         
     
     def crossOverPointsDrift(self, coil=None, minDist=1, interpolation='linear',
-                             apply=False, ax=None, dump=print): # pragma: no cover
+                             ifirst=None, apply=False, ax=None, dump=print): # pragma: no cover
         """Build a drift model based on the cross-over points.
         The data from the first cross-over points onwards are considered drift
         free and are used to compute drift over the earlier cross-over points.
@@ -1560,6 +1571,10 @@ class Survey(object):
         interpolation : str, optional
             Interpolation method used for fitting the drift. Either: 'spline',
             'linear' (piecewise, default) or 'polynomial' fit.
+        ifirst : int, optional
+            Index from which we started to measure calibration data for
+            cross-over points. If None, the first cross-over point detected
+            mark the start of the calibration serie.
         apply : bool, optional
             If `True`, the drift correction will be applied.
         ax : Matplotlib.Axes, optional
@@ -1570,7 +1585,10 @@ class Survey(object):
         if coil is None:
             coils = self.coils
         if isinstance(coil, str):
-            coils = [coil]
+            if coil == 'all':
+                coils = self.coils
+            else:
+                coils = [coil]
         if interpolation not in ['spline', 'linear', 'polynomial']:
             dump('Interpolation method set to linear')
             interpolation = 'linear'
@@ -1582,6 +1600,11 @@ class Survey(object):
         ix, iy = ix[ifar], iy[ifar]
         print('found', len(ix), '/', df.shape[0], 'crossing points')
 
+        # don't use cross-over points before ifirst
+        if ifirst is not None and ifirst < df.shape[0]:
+            ie = iy > ifirst
+            ix = ix[ie]
+            iy = iy[ie]
         val = df[coils].values
         x = val[ix,:]  # x is earlier
         y = val[iy,:]  # y is later
@@ -1606,7 +1629,8 @@ class Survey(object):
                 a = i+1
         groups = np.array(groups)
                 
-        fig, ax = plt.subplots()
+        if ax is None:
+            fig, ax = plt.subplots()
         ax.plot([], [], 'k+', label='closest points')
         ax.plot([], [], 'ko', label='median')
         ax.plot([], [], 'k--', label='fit')

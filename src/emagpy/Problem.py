@@ -3197,9 +3197,41 @@ class Problem(object):
         survey = self.surveys[index]
         survey.crossOverPointsError(coil=coil, ax=ax, dump=dump)
     
+    def crossOverPointsDrift(self, index=0, coil=None, minDist=1, interpolation='linear',
+                             ifirst=None, apply=False, ax=None, dump=print): # pragma: no cover
+        """Build a drift model based on the cross-over points.
+        The data from the first cross-over points onwards are considered drift
+        free and are used to compute drift over the earlier cross-over points.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Index of survey.
+        coil : str, optional
+            Name of the coil.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
+        interpolation : str, optional
+            Interpolation method used for fitting the drift. Either: 'spline',
+            'linear' (piecewise, default) or 'polynomial' fit.
+        ifirst : int, optional
+            Index from which we started to measure calibration data for
+            cross-over points. If None, the first cross-over point detected
+            mark the start of the calibration serie.
+        apply : bool, optional
+            If `True`, the drift correction will be applied.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
+        dump : function, optional
+            Output function for information.
+        """
+        survey = self.surveys[index]
+        survey.crossOverPointsDrift(coil=coil, minDist=minDist,
+            interpolation=interpolation, ifirst=ifirst, apply=apply, ax=ax,
+            dump=dump)
     
-    
-    def plotCrossOverMap(self, index=0, coil=None, ax=None):
+    def plotCrossOverMap(self, index=0, coil=None, minDist=1, ifirst=None, ax=None):
         """Plot the map of the cross-over points for error model.
         
         Parameters
@@ -3208,11 +3240,18 @@ class Problem(object):
             Survey index to fit the model on. Default is the first.
         coil : str, optional
             Name of the coil.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
+        ifirst : int, optional
+            If specified, will color the point from this index onwards in 
+            another color. Only cross-over points from this index onwards will
+            be considered. To be used in conjonction with crossOverPointsDrift().
         ax : Matplotlib.Axes, optional
             Matplotlib axis on which the plot is plotted against if specified.
         """
         survey = self.surveys[index]
-        survey.plotCrossOverMap(coil=coil, ax=ax)
+        survey.plotCrossOverMap(coil=coil, ifirst=ifirst, ax=ax)
         
     
     def showSlice(self, index=0, islice=0, contour=False, vmin=None, vmax=None,

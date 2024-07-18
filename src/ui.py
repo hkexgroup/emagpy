@@ -1150,13 +1150,77 @@ class App(QMainWindow):
         driftLayout.addLayout(driftOptionLayout)
         driftLayout.addWidget(self.mwDrift)   
         
-        #driftStationTab = QTabWidget()
-        driftTab.setLayout(driftLayout)
-        #driftTab.addTab(driftStationTab, 'Drift station')
+        driftStationTab = QTabWidget()
+        driftStationTab.setLayout(driftLayout)
+        driftTab.addTab(driftStationTab, 'Drift station')
         # TODO adding a subtab cause a strange error with the matplotlib widget with has a very small size
         
-        # from cross-over points
-        # TODO
+        #%% from cross-over points
+        driftCrossTab = QTabWidget()
+        driftTab.addTab(driftCrossTab, 'Drift from cross-over points')
+        
+        self.drift2Label = QLabel('From the "ifirst" reading, we consider the data without drift and look for cross-over points earlier to compute drift model.')
+        self.drift2Label.setWordWrap(True)
+        
+        # options
+        self.surveyDrift2Combo = QComboBox()
+        self.coilDrift2Combo = QComboBox()
+        self.mind2Label = QLabel('Dist. around [m]:')
+        self.mind2Edit = QLineEdit('1')
+        self.mind2Edit.setValidator(QDoubleValidator())
+        self.mind2Edit.setToolTip('Minimum distance around station or cross-over points.')
+        self.ifirstLabel = QLabel('ifirst')
+        self.ifirstEdit = QLineEdit('')
+        self.ifirstEdit.setToolTip('From this index, the data is drift free')
+        # self.drift2TypeCombo = QComboBox()
+        # self.drift2TypeCombo.addItem('each')
+        # self.drift2TypeCombo.addItem('all')
+        # self.drift2TypeCombo.setToolTip('Fit a correction between each come back to the drift station (each) or for all points together (all)')
+        self.drift2ApplyCheck = QCheckBox('Apply correction')
+        self.drift2ApplyCheck.setToolTip('If unchecked, will just simulate the drift fit')
+        
+        def fitDrift2BtnFunc():
+            self.mwDrift2.setCallback(self.problem.crossOverPointsDrift)
+            index = self.surveyDrift2Combo.currentIndex()
+            coils = self.coilDrift2Combo.currentText()
+            mind = float(self.mind2Edit.text())
+            ifirst = int(self.ifirstEdit.text()) if self.ifirstEdit.text() != '' else None
+            # driftType = self.driftTypeCombo.currentText()
+            driftApply = self.drift2ApplyCheck.isChecked()
+            self.mwDrift2.replot(index=index, coil=coils, minDist=mind,
+                apply=driftApply, dump=self.errorDump)
+            self.writeLog('k.crossOverPointsDrift(index={:d}, coils={:s}, minDist={:f}, ifirst={:s}, apply={:s})'.format(
+                index, str(coils), mind, str(ifirst), str(driftApply)))
+            self.mwDrift2Map.setCallback(self.problem.plotCrossOverMap)
+            self.mwDrift2Map.replot(index=index, minDist=mind, ifirst=ifirst)
+        self.fitDrift2Btn = QPushButton('Fit drift from cross-over points')
+        self.fitDrift2Btn.clicked.connect(fitDrift2BtnFunc)
+        
+        # graph
+        self.mwDrift2Map = MatplotlibWidget()
+        self.mwDrift2 = MatplotlibWidget()
+        
+        # layout
+        drift2Layout = QVBoxLayout()
+        drift2Layout.addWidget(self.drift2Label)
+        drift2OptionLayout = QHBoxLayout()
+        drift2OptionLayout.addWidget(self.surveyDrift2Combo)
+        drift2OptionLayout.addWidget(self.coilDrift2Combo)
+        drift2OptionLayout.addWidget(self.mind2Label)
+        drift2OptionLayout.addWidget(self.mind2Edit)
+        drift2OptionLayout.addWidget(self.ifirstLabel)
+        drift2OptionLayout.addWidget(self.ifirstEdit)
+        # drift2OptionLayout.addWidget(self.drift2TypeCombo)
+        drift2OptionLayout.addWidget(self.drift2ApplyCheck)
+        drift2OptionLayout.addWidget(self.fitDrift2Btn)
+        drift2Layout.addLayout(drift2OptionLayout)
+        drift2GraphLayout = QHBoxLayout()
+        drift2GraphLayout.addWidget(self.mwDrift2Map)
+        drift2GraphLayout.addWidget(self.mwDrift2)
+        drift2Layout.addLayout(drift2GraphLayout)
+        
+        #driftStationTab = QTabWidget()
+        driftCrossTab.setLayout(drift2Layout)
         
         #%% inversion settings (starting model + lcurve)
         settingsTab = QTabWidget()
@@ -2374,17 +2438,22 @@ the ERT calibration will account for it.</p>
         # fill the combobox with survey and coil names
         self.coilErrCombo.clear()
         self.coilDriftCombo.clear()
+        self.coilDrift2Combo.clear()
         self.coilCombo.clear()
         for coil in self.problem.coils:
             self.coilCombo.addItem(coil)
             self.coilErrCombo.addItem(coil)
             self.coilDriftCombo.addItem(coil)
+            self.coilDrift2Combo.addItem(coil)
         self.coilCombo.addItem('all')
         self.coilCombo.setCurrentIndex(len(self.problem.coils))
         self.coilDriftCombo.addItem('all')
         self.coilDriftCombo.setCurrentIndex(len(self.problem.coils))
+        self.coilDrift2Combo.addItem('all')
+        self.coilDrift2Combo.setCurrentIndex(len(self.problem.coils))
         self.surveyCombo.clear()
         self.surveyDriftCombo.clear()
+        self.surveyDrift2Combo.clear()
         self.surveyErrCombo.clear()
         self.surveyInvCombo.clear()
         self.surveyInvMapCombo.clear()
@@ -2392,6 +2461,7 @@ the ERT calibration will account for it.</p>
         for survey in self.problem.surveys:
             self.surveyCombo.addItem(survey.name)
             self.surveyDriftCombo.addItem(survey.name)
+            self.surveyDrift2Combo.addItem(survey.name)
             self.surveyErrCombo.addItem(survey.name)
             self.surveyInvCombo.addItem(survey.name)
             self.surveyInvMapCombo.addItem(survey.name)
