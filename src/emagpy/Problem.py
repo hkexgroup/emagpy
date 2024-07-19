@@ -19,8 +19,7 @@ import matplotlib.tri as mtri
 # import matplotlib.patches as mpatches
 import matplotlib.path as mpath
 from scipy.optimize import minimize
-from scipy.stats import linregress, gaussian_kde
-from scipy import interpolate
+from scipy.stats import linregress
 
 # for parallel computing
 from joblib import Parallel, delayed

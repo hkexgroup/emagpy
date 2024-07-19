@@ -1036,8 +1036,8 @@ class App(QMainWindow):
         #%% error model
         errTab = QTabWidget()
         self.tabs.addTab(errTab, 'Error Modelling')
-        errTab.setEnabled(False)
-        
+        self.tabs.setTabEnabled(3, False)
+
         self.errLabel = QLabel('EXPERIMENTAL: this tab helps to fit an '
                                'error model based on cross-over measurements. '
                                'It helps estimate the amount of error on '
@@ -1050,7 +1050,7 @@ class App(QMainWindow):
         
         def fitErrBtnFunc():
             index = self.surveyErrCombo.currentIndex()
-            coil = self.coilErrCombo.itemText(self.coilErrCombo.currentIndex())
+            coil = self.coilErrCombo.currentText()
             self.mwErr.setCallback(self.problem.crossOverPointsError)
             self.mwErr.replot(index=index, coil=coil, dump=self.infoDump)
             self.writeLog('k.crossOverPointsError(index={:d}, coil="{:s}")'.format(
@@ -1131,7 +1131,7 @@ class App(QMainWindow):
         self.fitDriftBtn.clicked.connect(fitDriftBtnFunc)
         
         # graph
-        self.mwDrift = MatplotlibWidget()
+        self.mwDrift = MatplotlibWidget(parent=self)
         
         # layout
         driftLayout = QVBoxLayout()
@@ -1148,15 +1148,17 @@ class App(QMainWindow):
         driftOptionLayout.addWidget(self.driftApplyCheck)
         driftOptionLayout.addWidget(self.fitDriftBtn)
         driftLayout.addLayout(driftOptionLayout)
-        driftLayout.addWidget(self.mwDrift)   
+        driftGraphLayout = QVBoxLayout()
+        driftGraphLayout.addWidget(QLabel('Figure'))
+        driftGraphLayout.addWidget(self.mwDrift)
+        driftLayout.addLayout(driftGraphLayout)
         
-        driftStationTab = QTabWidget()
+        driftStationTab = QWidget()
         driftStationTab.setLayout(driftLayout)
         driftTab.addTab(driftStationTab, 'Drift station')
-        # TODO adding a subtab cause a strange error with the matplotlib widget with has a very small size
         
         #%% from cross-over points
-        driftCrossTab = QTabWidget()
+        driftCrossTab = QWidget()
         driftTab.addTab(driftCrossTab, 'Drift from cross-over points')
         
         self.drift2Label = QLabel('From the "ifirst" reading, we consider the data without drift and look for cross-over points earlier to compute drift model.')
@@ -1442,7 +1444,6 @@ class App(QMainWindow):
         
         # graph
         self.mwlcurve = MatplotlibWidget()
-        
         
         # layout
         settingsLayout = QHBoxLayout()
@@ -1979,7 +1980,7 @@ class App(QMainWindow):
         self.graphTabs.addTab(self.mapTab, 'Slice')
         self.graphTabs.addTab(self.m3dTab, '3D View')
         if pvfound is False:
-            self.graphTabs.setEnabled(2, False)
+            self.graphTabs.setTabEnabled(2, False)
         
         # graph or log    
         self.mwInv = MatplotlibWidget()
