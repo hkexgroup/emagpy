@@ -1149,7 +1149,6 @@ class App(QMainWindow):
         driftOptionLayout.addWidget(self.fitDriftBtn)
         driftLayout.addLayout(driftOptionLayout)
         driftGraphLayout = QVBoxLayout()
-        driftGraphLayout.addWidget(QLabel('Figure'))
         driftGraphLayout.addWidget(self.mwDrift)
         driftLayout.addLayout(driftGraphLayout)
         
