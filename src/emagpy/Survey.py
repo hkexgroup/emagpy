@@ -914,8 +914,9 @@ class Survey(object):
             Interpolation method (nearest, cubic or linear see
             `scipy.interpolate.griddata`) or IDW (default).
         """
-        xknown = self.df['x'].values
-        yknown = self.df['y'].values
+        idup = self.df.duplicated(subset=['x', 'y'])
+        xknown = self.df[~idup]['x'].values
+        yknown = self.df[~idup]['y'].values
         if xmin is None:
             xmin = np.min(xknown)
         if xmax is None:
@@ -941,7 +942,7 @@ class Survey(object):
         df['y'] = Y.flatten()
         cols = self.coils + self.coilsInph + ['elevation']
         for col in cols:
-            values = self.df[col].values
+            values = self.df[~idup][col].values
             if method == 'idw':
                 z = idw(X.flatten(), Y.flatten(), xknown, yknown, values)
             elif method == 'kriging':
