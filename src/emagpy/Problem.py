@@ -19,8 +19,7 @@ import matplotlib.tri as mtri
 # import matplotlib.patches as mpatches
 import matplotlib.path as mpath
 from scipy.optimize import minimize
-from scipy.stats import linregress, gaussian_kde
-from scipy import interpolate
+from scipy.stats import linregress
 
 # for parallel computing
 from joblib import Parallel, delayed
@@ -410,7 +409,7 @@ class Problem(object):
             Function to print the progression. Default is `print`.
         bnds : list of float, optional
             If specified, will create bounds for the inversion. Doesn't work with
-            Nelder-Mead solver. Bounds need to be specified only for the parameters not fixed,
+            Nelder-Mead or Gauss-Newton solver. Bounds need to be specified only for the parameters not fixed,
             starting with the depths, then the EC. For instance,
             if you **fix** 2 depths and fit 3 layer EC:
             [(layer1_ec_min, layer1_ec_max), (layer2_ec_min, layer2_ec_max), (layer3_ec_min, layer3_ec_max)]
@@ -572,7 +571,8 @@ class Problem(object):
             dump('Inverting data using Gridded Parameter Search\n')
             if bnds is None:
                 raise ValueError('You need to provide bounds (bnds argument) for a grid search')
-            if len(self.conds0) > 0:
+            # check and complete constrains for grid search
+            if len(self.conds0) > 0:  # if some EC are fixed
                 fixedParamsD = []
                 for i in range(0, len(self.depths0[0][0])):
                     if self.fixedDepths[i] == True:
@@ -590,11 +590,12 @@ class Problem(object):
             else:
                 fixedParams = None
                 nlayers = 2
-            bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax = self.gridParamSearch(forwardModel=fmodel, bnds=bnds, regularization=regularization, fixedParams=fixedParams)
-            self.models.append(bestConds)
-            self.depths.append(bestDepths)
-            self.misfits.append(bestMisfits)
-            self.pstds.append(paramSd)
+            for i, survey in enumerate(self.surveys):
+                bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax = self.gridParamSearch(index=i, forwardModel=fmodel, nlayers=nlayers, bnds=bnds, regularization=regularization, fixedParams=fixedParams)
+                self.models.append(bestConds)
+                self.depths.append(bestDepths)
+                self.misfits.append(bestMisfits)
+                self.pstds.append(paramSd)
 
         # build ANN network
         if method == 'ANN': # pragma: no cover
@@ -626,8 +627,7 @@ class Problem(object):
                                       1]
             if Lscaling is True:
                 L = L/distCentroids[:,None]
-        # TODO what for 3 layers ? sum of those distances ?
-
+        
         # data misfit
         def dataMisfit(p, obs, ini0):
             misfit = fmodel(p, ini0) - obs
@@ -1013,11 +1013,11 @@ class Problem(object):
         ini0 = (self.depths0[0][0,:].copy(), self.conds0[0][0,:].copy())
         param = np.zeros((nsample, nc))
         for i, bnd in enumerate(bounds):
-            param[:,i] = np.random.uniform(bnd[0], bnd[1], nsample)
+            param[:, i] = np.random.uniform(bnd[0], bnd[1], nsample)
             
         eca = np.zeros((nsample, len(self.coils)))
         for i in range(nsample):
-            eca[i,:] = addnoise(fmodel(param[i,:], ini0))
+            eca[i, :] = addnoise(fmodel(param[i,:], ini0))
         
         vcols = list(self.coils.copy())
         pcols = ['p{:d}'.format(i+1) for i in range(nc)]
@@ -1120,6 +1120,34 @@ class Problem(object):
             plot_history(history)
             
     
+    def driftCorrection(self, index=0, xStation=None, yStation=None, coils='all', 
+                        radius=1, fit='all', ax=None, apply=False, dump=print):
+        """Compute drift correction from EMI given a station point and a radius.
+
+        Parameters
+        ----------
+        index : int, optional
+            Index of the survey to which the drift correction is made. Default 0.
+        xStation : float, optional
+            X position of the drift station. Default from first point.
+        yStation : float, optional
+            Y position of the drift station. Default from first point.
+        coil : str or list of str, optional
+            Name of coil for the analysis. Default is 'all'.
+        radius : float, optional
+            Radius around the station point inside which data will be averaged.
+            The default is 1.
+        fit : str, optional
+            Type of fit. Either 'all' if one drift correction is applied on all
+            data (default) or 'each' if one fit is done between each time
+            the user came back to the drift point.
+        ax : matplotlib.Axes, optional
+            If specified, the drift graph will be plotted against. The default is None.
+        apply : bool, optional
+            If `True` the drift correction will be applied. The default is False.
+        """
+        self.surveys[index].driftCorrection(xStation=xStation, yStation=yStation,
+            coils=coils, radius=radius, fit=fit, ax=ax, apply=apply, dump=dump)
     
     def invertGN(self, alpha=0.07, alpha_ref=None, dump=None):
         """Fast inversion usign Gauss-Newton and cumulative sensitivity.
@@ -3169,9 +3197,41 @@ class Problem(object):
         survey = self.surveys[index]
         survey.crossOverPointsError(coil=coil, ax=ax, dump=dump)
     
+    def crossOverPointsDrift(self, index=0, coil=None, minDist=1, interpolation='linear',
+                             ifirst=None, apply=False, ax=None, dump=print): # pragma: no cover
+        """Build a drift model based on the cross-over points.
+        The data from the first cross-over points onwards are considered drift
+        free and are used to compute drift over the earlier cross-over points.
+        
+        Parameters
+        ----------
+        index : int, optional
+            Index of survey.
+        coil : str, optional
+            Name of the coil.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
+        interpolation : str, optional
+            Interpolation method used for fitting the drift. Either: 'spline',
+            'linear' (piecewise, default) or 'polynomial' fit.
+        ifirst : int, optional
+            Index from which we started to measure calibration data for
+            cross-over points. If None, the first cross-over point detected
+            mark the start of the calibration serie.
+        apply : bool, optional
+            If `True`, the drift correction will be applied.
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
+        dump : function, optional
+            Output function for information.
+        """
+        survey = self.surveys[index]
+        survey.crossOverPointsDrift(coil=coil, minDist=minDist,
+            interpolation=interpolation, ifirst=ifirst, apply=apply, ax=ax,
+            dump=dump)
     
-    
-    def plotCrossOverMap(self, index=0, coil=None, ax=None):
+    def plotCrossOverMap(self, index=0, coil=None, minDist=1, ifirst=None, ax=None):
         """Plot the map of the cross-over points for error model.
         
         Parameters
@@ -3180,11 +3240,18 @@ class Problem(object):
             Survey index to fit the model on. Default is the first.
         coil : str, optional
             Name of the coil.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
+        ifirst : int, optional
+            If specified, will color the point from this index onwards in 
+            another color. Only cross-over points from this index onwards will
+            be considered. To be used in conjonction with crossOverPointsDrift().
         ax : Matplotlib.Axes, optional
             Matplotlib axis on which the plot is plotted against if specified.
         """
         survey = self.surveys[index]
-        survey.plotCrossOverMap(coil=coil, ax=ax)
+        survey.plotCrossOverMap(coil=coil, ifirst=ifirst, ax=ax)
         
     
     def showSlice(self, index=0, islice=0, contour=False, vmin=None, vmax=None,
@@ -3368,40 +3435,56 @@ class Problem(object):
             dois.append(doi)
             print('\rComputing DOI {:d}/{:d} done'.format(i+1, len(depths)), end='')
         print('')
-
         self.dois = dois
 
-
-
-    def gridParamSearch(self, forwardModel, nlayers=2, step=25, misfitMax=0.1,
-                        regularization='l1', fixedParams=None, bnds=None):  # pragma: no cover
+    def gridParamSearch(self, index=0, forwardModel='CS', nlayers=2, step=25, targetMisfit=0.1,
+                        regularization='l1', fixedParams=None, bnds=None):
         """Using a grid based parameter search method this returns a list of
         best models for a specified number of layers, the minimum and maximum
         parameter bounds for the the top x percentage of models is also returned.
         This method can be used to 'invert' data or provide initial model
         parameter and parameter bounds for McMC methods.
-        
+        IMPORTANT: this methods require a lot of computation for multiple params
+        (combination of all params values)
+
         Parameters
         ----------
-        forwardModel : str
-            Forward model name. Either 'CS','FSlin' of 'FSeq'.
+        index : int, optional
+            Index of the survey. Default is 0 (first survey).
+        forwardModel : str, optional
+            Forward model name. Either 'CS' (default),'FSlin' of 'FSeq'.
         nlayers : int, optional
             Number of layers for model. Depth index. Default is first depth.
         step : int, optional
             Number of steps to use for each range.
-        fixedParam : list of int, optional
-            Array of whether parameters out to be fixed in grid parameter search or not.
-            TODO not explicit what this does
+        targetMisfit : float, optional
+            Target misfit, the search will stop after reaching it. The default is 0.1.
+        regularization : str, optional
+            Type of regularization to compute misfit. Choose between 'l1' (default) or 'l2'.
+        fixedParam : list of value, optional
+            Array of whether parameters need to be fixed in grid parameter search or not.
+            For instance for a 2 layers models: [0.3, 0.5, None, None, None] will fix
+            the first two depths and none of the EC. [0.3, 0.5, None, 40, None] will
+            fix the depths of the layer and the EC of the second layer to 40 mS/m.
         bnds : list of float, optional
             If specified, will create bounds for the inversion parameters
-        maxMisfit : int, optional
-            Maximum allowable misfit.
-            TODO then what? happens if it's over?'
-        TODO regularization is not in the docstring
-        TODO the docstring parameters are not ordered the same way as the argument of the method
+        
+        Returns
+        -------
+        bestConds : array_like
+            Best EC found.
+        bestDepths : array_like
+            Best depths found.
+        bestMisfits : array_like
+            Best misfit found.
+        paramSd : array_like
+            Standard deviation of parameter of converged model.
+        paramMin : TYPE
+            Minimum value of parameters among converged models.
+        paramMax : TYPE
+            Maximum value of parameters among converged models.
         """
-        dfeca = self.surveys[0].df.loc[:, self.coils] # TODO what if multiple survey?
-        eca = np.asarray(dfeca)
+        eca = self.surveys[index].df.loc[:, self.coils].values
         nparams = 2 * nlayers - 1   
         ndepths = nparams - nlayers
 
@@ -3420,64 +3503,77 @@ class Problem(object):
             for i in range(0, nlayers):
                 bnds.append(((1, 100)))
 
-        # combine bounds ??? TODO
         paramsRange = []
-        if type(fixedParams) == list:
-            for i in range(0, len(fixedParams)):
-                if type(fixedParams[i]) == float:
-                    paramsRange.append(((fixedParams[i], fixedParams[i])))
-                else:
-                    paramsRange.append(((bnds[i][0], bnds[i][1])))
-        else:
+        if fixedParams is None:
             paramsRange = bnds
+        else:
+            i = 0
+            for fixedParam in fixedParams:
+                if fixedParam is None:  # use bnds provided
+                    paramsRange.append([bnds[i][0], bnds[i][1]])
+                else:  # used fixed value provided
+                    paramsRange.append([fixedParam, fixedParam])
+        paramsRange = np.array(paramsRange)
 
         # create a grid for each parameter
-        params=[]
+        params = []
         for i in range(0, nparams):
-            if paramsRange[i][0]==paramsRange[i][1]:
-                params.append(paramsRange[i][0])
+            if paramsRange[i, 0] == paramsRange[i, 1]:  # fixed param
+                params.append(paramsRange[i, 0])
             else:
-                params.append((np.linspace(paramsRange[i][0], paramsRange[i][1], step)))
+                params.append(np.linspace(paramsRange[i, 0], paramsRange[i, 1], step))
  
         # create the N-dimensional meshgrid of parameter values
         modParams = np.array(np.meshgrid(*params)).T.reshape(-1,nparams)
-        print('Will compute {:d} forward models'.format(len(modParams)))      
+        print('Will compute {:d} forward models...'.format(len(modParams)), end='')
+        t0 = time.time()
         
         # compute forward response
-        depths = modParams[:,0:ndepths].reshape((len(modParams[:,0]),ndepths))
-        conds = modParams[:,ndepths:ndepths+nlayers]
+        depths = modParams[:, 0:ndepths].reshape((len(modParams[:, 0]), ndepths))
+        conds = modParams[:, ndepths:ndepths+nlayers]        
+        # could do a joblib but this does not take so long compare to the for loop below
+        #eca_m = Parallel(n_jobs=-1, backend='loky')(delayed(self.forward)(depths=[d], models=[c]) for d, c in zip(depths, conds))
         eca_m = np.asarray(self.forward(depths=[depths], models=[conds])[0])
-
-        bestMod = [] # TODO better to already set the size of these arrays using np.zeros((m,n))*np.nan, and then just assign items. This will make the code faster
-        modList = []
-        paramMin= []
-        paramMax = []
-        paramSd = []
-        for i in range(0, eca.shape[0]): # TODO this will be slow, but not sure we can speed it up and might still be faster than other solvers
+        print('done ({:.0f}s)'.format(time.time() - t0))
+        
+        # # compute misfit (matrix of shape: nb data, nb param, nb coils)
+        # if regularization == 'l1':
+        #     misfit = np.sum(np.abs(eca_m[None, :, :] - eca[:, None, :]) / eca[:, None, :], axis=2) / len(self.coils)
+        # elif regularization == 'l2':
+        #     misfit = np.sum(((eca_m[None, :, :] - eca[:, None, :]))**2 / eca[:, None, :], axis=2) / len(self.coils)
+        
+        # NOTE: a fully numpy approach is possible but requires quite a lot of memory
+        # so the slower for loop is prefered
+        paramMin= np.zeros((eca.shape[0], modParams.shape[1]))
+        paramMax = np.zeros((eca.shape[0], modParams.shape[1]))
+        paramSd = np.zeros((eca.shape[0], modParams.shape[1]))
+        bestConds = np.zeros((eca.shape[0], nparams - ndepths))
+        bestDepths = np.zeros((eca.shape[0], ndepths))
+        bestMisfits = np.zeros(eca.shape[0])
+        for i in tqdm(range(0, eca.shape[0])):
             eca_d = eca[i,:]
             if regularization == 'l1':
                 coilMisfits = np.abs(eca_m - eca_d[None,:]) / eca_d[None,:]
             if regularization == 'l2':
-                coilMisfits = ((eca_m - eca_d[None,:]) / eca_d[None,:])**2
+                coilMisfits = (eca_m - eca_d[None,:])**2 / eca_d[None,:]
             totalMisfit = np.sum(coilMisfits, axis=1) / len(self.coils)
-            # converged = np.where(totalMisfit < misfitMax) # TODO this can be a boolean array
-            converged = totalMisfit < misfitMax # TODO I think this can be a boolean array (boolean are faster than int arrays)
-            convergedModels = np.hstack((modParams[converged,:][0],totalMisfit[converged][:,None]))
+            iconverged = totalMisfit < targetMisfit
             
-            if len(convergedModels) > 0:
-                modList.append(convergedModels)
-                paramMin.append(np.amin(convergedModels[:,:-1], axis=0))                 
-                paramMax.append(np.amax(convergedModels[:,:-1], axis=0))
-                paramSd.append(np.std(convergedModels[:,:-1], axis=0))
+            # update parameter range to range of converted models
+            if iconverged.sum() > 0:
+                paramMin[i, :] = np.min(modParams[iconverged, :], axis=0)
+                paramMax[i, :] = np.max(modParams[iconverged, :], axis=0)   
+                paramSd[i, :] = np.std(modParams[iconverged, :], axis=0)
             else: 
-                paramMin.append(np.amin(paramsRange, axis=1))                 
-                paramMax.append(np.amax(paramsRange, axis=1))
-                paramSd.append(np.std(paramsRange, axis=0))
-
-            bestMod.append(np.append(modParams[np.where(totalMisfit == np.min(totalMisfit))[0][0],:],np.min(totalMisfit)))
-            bestDepths=np.asarray(bestMod)[:,0:ndepths]
-            bestConds=np.asarray(bestMod)[:,ndepths:nparams]
-            bestMisfits=np.asarray(bestMod)[:,-1]
-    
+                paramMin[i, :] = paramsRange[:, 0]
+                paramMax[i, :] = paramsRange[:, 1]
+                paramSd[i, :] = np.nan
+              
+            # return best models
+            imin = np.argmin(totalMisfit)
+            bestMisfits[i] = totalMisfit[imin]
+            bestDepths[i, :] = modParams[imin, :ndepths]
+            bestConds[i, :] = modParams[imin, ndepths:nparams]
+            
         return bestConds, bestDepths, bestMisfits, paramSd, paramMin, paramMax    
         

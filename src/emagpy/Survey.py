@@ -16,7 +16,8 @@ import matplotlib.path as mpath
 import matplotlib.tri as mtri
 from scipy.stats import linregress
 from scipy.spatial.distance import cdist
-from scipy.interpolate import griddata, NearestNDInterpolator
+from scipy.interpolate import (griddata, NearestNDInterpolator,
+    splrep, splev, make_smoothing_spline)
 from scipy.spatial import Delaunay
 from scipy.spatial import ConvexHull
 
@@ -913,8 +914,9 @@ class Survey(object):
             Interpolation method (nearest, cubic or linear see
             `scipy.interpolate.griddata`) or IDW (default).
         """
-        xknown = self.df['x'].values
-        yknown = self.df['y'].values
+        idup = self.df.duplicated(subset=['x', 'y'])
+        xknown = self.df[~idup]['x'].values
+        yknown = self.df[~idup]['y'].values
         if xmin is None:
             xmin = np.min(xknown)
         if xmax is None:
@@ -940,7 +942,7 @@ class Survey(object):
         df['y'] = Y.flatten()
         cols = self.coils + self.coilsInph + ['elevation']
         for col in cols:
-            values = self.df[col].values
+            values = self.df[~idup][col].values
             if method == 'idw':
                 z = idw(X.flatten(), Y.flatten(), xknown, yknown, values)
             elif method == 'kriging':
@@ -1030,27 +1032,37 @@ class Survey(object):
      
     
     
-    def plotCrossOverMap(self, coil=None, ax=None, minDist=1):
+    def plotCrossOverMap(self, coil=None, minDist=1, ifirst=None, ax=None):
         """Plot the map of the cross-over points for error model.
         
         Parameters
         ----------
         coil : str, optional
             Name of the coil.
-        ax : Matplotlib.Axes, optional
-            Matplotlib axis on which the plot is plotted against if specified.
         minDist : float, optional
             Point at less than `minDist` from each other are considered
             identical (cross-over). Default is 1 meter.
+        ifirst : int, optional
+            If specified, will color the point from this index onwards in 
+            another color. Only cross-over points from this index onwards will
+            be considered. To be used in conjonction with crossOverPointsDrift().
+        ax : Matplotlib.Axes, optional
+            Matplotlib axis on which the plot is plotted against if specified.
         """
         if coil is None:
             coil = self.coils[0]
         df = self.df
         dist = cdist(df[['x', 'y']].values,
                      df[['x', 'y']].values)
-        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
-        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
+        iy, ix = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
+        ifar = (iy - ix) > 200 # they should be at least 200 measuremens apart
         ix, iy = ix[ifar], iy[ifar]
+        if ifirst is not None and ifirst < df.shape[0]:
+            ie = iy > ifirst
+            ix = ix[ie]
+            iy = iy[ie]
+        else:
+            ifirst = -1
         print('found', len(ix), '/', df.shape[0], 'crossing points')
         
         # plot cross-over points
@@ -1062,6 +1074,7 @@ class Survey(object):
             fig1, ax = plt.subplots()
         ax.set_title(coil)
         ax.plot(xcoord, ycoord, '.')
+        ax.plot(xcoord[ifirst:], ycoord[ifirst:], 'g.')
         ax.plot(xcoord[icross], ycoord[icross], 'ro', label='crossing points')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
@@ -1443,7 +1456,7 @@ class Survey(object):
         
         
     def driftCorrection(self, xStation=None, yStation=None, coils='all', 
-                        radius=1, fit='all', ax=None, apply=False):
+                        radius=1, fit='all', ax=None, apply=False, dump=print):
         """Compute drift correction from EMI given a station point and a radius.
 
         Parameters
@@ -1479,13 +1492,16 @@ class Survey(object):
         val = self.df[coils].values
         dist = np.sqrt((x-xStation)**2 + (y-yStation)**2)
         idrift = dist < radius
-        igroup = np.where(np.diff(idrift) != 0)[0]
+        igroup = np.where(np.diff(idrift) != 0)[0]  # not the same point
         igroup = np.r_[0, igroup, val.shape[0]]
         a = 0 if idrift[0] == True else 1
         
         # compute group mean and std
         groups = [val[igroup[i]:igroup[i+1],:] for i in np.arange(len(igroup)-1)[a::2]]
         print('{:d} drift points detected.'.format(len(groups)))
+        if len(groups) < 2:
+            dump('Too few drift point detected, cannot compute drift')
+            return
         vm = np.array([np.mean(g, axis=0) for g in groups])
         vsem = np.array([np.std(g, axis=0)/np.sqrt(len(g)) for g in groups])
         if fit == 'all':
@@ -1540,49 +1556,116 @@ class Survey(object):
             ax.set_title('Drift fitted but not applied')
         
     
-    def crossOverPointsDrift(self, coil=None, ax=None, dump=print, minDist=1,
-                             apply=False): # pragma: no cover
-        """ Build an error model based on the cross-over points.
+    def crossOverPointsDrift(self, coil=None, minDist=1, interpolation='linear',
+                             ifirst=None, apply=False, ax=None, dump=print): # pragma: no cover
+        """Build a drift model based on the cross-over points.
+        The data from the first cross-over points onwards are considered drift
+        free and are used to compute drift over the earlier cross-over points.
         
         Parameters
         ----------
         coil : str, optional
             Name of the coil.
+        minDist : float, optional
+            Point at less than `minDist` from each other are considered
+            identical (cross-over). Default is 1 meter.
+        interpolation : str, optional
+            Interpolation method used for fitting the drift. Either: 'spline',
+            'linear' (piecewise, default) or 'polynomial' fit.
+        ifirst : int, optional
+            Index from which we started to measure calibration data for
+            cross-over points. If None, the first cross-over point detected
+            mark the start of the calibration serie.
+        apply : bool, optional
+            If `True`, the drift correction will be applied.
         ax : Matplotlib.Axes, optional
             Matplotlib axis on which the plot is plotted against if specified.
         dump : function, optional
             Output function for information.
-        minDist : float, optional
-            Point at less than `minDist` from each other are considered
-            identical (cross-over). Default is 1 meter.
-        apply : bool, optional
-            If `True`, the drift correction will be applied.
         """
         if coil is None:
             coils = self.coils
         if isinstance(coil, str):
-            coils = [coil]
+            if coil == 'all':
+                coils = self.coils
+            else:
+                coils = [coil]
+        if interpolation not in ['spline', 'linear', 'polynomial']:
+            dump('Interpolation method set to linear')
+            interpolation = 'linear'
         df = self.df
         dist = cdist(df[['x', 'y']].values,
                      df[['x', 'y']].values)
-        ix, iy = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
-        ifar = (ix - iy) > 200 # they should be at least 200 measuremens apart
+        iy, ix = np.where(((dist < minDist) & (dist > 0))) # 0 == same point
+        ifar = (iy - ix) > 200 # they should be at least 200 measuremens apart
         ix, iy = ix[ifar], iy[ifar]
         print('found', len(ix), '/', df.shape[0], 'crossing points')
-        
+
+        # don't use cross-over points before ifirst
+        if ifirst is not None and ifirst < df.shape[0]:
+            ie = iy > ifirst
+            ix = ix[ie]
+            iy = iy[ie]
         val = df[coils].values
-        x = val[ix,:]
-        y = val[iy,:]
-        misfit = np.abs(x - y)
-        xsample = np.abs(ix - iy) # number of sample taken between
-        # two pass
-        
+        x = val[ix,:]  # x is earlier
+        y = val[iy,:]  # y is later
+        misfit = np.abs(x - y)  # all possible combination of misfit
+        #xsample = np.abs(iy - ix) # number of sample taken between 2 passes
+        # the problem with the above is that we end up with multiple drift
+        # values for the same point (as one point can below to several interval
+        # between cross-over points)
+
+        # sort them all by ix
+        isort = np.argsort(ix)
+        ix = ix[isort]
+        iy = iy[isort]
+        misfit = misfit[isort]
+
+        # create groups and take median
+        groups = []
+        a = 0
+        for i in range(len(ix)-1):
+            if ix[i+1] - ix[i] > 2:
+                groups.append([ix[a], *np.median(misfit[a:i, :], axis=0)])
+                a = i+1
+        groups = np.array(groups)
+                
         if ax is None:
             fig, ax = plt.subplots()
-        ax.semilogy(xsample, misfit, '.')
-        ax.set_xlabel('Number of samples between two pass at same location')
-        ax.set_ylabel('Misfit between the two pass [mS/m]')
-        #TODO not sure about this
+        ax.plot([], [], 'k+', label='closest points')
+        ax.plot([], [], 'ko', label='median')
+        ax.plot([], [], 'k--', label='fit')
+        ax.plot(ix, misfit, '+')
+        ax.set_prop_cycle(None)
+        ax.plot(groups[:, 0], groups[:, 1:], 'o')
+
+        xx = np.arange(np.min(ix), np.max(ix))
+        xfit = []
+        for i, coil in enumerate(coils):
+            # fit a spline --- I am not convinced, quite a bit of overfitting
+            if interpolation == 'spline':
+                spl = make_smoothing_spline(groups[:, 0], groups[:, i+1])
+                #spl = splrep(groups[:, 0], groups[:, i+1], k=2)
+                xfit.append(splev(xx, spl))
+            elif interpolation == 'linear':
+                xfit.append(np.interp(xx, groups[:, 0], groups[:, i+1]))
+            elif interpolation == 'polynomial':
+                out = np.polyfit(groups[:, 0], groups[:, i+1], 5)
+                xfit.append(np.polyval(out, xx))    
+        xfit = np.array(xfit).T
+
+
+        ax.set_prop_cycle(None)
+        ax.plot(xx, xfit, '--', label=coils)
+        ax.legend()
+        ax.set_xlabel('Measurement before first cross-over point')
+        ax.set_ylabel('Misfit from cross-over comparison [mS/m]')
+
+        apply = False
+        if apply:
+            ibool = np.zeros(df.shape[0], dtype=bool)
+            ibool[np.min(ix):np.max(ix)] = True
+            df.loc[ibool, coils] = df[ibool][coils].values - xfit
 
     # deprecated methods
     def convertFromNMEA(self, targetProjection='EPSG:3395'): # British Grid 1936

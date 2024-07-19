@@ -11,9 +11,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from emagpy import Problem
 datadir = 'examples/'
-
+tdic = {}
 
 #%% importing from GF instrument and filtering
+t0 = time.time()
 k = Problem()
 k.importGF(datadir + 'cover-crop/coverCropLo.dat',
            datadir + 'cover-crop/coverCropHi.dat')
@@ -42,8 +43,10 @@ k.showMap()
 k.filterRepeated(tolerance=1.5)
 k.showMap()
 
+tdic['importing-filtering'] = time.time() - t0
 
 #%% mapping potatoes field
+t0 = time.time()
 k = Problem()
 k.createMergedSurvey([datadir + 'potatoes/potatoesLo.csv',
                       datadir + 'potatoes/potatoesHi.csv'],
@@ -54,12 +57,14 @@ k.createMergedSurvey([datadir + 'potatoes/potatoesLo.csv',
                       datadir + 'potatoes/potatoesHi.csv'],
                      targetProjection='EPSG:27700', how='add')
 df0 = k.surveys[0].df.copy()
+k.surveys[0].crossOverPointsDrift(interpolation='spline')
+k.surveys[0].crossOverPointsDrift(interpolation='linear')
+k.surveys[0].crossOverPointsDrift(interpolation='polynomial')
 k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
-k.surveys[0].driftCorrection(radius=5, fit='each')
-k.surveys[0].driftCorrection(radius=5, fit='each', apply=True)
+k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='each')
+k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='each', apply=True)
 k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all', apply=True)
 k.surveys[0].driftCorrection(xStation=338379, yStation=405420, radius=5, fit='all')
-# k.surveys[0].crossOverPointsDrift()
 k.crossOverPointsError()
 k.plotCrossOverMap()
 k.showMap(contour=True, pts=True)
@@ -70,8 +75,10 @@ k.gridData(method='idw')
 # k.gridData(method='kriging')
 k.showMap()
 
+tdic['potatoes'] = time.time() - t0
 
 #%% inversion with uncertainty
+t0 = time.time()
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.surveys[0].df = k.surveys[0].df[:20]
@@ -81,8 +88,10 @@ k.showResults(errorbar=True, overlay=True)
 k.showResults(errorbar=True, overlay=False, contour=True)
 k.showProfile(errorbar=True)
 
+tdic['inv-dream'] = time.time() - t0
 
 #%% inversion
+t0 = time.time()
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.surveys[0].df = k.surveys[0].df[:10] # only keep first measurements to make it faster
@@ -106,7 +115,10 @@ for m in ['L-BFGS-B', 'ROPE']:
 print('\n'.join(infos))
 # Q is quite sensitive to alpha
 
+tdic['inv-all'] = time.time() - t0
+
 #%% testing l1
+t0 = time.time()
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.surveys[0].df = k.surveys[0].df[:10] # only keep first measurements to make it faster
@@ -114,14 +126,20 @@ k.removeCoil(icoil=0)
 k.removeCoil(coilName=k.coils[1])
 k.invert(forwardModel='CS', method='DREAM', regularization='l1')
 
-#%% testing grid parameter search (GPS) -- TODO finish the implementation
-# k = Problem()
-# k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
-# k.setInit(depths0=[0.4, 0.7, 1], conds0=[20, 20, 20, 20])
-# k.invert(method='GPS', bnds=[(1, 100), (1, 100), (1, 100), (1, 100)])
+tdic['inv-l1'] = time.time() - t0
 
+#%% testing grid parameter search (GPS)
+t0 = time.time()
+k = Problem()
+k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
+k.setInit(depths0=[0.5, 1], conds0=[20, 20, 20])
+k.invert(method='GPS', bnds=[(5, 100), (5, 100), (5, 100)])
+k.showResults()
+
+tdic['inv-gps'] = time.time() - t0
 
 #%% testing algorithms on synthetic data
+t0 = time.time()
 nlayer = 2
 npos = 10
 conds = np.ones((npos, nlayer))*[20, 30]
@@ -152,9 +170,10 @@ for m in ['L-BFGS-B', 'ROPE']:
         # fig.show()
 print('\n'.join(infos))
 
-
+tdic['inv-all-synthetic'] = time.time() - t0
 
 #%% testing gauss-Newton
+t0 = time.time()
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCropTransect.csv')
 k.filterRange(vmax=50)
@@ -177,8 +196,10 @@ k.invert(forwardModel='FSeq', method='Gauss-Newton')
 k.showResults(ax=ax, rmse=True, vmin=10, vmax=30)
 ax.set_title('(c) FSeq with Gauss-Newton')
 
+tdic['inv-gn'] = time.time() - t0
 
 #%% test lateral smoothing
+t0 = time.time()
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.surveys[0].df = k.surveys[0].df[:10]
@@ -186,8 +207,10 @@ k.setInit(depths0=[0.5], fixedDepths=[False])
 k.invert(forwardModel='CS', method='SCEUA', alpha=0.07, beta=0.1, rep=300)
 k.showResults(errorbar=True)
 
+tdic['inv-lat-smooth'] = time.time() - t0
 
 #%% from background survey (time-lapse)
+t0 = time.time()
 # try a few variants
 k = Problem()
 try:
@@ -224,8 +247,10 @@ k.showResults(index=1, rmse=True, ax=axs[1])
 k.computeChange() # compute change in inverted EC
 k.showResults(index=1, cmap='bwr', ax=axs[2])
 
+tdic['inv-tl'] = time.time() - t0
 
 #%%  parallel and sequential inversion
+t0 = time.time()
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 # k.createSurvey(datadir + 'timelapse-wheat/170316.csv')
@@ -249,8 +274,10 @@ print('SEQ elapsed {:.2f}s'.format(time.time() - t2))
 print('PAR elapsed {:.2f}s'.format(time.time() - t0))
 k.showResults()
 
+tdic['inv-parallel-seq'] = time.time() - t0
 
 #%% calibration with Boxford dataset
+t0 = time.time()
 k = Problem()
 k.createSurvey(datadir + 'boxford-calib/eca_calibration.csv')
 k.calibrate(fnameECa=datadir + 'boxford-calib/eca_calibration.csv',
@@ -260,8 +287,10 @@ k.calibrate(fnameECa=datadir + 'boxford-calib/eca_calibration.csv', meshType='qu
 # k.calibrate(fnameECa=datadir + 'boxford-calib/eca_calibration.csv',
 #             fnameResMod=datadir + 'boxford-calib/trimesh.dat', binInt=4)
 
+tdic['calib'] = time.time() - t0
 
 #%% invert change in ECa
+t0 = time.time()
 k = Problem()
 k.createTimeLapseSurvey(datadir + 'timelapse-wheat')
 k.surveys = k.surveys[:2] # we reading the save models as well by default :/
@@ -272,6 +301,8 @@ k.invert(forwardModel='CSgn')
 k.getRMSE()
 k.showResults(index=1, cmap='bwr', dist=True)
 
+tdic['inv-ecadiff'] = time.time() - t0
+
 #%% check if project already set
 k = Problem()
 k.setProjection('EPSG:27700')
@@ -279,6 +310,7 @@ k.createSurvey(datadir + 'saprolite/regolith.csv')
 
 
 #%% mapping and save georeferenced slice
+t0 = time.time()
 k = Problem()
 try:
     k.setInit(depths0=[2, 1]) # exception
@@ -307,6 +339,7 @@ os.remove(datadir + 'saprolite/slice.tiff')
 os.remove(datadir + 'saprolite/inv_regolith.csv')
 os.remove(datadir + 'saprolite/data_regolith.csv')
 
+tdic['map'] = time.time() - t0
 
 #%% forward modelling
 nlayer = 2
@@ -333,6 +366,7 @@ k1.showResults(ax=axs[1], rmse=True)
 
 
 #%% quasi3D inversion
+t0 = time.time()
 k = Problem()
 k.createSurvey(datadir + 'cover-crop/coverCrop.csv')
 k.setInit(depths0=[0.5], fixedDepths=[False])
@@ -352,6 +386,7 @@ except:
 k.showDepths()
 k.showDepths(contour=True, pts=True)
 
+tdic['inv-3d'] = time.time() - t0
 
 #%% ANN inversion
 # k = Problem()
@@ -362,6 +397,7 @@ k.showDepths(contour=True, pts=True)
 
 
 #%% uncertainty
+t0 = time.time()
 nlayer = 2
 npos = 5
 conds = np.ones((npos, nlayer))*[20, 40]
@@ -376,4 +412,8 @@ k.invert(forwardModel='CS', method='MCMC', rep=300, bnds=bnds, alpha=0,
          regularization='l2', njobs=1)
 k.showResults(rmse=True, errorbar=True)
 
+tdic['inv-mcmc'] = time.time() - t0
 
+#%% print test stats
+for key in tdic:
+    print('{:20s}: {:.2f}s'.format(key, tdic[key]))
