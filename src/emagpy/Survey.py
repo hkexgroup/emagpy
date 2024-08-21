@@ -931,7 +931,7 @@ class Survey(object):
         # check if data are all on a line (so 1D, not 2D)
         if len(np.unique(yknown)) > 2:
             inside = np.ones(nx*ny)
-            inside2 = clipConvexHull(self.df['x'].values,
+            inside2 = clipConcaveHull(self.df['x'].values,
                                     self.df['y'].values,
                                     X.flatten(), Y.flatten(), inside)
             ie = ~np.isnan(inside2)
