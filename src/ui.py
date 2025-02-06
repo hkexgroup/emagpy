@@ -974,6 +974,11 @@ class App(QMainWindow):
         for forwardCalib in forwardCalibs:
             self.forwardCalibCombo.addItem(forwardCalib)
         
+        # choose which type of calibration (linear or just offset)
+        self.calibOrderCombo = QComboBox()
+        self.calibOrderCombo.addItem('linear')
+        self.calibOrderCombo.addItem('offset')
+        
         # perform the fit (equations display in the console)
         def fitCalibBtnFunc():
             if self.meshTypeBtn.currentText() == 'Quadrilateral ERT Mesh':
@@ -982,15 +987,16 @@ class App(QMainWindow):
                 self.meshType = 'tri'
             forwardModel = self.forwardCalibCombo.itemText(self.forwardCalibCombo.currentIndex())
             calib = self.gfCalibCalibCombo.currentText() if self.gfCalibCalibCombo.currentText() != 'None' else None 
+            order = 1 if self.calibOrderCombo.currentText() == 'linear' else 0
             self.mwCalib.setCallback(self.problem.calibrate)
             self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,
                                 fnameResMod=self.fnameResMod, calib=calib, meshType=self.meshType,
-                           forwardModel=forwardModel)
+                           forwardModel=forwardModel, order=order)
             self.writeLog('k.calibrate(fnameECa="{:s}", fnameEC="{:s}",'
                           'fnameResMod="{:s}", calib="{:s}", meshType="{:s}",'
-                          'forwardModel="{:s}")'.format(self.fnameECa, str(self.fnameEC),
+                          'forwardModel="{:s}", order={:d})'.format(self.fnameECa, str(self.fnameEC),
                                                         str(self.fnameResMod), str(calib), str(self.meshType),
-                                                        forwardModel))
+                                                        forwardModel, order))
         self.fitCalibBtn = QPushButton('Fit calibration')
         self.fitCalibBtn.clicked.connect(fitCalibBtnFunc)
         
@@ -998,14 +1004,15 @@ class App(QMainWindow):
         def applyCalibBtnFunc():
             forwardModel = self.forwardCalibCombo.itemText(self.forwardCalibCombo.currentIndex())
             calib = self.gfCalibCalibCombo.currentText() if self.gfCalibCalibCombo.currentText() != 'None' else None 
+            order = 1 if self.calibOrderCombo.currentText() == 'linear' else 0
             self.mwCalib.replot(fnameECa=self.fnameECa, fnameEC=self.fnameEC,  meshType=self.meshType,
                                 fnameResMod=self.fnameResMod, calib=calib,
-                           forwardModel=forwardModel, apply=True)
+                           forwardModel=forwardModel, order=order, apply=True)
             self.writeLog('k.calibrate(fnameECa="{:s}", fnameEC="{:s}",'
                           'fnameResMod="{:s}", calib="{:s}", meshType="{:s}",'
-                          'forwardModel="{:s}", apply=True)'.format(self.fnameECa, str(self.fnameEC),
+                          'forwardModel="{:s}", order={:d}, apply=True)'.format(self.fnameECa, str(self.fnameEC),
                                                         str(self.fnameResMod), str(calib), str(self.meshType),
-                                                        forwardModel))
+                                                        forwardModel, order))
             self.replot()
             self.infoDump('Calibration applied')
         self.applyCalibBtn = QPushButton('Apply Calibration')
@@ -1025,6 +1032,7 @@ class App(QMainWindow):
         calibOptions.addWidget(self.meshTypeBtn)
         calibOptions.addWidget(self.gfCalibCalibCombo)
         calibOptions.addWidget(self.forwardCalibCombo)
+        calibOptions.addWidget(self.calibOrderCombo)
         calibOptions.addWidget(self.fitCalibBtn)
         calibOptions.addWidget(self.applyCalibBtn)
         calibLayout.addLayout(calibOptions)

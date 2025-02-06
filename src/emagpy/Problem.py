@@ -3030,7 +3030,7 @@ class Problem(object):
 
     def calibrate(self, fnameECa, fnameEC=None, fnameResMod=None, 
                   forwardModel='CS', ax=None, apply=False, meshType=None, dump=None,
-                  nbins=None, binInt=None, calib=None):
+                  nbins=None, binInt=None, calib=None, order=1):
         """Calibrate ECa with given EC profile.
         
         Parameters
@@ -3050,6 +3050,8 @@ class Problem(object):
         apply : bool, optional
             If `True` the ECa values will be calibrated. If `False`, the relationship
             will just be plotted.
+        meshType : str, optional
+            Either 'quad' (quadrilateral) or 'tri' (triangular) mesh for ERT model.
         dump : function, optional
             Display different parts of the calibration.
         binInt : int, optional
@@ -3060,6 +3062,9 @@ class Problem(object):
             If specified, the corresponding GF correction will be applied prior
             to ERT calibration. This is needed if you apply the correction to
             your main dataset as well! See `gfCorrection()`.
+        order : int, optional
+            Order of the correction. By default 1 (linear fit). Could also be 0
+            if only an offset is desired. Order > 1 are not implemented.
         """
         
         if dump is None:
@@ -3074,6 +3079,16 @@ class Problem(object):
             except:
                 print('Frequency not found, revert to CS')
                 forwardModel = 'CS' # doesn't need frequency
+        
+        if meshType not in ['quad', 'tri']:
+            dump('meshType should be either "quad" or "tri"')
+            return 
+        
+        # check if all coils from the original survey are provided
+        for coil in self.coils:
+            if coil not in survey.coils:
+                dump('Coil {:s} is missing from the calibration survey'.format(coil))
+                return
             
         if fnameResMod is not None:
             ec, depths, eca, dist = self.resMod2EC(fnameECa=fnameECa,
@@ -3094,7 +3109,8 @@ class Problem(object):
                 survey.gfCorrection(calib=calib)
             
         if survey.df.shape[0] != dfec.shape[0]:
-            raise ValueError('input ECa and inputEC should have the same number of rows so the measurements can be paired.')
+            dump('input ECa and inputEC should have the same number of rows so the measurements can be paired.')
+            return
         
         # define the forward model
         if forwardModel == 'CS':
@@ -3132,10 +3148,19 @@ class Problem(object):
         slopes = np.zeros(len(self.coils))
         offsets = np.zeros(len(self.coils))
         ax.set_prop_cycle(None)
-        for i, coil in enumerate(survey.coils):
+        for i, coil in enumerate(self.coils):
             x, y = obsECa[:,i], simECa[:,i]
-            inan = ~np.isnan(x)& ~np.isnan(y)
-            slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
+            inan = ~np.isnan(x) & ~np.isnan(y)
+            if order == 1:
+                slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
+            elif order == 0:
+                x0, = np.polyfit(x[inan], y[inan], 0)
+                def objfunc(intercept):
+                    return np.sum((1*x[inan]+intercept - y[inan])**2)
+                res = minimize(objfunc, x0=[x0])
+                intercept = res.x[0]
+                slope = 1
+                r_value = 0
             slopes[i] = slope
             offsets[i] = intercept
             dump('{:s}: ECa (ERT) = {:.2f} * ECa (EMI) {:+.2f} (R^2={:.2f})'.format(coil, slope, intercept, r_value**2))
@@ -3154,20 +3179,22 @@ class Problem(object):
             # replot the same graph but with corrected EC
             ax.clear()
             ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
+            
             for i, coil in enumerate(self.coils):
                 # obsECaCorr = (obsECa[:,i] - offsets[i])/slopes[i]
                 obsECaCorr = obsECa[:,i] + offsets[i] - (1-slopes[i]) * obsECa[:,i]
                 x, y = obsECaCorr, simECa[:,i]
                 cax = ax.plot(x, y, '.')
                 inan = ~np.isnan(x) & ~np.isnan(y)
-                slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
-                # dump('{:s} corrected: ECa(ERT) = {:.2f} * ECa(EMI) + {:.2f} (R^2={:.2f})'.format(
-                    # coil, slope, intercept, r_value**2))
-                predECaCorr = x * slope + intercept
-                ax.plot(x, predECaCorr, '-', color=cax[0].get_color(),
-                        label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
-                ax.set_xlabel('ERT ECa [mS/m]')
-                ax.set_ylabel('EMI ECa [mS/m]')
+                if order == 1:  # fit again for aestetic
+                    slope, intercept, r_value, p_value, std_err = linregress(x[inan], y[inan])
+                    # dump('{:s} corrected: ECa(ERT) = {:.2f} * ECa(EMI) + {:.2f} (R^2={:.2f})'.format(
+                        # coil, slope, intercept, r_value**2))
+                    predECaCorr = x * slope + intercept
+                    ax.plot(x, predECaCorr, '-', color=cax[0].get_color(),
+                            label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
+                ax.set_xlabel('ECa (EMI) [mS/m]')
+                ax.set_ylabel('ECa (ERT) [mS/m]')
             ax.legend()
             ax.set_xlim([vmin, vmax])
             ax.set_ylim([vmin, vmax])
