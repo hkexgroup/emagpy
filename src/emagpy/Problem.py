@@ -3145,10 +3145,10 @@ class Problem(object):
         
         # plot equation, apply it or not directly
         predECa = np.zeros(obsECa.shape)
-        slopes = np.zeros(len(self.coils))
-        offsets = np.zeros(len(self.coils))
+        slopes = dict(zip(survey.coils, [0]*len(survey.coils)))
+        offsets = dict(zip(survey.coils, [0]*len(survey.coils)))
         ax.set_prop_cycle(None)
-        for i, coil in enumerate(self.coils):
+        for i, coil in enumerate(survey.coils):
             x, y = obsECa[:,i], simECa[:,i]
             inan = ~np.isnan(x) & ~np.isnan(y)
             if order == 1:
@@ -3161,8 +3161,8 @@ class Problem(object):
                 intercept = res.x[0]
                 slope = 1
                 r_value = 0
-            slopes[i] = slope
-            offsets[i] = intercept
+            slopes[coil] = slope
+            offsets[coil] = intercept
             dump('{:s}: ECa (ERT) = {:.2f} * ECa (EMI) {:+.2f} (R^2={:.2f})'.format(coil, slope, intercept, r_value**2))
             predECa[:,i] = obsECa[:,i]*slope + intercept
             ax.plot(obsECa[:,i], predECa[:,i], '-', label='{:s} (R$^2$={:.2f})'.format(coil, r_value**2))
@@ -3180,9 +3180,9 @@ class Problem(object):
             ax.clear()
             ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
             
-            for i, coil in enumerate(self.coils):
+            for i, coil in enumerate(survey.coils):
                 # obsECaCorr = (obsECa[:,i] - offsets[i])/slopes[i]
-                obsECaCorr = obsECa[:,i] + offsets[i] - (1-slopes[i]) * obsECa[:,i]
+                obsECaCorr = obsECa[:,i] + offsets[coil] - (1-slopes[coil]) * obsECa[:,i]
                 x, y = obsECaCorr, simECa[:,i]
                 cax = ax.plot(x, y, '.')
                 inan = ~np.isnan(x) & ~np.isnan(y)
@@ -3203,7 +3203,7 @@ class Problem(object):
             for s in self.surveys:
                 for i, c in enumerate(self.coils):
                     # s.df.loc[:, c] = (s.df[c].values - offsets[i])/slopes[i]
-                    s.df.loc[:, c] = s.df[c].values + offsets[i] - (1-slopes[i]) * s.df[c].values
+                    s.df.loc[:, c] = s.df[c].values + offsets[coil] - (1-slopes[coil]) * s.df[c].values
             dump('Correction is applied.')   
    
         
