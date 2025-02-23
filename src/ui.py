@@ -1018,6 +1018,18 @@ class App(QMainWindow):
         self.applyCalibBtn = QPushButton('Apply Calibration')
         self.applyCalibBtn.clicked.connect(applyCalibBtnFunc)
         
+        # export files generated during calibration (for merge future merge calib)
+        def exportCalibBtnFunc():
+            fname, _ = QFileDialog.getSaveFileName(calibTab,'Export calibration', self.lastdir, 'Generic (*.csv)')
+            if fname != '':
+                if '.csv' not in fname:
+                    fname = fname + '.csv'
+                self.lastdir = os.path.dirname(fname)
+                self.problem.calibEC.to_csv(fname.replace('.csv', '_ec.csv'), index=False)
+                self.problem.calibECaObs.to_csv(fname.replace('.csv', '_eca_obs.csv'), index=False)
+                self.problem.calibECaSim.to_csv(fname.replace('.csv', '_eca_sim.csv'), index=False)
+        self.exportCalibBtn = QPushButton('Export')
+        self.exportCalibBtn.clicked.connect(exportCalibBtnFunc)
         
         # graph
         self.mwCalib = MatplotlibWidget()
@@ -1035,6 +1047,7 @@ class App(QMainWindow):
         calibOptions.addWidget(self.calibOrderCombo)
         calibOptions.addWidget(self.fitCalibBtn)
         calibOptions.addWidget(self.applyCalibBtn)
+        calibOptions.addWidget(self.exportCalibBtn)
         calibLayout.addLayout(calibOptions)
         calibLayout.addWidget(self.mwCalib)
         

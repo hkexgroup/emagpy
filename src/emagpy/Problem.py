@@ -73,6 +73,11 @@ class Problem(object):
         self.misfits = []
         self.dois = [] # list of array of DOI computed from ('computeDOI()')
 
+        # calibration dataframes
+        self.calibECaObs = None
+        self.calibECaSim = None
+        self.calibEC = None
+        
         # flags
         self.ikill = False # if True, the inversion is killed
         self.c = 0 # counter
@@ -2916,13 +2921,11 @@ class Problem(object):
         survey = Survey(fnameECa)
         if calib is not None:
             survey.gfCorrection(calib=calib)
-        # if meshType is None:
-        #     print('Please specify meshType, either "tri" or "quad"')
-
+        
         survey = Survey(fnameECa)
         eca = survey.df[['x'] + survey.coils].values
 
-        resmod = pd.read_table(fnameResMod, sep='\s+', header=None).values
+        resmod = pd.read_table(fnameResMod, sep=r'\s+', header=None).values
         
         minX = np.min(eca[:,0])
         maxX = np.max(eca[:,0])
@@ -2982,7 +2985,7 @@ class Problem(object):
                     resmod[np.where(resmod[:,0] == uniqueX[i]),1] = newZ #this is done to avoid errors arising from rounding
 
         if meshType == 'tri':
-            print('Mesh is triangular, topography shift is not implement and will be assumed negligible.')
+            print('Mesh is triangular, topography shift is not implemented and will be assumed negligible.')
 
         # below is common to tri and quad mesh
         #TODO method define upper surface of mesh when topography is involved
@@ -3066,12 +3069,11 @@ class Problem(object):
             Order of the correction. By default 1 (linear fit). Could also be 0
             if only an offset is desired. Order > 1 are not implemented.
         """
-        
         if dump is None:
             def dump(x):
                 print(x)
         survey = Survey(fnameECa)
-        
+
         if survey.freqs[0] is None: # fallback in case the use doesn't specify the frequency in the headers
             try:
                 survey.freqs = np.ones(len(survey.freqs))*survey.freqs[0]
@@ -3096,15 +3098,20 @@ class Problem(object):
                                                    meshType=meshType,
                                                    nbins=nbins, binInt=binInt,
                                                    calib=calib)
-            depths = depths
-            dfec = pd.DataFrame(ec)
+            # rebuilding dataframes
+            ddiff = np.diff(depths)/2
+            middepths = np.r_[depths[0]/2, depths[:-1] + ddiff, depths[-1:] + ddiff[-1]]
+            dcols = ['d{:.2f}'.format(np.abs(a)) for a in middepths]
+            dfec = pd.DataFrame(ec, columns=dcols)
+            x = survey.df['x'].values
             dfeca = pd.DataFrame(eca, columns=survey.coils)
             survey.df = dfeca
-
+            survey.df['x'] = x[:survey.df.shape[0]]
+        
         if fnameEC is not None:
             dfec = pd.read_csv(fnameEC)
             depths = np.abs([float(a[1:]) for a in dfec.columns if a[0] == 'd']) # those are the depths of at mid layer
-            depths = depths[:-1] + np.diff(depths) # those are depths of the bottom of the layer
+            depths = depths[:-1] + np.diff(depths)/2 # those are depths of the bottom of the layer
             if calib is not None:
                 survey.gfCorrection(calib=calib)
             
@@ -3127,6 +3134,11 @@ class Problem(object):
         simECa = np.zeros((dfec.shape[0], len(survey.coils)))
         for i in range(dfec.shape[0]):
             simECa[i,:] = fmodel(dfec.values[i,:])
+        
+        # save dataframe as attribute        
+        self.calibEC = dfec
+        self.calibECaObs = survey.df
+        self.calibECaSim = pd.DataFrame(simECa, columns=survey.coils)
         
         # graph
         obsECa = survey.df[survey.coils].values
