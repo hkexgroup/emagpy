@@ -260,6 +260,8 @@ k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv',
             forwardModel='FSlin', apply=False)
 k.calibrate(datadir + 'calib/dfeca.csv', datadir + 'calib/dfec.csv',
             forwardModel='FSeq', apply=True)
+k.calibrate(datadir + 'calib/dfeca.csv', fnameResMod=datadir + 'calib/f001_res.dat',
+            meshType='tri', forwardModel='FSlin', apply=False)
 
 t0 = time.time()
 # k.invert(method='ROPE', njobs=-1)

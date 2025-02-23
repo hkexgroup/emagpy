@@ -36,11 +36,11 @@ from PyQt5.QtWidgets import (QMainWindow, QSplashScreen, QApplication, QPushButt
     QTableWidget, QFormLayout, QTableWidgetItem, QHeaderView, QProgressBar,
     QStackedLayout, QGroupBox, QFrame, QMenu, QAction)#, QRadioButton, QListWidget, QShortcut)
 from PyQt5.QtGui import QIcon, QPixmap, QIntValidator, QDoubleValidator#, QKeySequence
-from PyQt5.QtCore import QThread, pyqtSignal#, QProcess, QSize
+from PyQt5.QtCore import QThread, QTimer, pyqtSignal#, QProcess, QSize
 from PyQt5.QtCore import Qt
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True) # for high dpi display
 QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
-
+from functools import partial
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
@@ -249,6 +249,7 @@ class App(QMainWindow):
         self.meshType = None # 'tri' or 'quad' if specified
         
         self.errorLabel = QLabel('<i style="color:black">Error messages will be displayed here</i>')
+        self.timer = QTimer()  # timer to show the error for X seconds
         QApplication.processEvents()
 
         self.table_widget = QWidget()
@@ -2522,14 +2523,23 @@ the ERT calibration will account for it.</p>
         text = str(text)
         timeStamp = time.strftime('%H:%M:%S')
         if flag == 1: # error in red
-            col = 'red'
+            col = 'white'    
+            bcol = 'red'
         else:
             col = 'black'
+            bcol = 'white'
+        self.errorLabel.setStyleSheet('QLabel{background-color:' + bcol + ';}')
         self.errorLabel.setText('<i style="color:'+col+'">['+timeStamp+']: '+text+'</i>')
+        self.timer.timeout.connect(partial(self.timeOut, timeStamp))
+        self.timer.start(10000) # 10 secs - making sure the error/message doen't stick forever!
 
 
     def infoDump(self, text):
         self.errorDump(text, flag=0)
+
+    def timeOut(self, timeStamp):
+        self.errorLabel.setStyleSheet('QLabel{}')
+        self.errorLabel.setText(('<i style="color:black">[') +timeStamp+']: </i>')
 
 
     def writeLog(self, text, dico=None):
