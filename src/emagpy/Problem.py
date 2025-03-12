@@ -3193,8 +3193,7 @@ class Problem(object):
             ax.plot([vmin, vmax], [vmin, vmax], 'k-', label='1:1')
             
             for i, coil in enumerate(survey.coils):
-                # obsECaCorr = (obsECa[:,i] - offsets[i])/slopes[i]
-                obsECaCorr = obsECa[:,i] + offsets[coil] - (1-slopes[coil]) * obsECa[:,i]
+                obsECaCorr = obsECa[:,i] * slopes[coil] + offsets[coil]
                 x, y = obsECaCorr, simECa[:,i]
                 cax = ax.plot(x, y, '.')
                 inan = ~np.isnan(x) & ~np.isnan(y)
@@ -3214,8 +3213,7 @@ class Problem(object):
             # apply correction on all datasets
             for s in self.surveys:
                 for i, c in enumerate(self.coils):
-                    # s.df.loc[:, c] = (s.df[c].values - offsets[i])/slopes[i]
-                    s.df.loc[:, c] = s.df[c].values + offsets[coil] - (1-slopes[coil]) * s.df[c].values
+                    s.df.loc[:, c] = offsets[c] + slopes[c] * s.df[c].values
             dump('Correction is applied.')   
    
         
