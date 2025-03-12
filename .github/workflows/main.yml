@@ -25,7 +25,7 @@ jobs:
           cd emagpy
           pip3 install setuptools==65.6.3
           pip3 install -r requirements-gui.txt
-          pip3 install pyinstaller
+          pip3 install pyinstaller==6.11.1
 
       - name: Run build
         run: |
@@ -92,8 +92,8 @@ jobs:
         run: |
           brew reinstall python@3.10
           cd ..
-          /usr/local/bin/python3.10 -m pip install virtualenv
-          /usr/local/bin/python3.10 -m virtualenv -p /usr/local/bin/python3.10 pyenv
+          /opt/homebrew/bin/python3.10 -m pip install virtualenv
+          /opt/homebrew/bin/python3.10 -m virtualenv -p /opt/homebrew/bin/python3.10 pyenv
           source pyenv/bin/activate
           cd emagpy
           pip install setuptools==65.6.3
