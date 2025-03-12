@@ -1513,7 +1513,7 @@ class Problem(object):
         return dfs
     
     
-    def computeSens(self, forwardModel='CS', coils=None, models=[], depths=[]):
+    def computeSens(self, forwardModel='CS', coils=None, models=[], depths=[], normalise='max'):
         """Compute normalised local sensitivity using perturbation method.
         
         Parameters
@@ -1536,7 +1536,13 @@ class Problem(object):
             List of array of shape Nsample x (Nlayer - 1) with the depth (positive number)
             of the bottom of the layer in meters relative to the surface.
             If empty `self.depths` will be used.
-        
+        normalise : string, 'max' or 'thickness'
+            Define which type of normalisation should be applied to the calculated sensitivities.
+            Default is 'max' for back maintain the previous behavior
+            'max' sensitivities are divided by the maximum sensitivity values, i.e., range 0 - 1.
+            'thickness' each sensitivity is divided by the thickness of the associated layer.
+            Values larger than 1000 mS/m / S/m can be expected with the thickness normalisation.
+
         Returns
         -------
         senss : list of numpy.array of float
@@ -1565,9 +1571,22 @@ class Problem(object):
             eca = np.dstack([df.values for df in dfs]) # Nsample x Ncoils x Nprofiles
             # sens = eca[:-1,:,:] / eca[-1,:,:][None,:,:] - 1 # dividing by ref (undisturbed ECa)
             sens = eca[:-1,:,:] - eca[-1,:,:][None,:,:] # subtracting the ref ECa (slighly better up to 1e-16)
-            sens = sens/np.max(sens, axis=0)[None,:,:] # normalising
+
+            if normalise == 'max':
+                sens = sens/np.max(sens, axis=0)[None,:,:] # normalising
+
+            elif normalise == 'thickness':
+                thick_nofirst = np.diff(depth, axis=1)
+                thick_withfirst = np.hstack([
+                    depth[:, 0].reshape(-1, 1),  # add first depth as first thickness
+                    thick_nofirst,  # all the thicknesses from the depth differences
+                    np.ones((1, 1))  # add one for the last (infinite) layer
+                ]).reshape(-1, 1, sens.shape[2])  # reshape to broadcast with sens (nlayer, ncoils, npos)
+                sens = sens / thick_withfirst  # normalize the sens of each layer by its thickness
+
             senss.append(sens)
         return senss
+
     
 
     
