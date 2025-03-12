@@ -19,13 +19,12 @@ jobs:
       - name: Set up environment
         run: |
           cd ..
-          pip3 install virtualenv
-          python3 -m virtualenv -p python3 pyenv
+          python -m venv pyenv
+          python -m ensurepip --upgrade
           source pyenv/bin/activate
           cd emagpy
-          pip3 install setuptools==65.6.3
-          pip3 install -r requirements-gui.txt
-          pip3 install pyinstaller==6.11.1
+          pip install -r requirements-gui.txt
+          pip install pyinstaller==6.11.1
 
       - name: Run build
         run: |
