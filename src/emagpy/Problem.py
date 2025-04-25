@@ -1893,6 +1893,21 @@ class Problem(object):
                                width=Z.shape[1], count=1, dtype=Z.dtype,
                                crs=self.projection, transform=tt) as dst:
                 dst.write(Z, 1)
+    
+    def saveCalib(self, fname):
+        """Save files for ERT calibration. Three files will be saved:
+            - _ec.csv: contains the EC profiles (from inverted ERT)
+            - _eca_obs.csv: observed ECa from EMI
+            - _eca_sim.csv: simulated ECa from EC readings
+        
+        Parameters
+        ----------
+        fname : str
+            Path with .csv extension where the .csv files will be saved.
+        """
+        self.calibEC.to_csv(fname.replace('.csv', '_ec.csv'), index=False)
+        self.calibECaObs.to_csv(fname.replace('.csv', '_eca_obs.csv'), index=False)
+        self.calibECaSim.to_csv(fname.replace('.csv', '_eca_sim.csv'), index=False)
         
     def saveData(self, outputdir):
         """Save processed data and inverted data (if available)

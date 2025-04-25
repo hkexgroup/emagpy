@@ -1026,9 +1026,7 @@ class App(QMainWindow):
                 if '.csv' not in fname:
                     fname = fname + '.csv'
                 self.lastdir = os.path.dirname(fname)
-                self.problem.calibEC.to_csv(fname.replace('.csv', '_ec.csv'), index=False)
-                self.problem.calibECaObs.to_csv(fname.replace('.csv', '_eca_obs.csv'), index=False)
-                self.problem.calibECaSim.to_csv(fname.replace('.csv', '_eca_sim.csv'), index=False)
+                self.problem.saveCalib(fname)
         self.exportCalibBtn = QPushButton('Export')
         self.exportCalibBtn.clicked.connect(exportCalibBtnFunc)
         
