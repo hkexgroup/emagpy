@@ -19,6 +19,7 @@ jobs:
       - name: Set up environment
         run: |
           cd ..
+          apt install python3-pip -y
           python -m venv pyenv
           python -m ensurepip --upgrade
           source pyenv/bin/activate
