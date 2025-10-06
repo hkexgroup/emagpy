@@ -6,6 +6,7 @@ Created on Tue Apr 16 20:27:12 2019
 @author: jkl
 """
 import os
+import re
 import warnings
 from datetime import time, datetime
 
@@ -301,7 +302,11 @@ class Survey(object):
         self.iselect = []
         self.projection = None # store the project
         if fname is not None:
-            self.readFile(fname, targetProjection=targetProjection, unit=unit)
+            if os.path.basename(fname)[-3:] == 'EMI':
+                sensor = 'GSSI'
+            else:
+                sensor = None
+            self.readFile(fname, sensor=sensor, targetProjection=targetProjection, unit=unit)
             if freq is not None:
                 self.freqs = np.ones(len(self.coils))*freq
             if hx is not None:
@@ -316,7 +321,7 @@ class Survey(object):
         fname : str
             Filename.
         sensor : str, optional
-            Name of the sensor (for metadata only).
+            Name of the sensor.
         targetProjection : str, optional
             EPSG string describing the projection of a 'latitude' and 'longitude'
             column is found in the dataframe. e.g. 'EPSG:3395' for the British grid.
@@ -325,15 +330,18 @@ class Survey(object):
             (part per thousand). ppm (part per million) can also be specified. Note
             that ECa columns, if present are assumed to be in mS/m.
         """
-        if type(fname) == type('a'):
-            name = os.path.basename(fname)[:-4]
+        if sensor == 'GSSI':
+            self.importGSSI(fname, targetProjection)
         else:
-            name = 'MySurvey'
-        delimiter=','
-        if fname.find('.DAT')!=-1:
-            delimiter = '\t'
-        df = pd.read_csv(fname, delimiter=delimiter)
-        self.readDF(df, name, sensor, targetProjection, unit)
+            if type(fname) == type('a'):
+                name = os.path.basename(fname)[:-4]
+            else:
+                name = 'MySurvey'
+            delimiter=','
+            if fname.find('.DAT')!=-1:
+                delimiter = '\t'
+            df = pd.read_csv(fname, delimiter=delimiter)
+            self.readDF(df, name, sensor, targetProjection, unit)
         
         
     def readDF(self, df, name=None, sensor=None, targetProjection=None, unit='ppt'):
@@ -1303,6 +1311,130 @@ class Survey(object):
                 self.gfCorrection(calib=calib)
             else:
                 print('You might need to apply the GF correction (Problem.gfCorrection()) if you wish to invert the data.')
+            
+            
+    ### Liam Nell contribution edited by Sina ###        
+    def importGSSI(self, fname=None, targetProjection=None):
+        """Import mutli-frequency GSSI Profiler EMP-400 instrument data.
+        
+        Parameters
+        ----------
+        fname : str
+            Name (path) of the file.
+        targetProjection : str, optional
+            If not supplied, UTM zone projection will be searched and applied. 
+        """
+        
+        def utmCRS(lat, lon):
+            '''Finds UTM coordinates from WGS 84 decimal degrees coordinates'''
+            from pyproj import CRS
+            from pyproj.aoi import AreaOfInterest
+            from pyproj.database import query_utm_crs_info
+            
+            utm_crs_list = query_utm_crs_info(
+                datum_name = "WGS 84",
+                area_of_interest=AreaOfInterest(
+                    west_lon_degree = lon,
+                    south_lat_degree = lat,
+                    east_lon_degree = lon,
+                    north_lat_degree = lat,
+                ),
+            )
+            utm_crs = CRS.from_epsg(utm_crs_list[0].code)
+            return utm_crs.srs # this is the UTM target projection
+        
+        if fname is None:
+            raise ValueError('You must specify at least one of fnameLo or fnameHi.')
+        if (fname is not None) and (type(fname) == type('a')):
+            name = os.path.basename(fname)[:-4] # to remove .EMI
+        else:
+            name = 'MySurvey'
+        
+        if fname is not None:
+            with open(fname, 'r') as file:
+                lines = file.readlines()
+
+            # --- metadata ---
+            metadata = {}
+            for line in lines[:80]:
+                if "," in line:
+                    key, value, *_ = [t.strip() for t in line.split(",")]
+                    metadata[key] = value
+
+            raw_orientation = next((s.split(",")[1].strip() for s in lines if s.startswith("Instrument Orientation")), 
+                                   metadata.get("Instrument Orientation", ""))
+            # orientation_code = re.search(r"[A-Z]{3}", raw_orientation or "")
+
+            orientation_map = {"VDM":"HCP","HDM":"VCP"}
+            match = re.search(r"[A-Z]{3}", raw_orientation or "")
+            if not match or match.group(0) not in orientation_map:
+                raise ValueError(f"Unsupported coil orientation: {raw_orientation}")
+            coil_orientation = orientation_map[match.group(0)]
+
+            coil_spacing = 1.219
+            instrument_height = float(metadata.get("Calibration Height", "0").strip() or 0)
+            survey_date = (metadata.get("Date", "").split() or [""])[0]
+
+            freq_line = next((s for s in lines if s.startswith("Frequencies:")), "Frequencies:")
+            frequencies = [int(x) for x in re.findall(r"\d+", freq_line)]
+
+            # --- header + indices ---
+            header_index = next(i for i, s in enumerate(lines) if s.startswith("Record #"))
+            header_tokens = [h.strip() for h in lines[header_index].split(",")]
+
+            idx_time = header_tokens.index("Time")
+            idx_lat  = header_tokens.index("Lat")
+            idx_lon  = header_tokens.index("Long")
+            idx_alt  = header_tokens.index("Alt")
+
+            inphase_indices = {}
+            quadrature_indices = {}
+
+            for j, h in enumerate(header_tokens):
+                m = re.match(r"InPhase\[(\d+)\]", h)
+                if m: inphase_indices[int(m.group(1))] = j
+                m = re.match(r"Quad\[(\d+)\]", h)
+                if m: quadrature_indices[int(m.group(1))] = j
+            if not inphase_indices or not quadrature_indices:
+                raise ValueError("Missing InPhase/Quad column headers in .EMI file.")
+
+            # --- parse data rows ---
+            rows = []
+            for line in lines[header_index + 1:]:
+                if not line.strip():
+                    continue
+                tokens = [t.strip() for t in line.split(",")]
+                if len(tokens) <= max(idx_alt, idx_lon, idx_lat, idx_time):
+                    continue
+
+                row = {
+                    "Latitude":  tokens[idx_lat],
+                    "Longitude": tokens[idx_lon],
+                    "elevation": tokens[idx_alt],
+                    "Date":      survey_date,
+                    "Time":      tokens[idx_time]
+                }
+
+                for f in frequencies:
+                    def convert_value(index):
+                        try:
+                            return float(tokens[index].replace("'", "")) / 1000.0  # ppm -> ppt
+                        except:
+                            return None
+                    row[f"{coil_orientation}{coil_spacing}f{f}h{instrument_height}_inph"] = convert_value(inphase_indices.get(f, -1))
+                    row[f"{coil_orientation}{coil_spacing}f{f}h{instrument_height}_quad"] = convert_value(quadrature_indices.get(f, -1))
+                rows.append(row)
+
+            # --- df & save ---
+            df = pd.DataFrame(rows)
+            for col in ["Latitude", "Longitude", "elevation"]:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+            
+            if targetProjection is None:
+                targetProjection = utmCRS(lat=df.loc[0,'Latitude'], lon=df.loc[0,'Longitude'])
+            
+            sensor='GSSI'
+            self.readDF(df, name, sensor, targetProjection)
             
             
     ### jamyd91 contribution edited by jkl ### 

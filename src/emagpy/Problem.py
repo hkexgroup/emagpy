@@ -113,6 +113,9 @@ class Problem(object):
             
         survey = Survey(fname, freq=freq, hx=hx, targetProjection=self.projection, unit=unit)
         
+        if targetProjection is None and survey.projection is not None:
+            self.projection = survey.projection # GSSI profiler data needs this
+        
         # remove NaN from survey
         inan = np.zeros(survey.df.shape[0], dtype=bool)
         for c in survey.coils:

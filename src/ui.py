@@ -521,7 +521,7 @@ class App(QMainWindow):
         
         def importBtnFunc():
             self._dialog = QFileDialog()
-            fnames, _ = self._dialog.getOpenFileNames(importTab, 'Select data file(s)', self.lastdir, '*.csv *.CSV')
+            fnames, _ = self._dialog.getOpenFileNames(importTab, 'Select data file(s)', self.lastdir, '*.csv *.CSV;;GSSI Profiler (*.EMI)')
             if len(fnames) > 0:
                 self.lastdir = os.path.dirname(fnames[0])
                 self.processFname(fnames, merged=self.mergedCheck.isChecked())
@@ -2336,7 +2336,7 @@ the ERT calibration will account for it.</p>
             </p>
             <p>EMagPy is the sister code of <a href="https://gitlab.com/hkex/pyr2">ResIPy</a> and has EMagPy's design has been heavily influenced by ResIPy.</p>
             <p><strong>EMagPy's core developers: Guillaume Blanchy and Paul McLachlan.<strong></p>
-            <p>Contributors: Jimmy Boyd, Sina Saneiyan, Martina Tabaro</p>
+            <p>Contributors: Jimmy Boyd, Sina Saneiyan, Martina Tabaro, Liam Nell</p>
             '''.format(EMagPy_version))
             #<p><b>Citing ResIPy</b>:<br>Blanchy G., Saneiyan S., Boyd J., McLachlan P. and Binley A. 2020.<br>“ResIPy, an Intuitive Open Source Software for Complex Geoelectrical Inversion/Modeling.”<br>Computers & Geosciences, February, 104423. <a href="https://doi.org/10.1016/j.cageo.2020.104423">https://doi.org/10.1016/j.cageo.2020.104423</a>.</p>
 
@@ -2423,6 +2423,13 @@ the ERT calibration will account for it.</p>
             self.writeLog('k.createSurvey("{:s}")'.format(fname))
             self.gammaEdit.setVisible(False)
             self.gammaLabel.setVisible(False)
+            if self.problem.projection is not None: # detect CRS name if projection is automatically identified (e.g., GSSI profiler)
+                try:
+                    epsg_code = int(self.problem.projection.split(':')[1])
+                    COORD_REF_SYS_NAME = self.pcs['COORD_REF_SYS_NAME'][self.pcs['COORD_REF_SYS_CODE'] == epsg_code].values[0]
+                    self.projEdit.setText(COORD_REF_SYS_NAME)
+                except:
+                    pass
         else:
             self.importBtn.setText(os.path.basename(fnames[0]) + ' .. '
                                    + os.path.basename(fnames[-1]))
