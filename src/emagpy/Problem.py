@@ -2177,7 +2177,24 @@ class Problem(object):
         self.projection = targetProjection
         for survey in self.surveys:
             survey.projection = targetProjection
-        
+
+    def setLocalCoords(self, use_local=True):
+        """Use local XCoord/YCoord columns from GSSI .EMI files for plotting."""
+        for survey in self.surveys:
+            if getattr(survey, 'has_local_coords', False):
+                survey.setPlotLocalCoords(use_local=use_local)
+
+    def applyGcpGeoreferencing(self, gcp_path, pcs_df=None, fallback_projection=None):
+        """Georeference surveys with local coordinates using a GCP CSV."""
+        surveys = [s for s in self.surveys if getattr(s, 'has_local_coords', False)]
+        results = [s.applyGcpGeoreferencing(
+            gcp_path, pcs_df=pcs_df,
+            fallback_projection=fallback_projection or self.projection)
+            for s in surveys]
+        if not results:
+            raise ValueError('No surveys with local coordinates to georeference.')
+        self.projection = results[0][1]
+        return results[0]
 
     def showProfile(self, index=0, ipos=0, ax=None, vmin=None, vmax=None,
                     maxDepth=None, errorbar=False):
