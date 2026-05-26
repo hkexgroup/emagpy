@@ -263,6 +263,127 @@ def convertFromCoord(df, targetProjection=None):
 
     return df
 
+
+def _find_csv_col(df, candidates):
+    """Return first column name matching one of `candidates`."""
+    return next((name for name in candidates if name in df.columns), None)
+
+
+def resolve_projection(value, pcs_df=None):
+    """Return CRS in EPSG form when possible."""
+    if value is None or (isinstance(value, str) and value.strip() == ''):
+        return None
+    val = str(value).strip()
+    if val.lower().startswith('epsg'):
+        return 'EPSG:' + str(int(val.split(':')[1]))
+    try:
+        return 'EPSG:' + str(int(float(val)))
+    except ValueError:
+        pass
+    if pcs_df is not None:
+        if any(pcs_df['COORD_REF_SYS_NAME'] == val):
+            code = pcs_df['COORD_REF_SYS_CODE'][pcs_df['COORD_REF_SYS_NAME'] == val].values[0]
+            return 'EPSG:' + str(code)
+        if any(pcs_df['COORD_REF_SYS_NAME_rev'] == val):
+            code = pcs_df['COORD_REF_SYS_CODE'][pcs_df['COORD_REF_SYS_NAME_rev'] == val].values[0]
+            return 'EPSG:' + str(code)
+    return val
+
+
+def _utm_epsg_from_latlon(lat, lon):
+    """Find UTM CRS from WGS84 latitude/longitude."""
+    from pyproj.aoi import AreaOfInterest
+    from pyproj.database import query_utm_crs_info
+
+    crs = query_utm_crs_info(
+        datum_name='WGS 84',
+        area_of_interest=AreaOfInterest(
+            west_lon_degree=lon,
+            south_lat_degree=lat,
+            east_lon_degree=lon,
+            north_lat_degree=lat,
+        ),
+    )
+    return 'EPSG:' + str(crs[0].code)
+
+
+def read_gcp_csv(fname, pcs_df=None, fallback_projection=None):
+    """Read georeferencing points from CSV.
+
+    Returns
+    -------
+    local_xy : ndarray (n, 2)
+    projected_xy : ndarray (n, 2)
+    target_projection : str
+    n_points : int
+    """
+    df = pd.read_csv(fname)
+    df.columns = [c.strip() for c in df.columns]
+
+    cols = {
+        'x': _find_csv_col(df, ['XCoord', 'Local X', 'local_x']),
+        'y': _find_csv_col(df, ['YCoord', 'Local Y', 'local_y']),
+        'lat': _find_csv_col(df, ['Latitude', 'Lat']),
+        'lon': _find_csv_col(df, ['Longitude', 'Long', 'Lon']),
+        'east': _find_csv_col(df, ['Easting', 'UTM Easting']),
+        'north': _find_csv_col(df, ['Northing', 'UTM Northing']),
+        'crs': _find_csv_col(df, ['EPSG', 'CRS', 'Coordinate Reference System',
+                                  'EPSG Code', 'SRID']),
+    }
+    if not cols['x'] or not cols['y']:
+        raise ValueError('GCP CSV must contain XCoord and YCoord columns.')
+
+    has_geo = cols['lat'] is not None and cols['lon'] is not None
+    has_proj = cols['east'] is not None and cols['north'] is not None
+    if not has_geo and not has_proj:
+        raise ValueError('GCP CSV needs Latitude/Longitude or Easting/Northing columns.')
+
+    local_xy = df[[cols['x'], cols['y']]].astype(float).values
+    if len(local_xy) < 3:
+        raise ValueError('At least 3 GCP points are required for georeferencing.')
+
+    crs_values = [] if cols['crs'] is None else df[cols['crs']].dropna().values
+    projections = [resolve_projection(v, pcs_df=pcs_df) for v in crs_values]
+    target = next((v for v in projections if v is not None), None)
+    target = target or resolve_projection(fallback_projection, pcs_df=pcs_df)
+
+    if has_geo:
+        lats = df[cols['lat']].astype(float).values
+        lons = df[cols['lon']].astype(float).values
+        target = target or _utm_epsg_from_latlon(lats[0], lons[0])
+        import pyproj
+        transformer = pyproj.Transformer.from_crs('EPSG:4326', target, always_xy=True)
+        projected_xy = np.column_stack(transformer.transform(lons, lats))
+    elif target is not None:
+        projected_xy = df[[cols['east'], cols['north']]].astype(float).values
+    else:
+        raise ValueError('Easting/Northing GCPs require a CRS.')
+
+    return local_xy, projected_xy, target, len(local_xy)
+
+
+def fit_affine_transform(local_xy, world_xy):
+    """Fit 2D affine transform (local -> projected) by least squares."""
+    local_xy = np.asarray(local_xy, dtype=float)
+    world_xy = np.asarray(world_xy, dtype=float)
+    if len(local_xy) < 3:
+        raise ValueError('At least 3 GCP points are required for georeferencing.')
+    design = np.column_stack([local_xy, np.ones(len(local_xy))])
+    if np.linalg.matrix_rank(design) < 3:
+        raise ValueError('GCP points must not be collinear.')
+    matrix = np.linalg.lstsq(design, world_xy, rcond=None)[0].T
+    predicted = design @ matrix.T
+    residuals = world_xy - predicted
+    rmse = float(np.sqrt(np.mean(np.sum(residuals**2, axis=1))))
+    return matrix, rmse
+
+
+def apply_affine_transform(local_xy, matrix):
+    """Apply 2x3 affine matrix to Nx2 local coordinates."""
+    local_xy = np.asarray(local_xy, dtype=float)
+    design = np.column_stack([local_xy, np.ones(len(local_xy))])
+    return design @ np.asarray(matrix, dtype=float).T
+
     
 class Survey(object):
     """ Create a Survey object containing the raw EMI data.
@@ -301,6 +422,12 @@ class Survey(object):
         self.name = ''
         self.iselect = []
         self.projection = None # store the project
+        self.has_local_coords = False
+        self._using_local_coords = False
+        self._proj_x = None
+        self._proj_y = None
+        self.source_fname = None
+        self._gcp_rmse = None
         if fname is not None:
             if os.path.basename(fname)[-3:] == 'EMI':
                 sensor = 'GSSI'
@@ -646,8 +773,39 @@ class Survey(object):
         self.projection = targetProjection
         if 'latitude' in self.df.columns.str.lower().tolist():
             self.df = convertFromCoord(self.df, targetProjection)
+            if not self._using_local_coords:
+                self._proj_x = self.df['x'].values.copy()
+                self._proj_y = self.df['y'].values.copy()
         else:
             print('No "latitude"/"longitude" columns found.')
+
+    def setPlotLocalCoords(self, use_local=True):
+        """Use local XCoord/YCoord for plotting if requested."""
+        if not self.has_local_coords:
+            raise ValueError('No XCoord/YCoord columns in the source .EMI file.')
+        if use_local:
+            if self._proj_x is None or self._proj_y is None:
+                self._proj_x = self.df['x'].values.copy()
+                self._proj_y = self.df['y'].values.copy()
+            self.df[['x', 'y']] = self.df[['local_x', 'local_y']].values
+        elif self._proj_x is not None and self._proj_y is not None:
+            self.df[['x', 'y']] = np.column_stack([self._proj_x, self._proj_y])
+        self._using_local_coords = use_local
+
+    def applyGcpGeoreferencing(self, gcp_path, pcs_df=None, fallback_projection=None):
+        """Georeference local XCoord/YCoord using control points."""
+        if not self.has_local_coords:
+            raise ValueError('Survey has no local XCoord/YCoord; import a .EMI file first.')
+        local, world, target, n_gcp = read_gcp_csv(
+            gcp_path, pcs_df=pcs_df, fallback_projection=fallback_projection)
+        matrix, rmse = fit_affine_transform(local, world)
+        xy = apply_affine_transform(self.df[['local_x', 'local_y']].values, matrix)
+        self.df[['x', 'y']] = xy
+        self._proj_x, self._proj_y = xy[:, 0].copy(), xy[:, 1].copy()
+        self.projection = target
+        self._using_local_coords = False
+        self._gcp_rmse = rmse
+        return rmse, target, n_gcp
 
 
         
@@ -1315,7 +1473,7 @@ class Survey(object):
             
     ### Liam Nell contribution edited by Sina ###        
     def importGSSI(self, fname=None, targetProjection=None):
-        """Import mutli-frequency GSSI Profiler EMP-400 instrument data.
+        """Import multi-frequency GSSI Profiler EMP-400 instrument data.
         
         Parameters
         ----------
@@ -1324,24 +1482,6 @@ class Survey(object):
         targetProjection : str, optional
             If not supplied, UTM zone projection will be searched and applied. 
         """
-        
-        def utmCRS(lat, lon):
-            '''Finds UTM coordinates from WGS 84 decimal degrees coordinates'''
-            from pyproj import CRS
-            from pyproj.aoi import AreaOfInterest
-            from pyproj.database import query_utm_crs_info
-            
-            utm_crs_list = query_utm_crs_info(
-                datum_name = "WGS 84",
-                area_of_interest=AreaOfInterest(
-                    west_lon_degree = lon,
-                    south_lat_degree = lat,
-                    east_lon_degree = lon,
-                    north_lat_degree = lat,
-                ),
-            )
-            utm_crs = CRS.from_epsg(utm_crs_list[0].code)
-            return utm_crs.srs # this is the UTM target projection
         
         if fname is None:
             raise ValueError('You must specify at least one of fnameLo or fnameHi.')
@@ -1354,7 +1494,7 @@ class Survey(object):
             with open(fname, 'r') as file:
                 lines = file.readlines()
 
-            # --- metadata ---
+            # metadata
             metadata = {}
             for line in lines[:80]:
                 if "," in line:
@@ -1368,7 +1508,7 @@ class Survey(object):
             orientation_map = {"VDM":"HCP","HDM":"VCP"}
             match = re.search(r"[A-Z]{3}", raw_orientation or "")
             if not match or match.group(0) not in orientation_map:
-                raise ValueError(f"Unsupported coil orientation: {raw_orientation}")
+                raise ValueError('Unsupported coil orientation: {:s}'.format(raw_orientation))
             coil_orientation = orientation_map[match.group(0)]
 
             coil_spacing = 1.219
@@ -1378,7 +1518,7 @@ class Survey(object):
             freq_line = next((s for s in lines if s.startswith("Frequencies:")), "Frequencies:")
             frequencies = [int(x) for x in re.findall(r"\d+", freq_line)]
 
-            # --- header + indices ---
+            # header and indices
             header_index = next(i for i, s in enumerate(lines) if s.startswith("Record #"))
             header_tokens = [h.strip() for h in lines[header_index].split(",")]
 
@@ -1386,6 +1526,8 @@ class Survey(object):
             idx_lat  = header_tokens.index("Lat")
             idx_lon  = header_tokens.index("Long")
             idx_alt  = header_tokens.index("Alt")
+            idx_x = header_tokens.index("XCoord") if "XCoord" in header_tokens else None
+            idx_y = header_tokens.index("YCoord") if "YCoord" in header_tokens else None
 
             inphase_indices = {}
             quadrature_indices = {}
@@ -1398,13 +1540,16 @@ class Survey(object):
             if not inphase_indices or not quadrature_indices:
                 raise ValueError("Missing InPhase/Quad column headers in .EMI file.")
 
-            # --- parse data rows ---
+            # parse data rows
             rows = []
             for line in lines[header_index + 1:]:
                 if not line.strip():
                     continue
                 tokens = [t.strip() for t in line.split(",")]
-                if len(tokens) <= max(idx_alt, idx_lon, idx_lat, idx_time):
+                required_indices = [i for i in [idx_alt, idx_lon, idx_lat,
+                                                 idx_time, idx_x, idx_y]
+                                    if i is not None]
+                if len(tokens) <= max(required_indices):
                     continue
 
                 row = {
@@ -1414,29 +1559,43 @@ class Survey(object):
                     "Date":      survey_date,
                     "Time":      tokens[idx_time]
                 }
+                if idx_x is not None and idx_y is not None:
+                    row["local_x"] = tokens[idx_x]
+                    row["local_y"] = tokens[idx_y]
 
+                def convert_value(index):
+                    try:
+                        return float(tokens[index].replace("'", "")) / 1000.0  # ppm -> ppt
+                    except:
+                        return None
                 for f in frequencies:
-                    def convert_value(index):
-                        try:
-                            return float(tokens[index].replace("'", "")) / 1000.0  # ppm -> ppt
-                        except:
-                            return None
-                    row[f"{coil_orientation}{coil_spacing}f{f}h{instrument_height}_inph"] = convert_value(inphase_indices.get(f, -1))
-                    row[f"{coil_orientation}{coil_spacing}f{f}h{instrument_height}_quad"] = convert_value(quadrature_indices.get(f, -1))
+                    row['{:s}{}f{}h{}_inph'.format(
+                        coil_orientation, coil_spacing, f, instrument_height)] = convert_value(inphase_indices.get(f, -1))
+                    row['{:s}{}f{}h{}_quad'.format(
+                        coil_orientation, coil_spacing, f, instrument_height)] = convert_value(quadrature_indices.get(f, -1))
                 rows.append(row)
 
-            # --- df & save ---
+            # save dataframe
             df = pd.DataFrame(rows)
             for col in ["Latitude", "Longitude", "elevation"]:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
             
             if targetProjection is None:
-                targetProjection = utmCRS(lat=df.loc[0,'Latitude'], lon=df.loc[0,'Longitude'])
+                targetProjection = _utm_epsg_from_latlon(
+                    lat=df.loc[0,'Latitude'], lon=df.loc[0,'Longitude'])
             
             sensor='GSSI'
             self.readDF(df, name, sensor, targetProjection)
-            
-            
+            if 'local_x' in self.df.columns and 'local_y' in self.df.columns:
+                self.df['local_x'] = pd.to_numeric(self.df['local_x'], errors='coerce')
+                self.df['local_y'] = pd.to_numeric(self.df['local_y'], errors='coerce')
+                self.has_local_coords = True
+            else:
+                self.has_local_coords = False
+            self._using_local_coords = False
+            self._proj_x = self.df['x'].values.copy()
+            self._proj_y = self.df['y'].values.copy()
+            self.source_fname = fname
     ### jamyd91 contribution edited by jkl ### 
     def computeStat(self, timef=None):
         """Compute geometrical statistics of consective points: azimuth and 
