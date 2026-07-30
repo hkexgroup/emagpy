@@ -1571,7 +1571,7 @@ class App(QMainWindow):
                     self.betaLabel, self.betaEdit,
                     self.gammaLabel, self.gammaEdit,
                     self.nitLabel, self.nitEdit,
-                    self.parallelCheck]
+                    self.threedCheck, self.parallelCheck]
             objs2 = [self.annSampleLabel, self.annSampleEdit,
                      self.annNoiseLabel, self.annNoiseEdit]
             if self.methodCombo.currentText() == 'ANN':
@@ -1589,11 +1589,13 @@ class App(QMainWindow):
             if self.methodCombo.currentText() == 'Gauss-Newton':
                 self.betaEdit.setEnabled(False)
                 self.lCombo.setEnabled(False)
+                self.threedCheck.setEnabled(False)
                 self.parallelCheck.setEnabled(False)
                 self.nitEdit.setEnabled(False)
             else:
                 self.betaEdit.setEnabled(True)
                 self.lCombo.setEnabled(True)
+                self.threedCheck.setEnabled(True)
                 self.parallelCheck.setEnabled(False) # TODO
                 self.nitEdit.setEnabled(True)
                 
@@ -1633,6 +1635,9 @@ class App(QMainWindow):
         self.gammaEdit.setToolTip('Smoothing between the first survey and other surveys.')
         self.gammaEdit.setValidator(QDoubleValidator())
         self.gammaEdit.setVisible(False)
+
+        self.threedCheck = QCheckBox('3D smooth')
+        self.threedCheck.setToolTip('Apply lateral constrain to the 3 closest neighbours')
         
         self.lLabel = QLabel('Regularization:')
         self.lCombo = QComboBox()
@@ -1713,6 +1718,7 @@ class App(QMainWindow):
             method = self.methodCombo.itemText(self.methodCombo.currentIndex())
             beta = float(self.betaEdit.text()) if self.betaEdit.text() != '' else 0.0
             gamma = float(self.gammaEdit.text()) if self.gammaEdit.text() != '' else 0.0
+            threed = self.threedCheck.isChecked()
             nit = int(self.nitEdit.text()) if self.nitEdit.text() != '' else 15
             nsample = int(self.annSampleEdit.text()) if self.annSampleEdit.text() != '' else 100
             noise = float(self.annNoiseEdit.text()) if self.annNoiseEdit.text() != '' else 0
@@ -1738,13 +1744,13 @@ class App(QMainWindow):
                                     dump=logTextFunc, regularization=regularization,
                                     method=method, options={'maxiter':nit},
                                     beta=beta, gamma=gamma, nsample=nsample,
-                                    noise=noise/100, njobs=njobs)
+                                    noise=noise/100, threed=threed, njobs=njobs)
                 self.writeLog('k.invert(forwardModel="{:s}", alpha={:s}, '
                               'regularization="{:s}", method="{:s}", '
                               'options={{"maxiter":{:d}}}, beta={:s}, gamma={:s}'
-                              ', nsample={:s}, noise={:.2f}, njobs={:d})'.format(
+                              ', nsample={:s}, noise={:.2f}, threed={:s}, njobs={:d})'.format(
                         forwardModel, str(alpha), regularization, method, nit,
-                        str(beta), str(gamma), str(nsample), noise/100, njobs))
+                        str(beta), str(gamma), str(nsample), noise/100, str(threed), njobs))
             
             # plot results
             if self.problem.ikill == False: # program wasn't killed
@@ -2075,6 +2081,7 @@ class App(QMainWindow):
         invOptions.addWidget(self.betaEdit)
         invOptions.addWidget(self.gammaLabel)
         invOptions.addWidget(self.gammaEdit)
+        invOptions.addWidget(self.threedCheck)
         invOptions.addWidget(self.lLabel)
         invOptions.addWidget(self.lCombo)
         invOptions.addWidget(self.nitLabel)
