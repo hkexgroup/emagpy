@@ -841,6 +841,7 @@ class Problem(object):
                     b = 0
                     iinverted[j] = True
                 else:
+                    b = beta
                     if threed: # mean of 3 closest inverted survey
                         ipt = iorder[j]
                         dist = np.sqrt(np.sum((xy-xy[ipt,:])**2, axis=1))
