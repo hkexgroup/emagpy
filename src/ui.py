@@ -631,7 +631,61 @@ class App(QMainWindow):
         self.projBtn.setToolTip('Convert NMEA/DMS string or decimal degree to selected coordinate system (CRS) - select a CRS first')
         self.projBtn.clicked.connect(self.projBtnFunc)
         self.projBtn.setEnabled(False)
-        
+
+        self.localCheck = QCheckBox('Local')
+        self.localCheck.setToolTip('Plot using local XCoord/YCoord from GSSI .EMI files')
+        self.localCheck.setVisible(False)
+        self.localCheck.setEnabled(False)
+        def localCheckFunc(state):
+            if len(self.problem.surveys) == 0:
+                return
+            try:
+                self.problem.setLocalCoords(use_local=state)
+                self.writeLog('k.setLocalCoords(use_local={:s})'.format(str(state)))
+                self.projBtn.setEnabled(not state and 'latitude' in self.problem.surveys[0].df.columns)
+                self.psMapExpBtn.setEnabled(not state)
+                self.replot()
+            except ValueError as e:
+                self.localCheck.setChecked(False)
+                self.errorDump(str(e))
+        self.localCheck.clicked.connect(localCheckFunc)
+
+        self.gcpImportBtn = QPushButton('Import Georeference CSV')
+        self.gcpImportBtn.setToolTip(
+            'Georeference XCoord/YCoord using control points (CSV with XCoord/YCoord, and Latitude/Longitude or Easting/Northing)')
+        self.gcpImportBtn.setVisible(False)
+        self.gcpImportBtn.setEnabled(False)
+        def gcpImportBtnFunc():
+            if len(self.problem.surveys) == 0:
+                return
+            fname, _ = QFileDialog.getOpenFileName(
+                self, 'Select GCP CSV', self.lastdir, 'CSV (*.csv)')
+            if not fname:
+                return
+            try:
+                if self.problem.projection is None and self.projEdit.text().strip() != '':
+                    self.setProjection()
+                rmse, epsg, n_gcp = self.problem.applyGcpGeoreferencing(
+                    fname, pcs_df=self.pcs, fallback_projection=self.problem.projection)
+                if self.localCheck.isChecked():
+                    self.localCheck.setChecked(False)
+                    self.problem.setLocalCoords(use_local=False)
+                self.problem.setProjection(targetProjection=epsg)
+                self.setProjectionName(epsg)
+                self.gcpStatusLabel.setText('GCP: {:d} pts, RMSE {:.3f} m'.format(n_gcp, rmse))
+                self.writeLog('k.applyGcpGeoreferencing("{:s}")'.format(fname))
+                self.projBtn.setEnabled(True)
+                self.psMapExpBtn.setEnabled(True)
+                self.infoDump('Georeferenced with {:d} GCPs, RMSE {:.3f} m ({:s})'.format(
+                    n_gcp, rmse, epsg))
+                self.replot()
+            except Exception as e:
+                self.errorDump(str(e))
+        self.gcpImportBtn.clicked.connect(gcpImportBtnFunc)
+
+        self.gcpStatusLabel = QLabel('')
+        self.gcpStatusLabel.setVisible(False)
+        self.gcpStatusLabel.setToolTip('GCP georeferencing summary')
         
         # filtering options
         self.filtLabel = QLabel('Filter Options |')
@@ -870,6 +924,9 @@ class App(QMainWindow):
         topLayout.addWidget(self.projLabel, 5)
         topLayout.addWidget(self.projEdit, 10)
         topLayout.addWidget(self.projBtn, 10)
+        topLayout.addWidget(self.localCheck, 5)
+        topLayout.addWidget(self.gcpImportBtn, 10)
+        topLayout.addWidget(self.gcpStatusLabel, 10)
         
         filtLayout = QHBoxLayout()
         filtLayout.addWidget(self.filtLabel)
@@ -2368,14 +2425,38 @@ the ERT calibration will account for it.</p>
             epsgVal = 'EPSG:'+str(epsg_code[0])
             self.problem.setProjection(targetProjection=epsgVal)
             self.writeLog('k.setProjection(targetProjection="{:s}")'.format(epsgVal))
+            return epsgVal
         except:
             self.errorDump('CRS projection is not correctly defined - See "Importing" tab')
+            return None
+
+    def setProjectionName(self, epsgVal):
+        """Display CRS name when it is available in the projection list."""
+        try:
+            epsg_code = int(epsgVal.split(':')[1])
+            name = self.pcs['COORD_REF_SYS_NAME'][
+                self.pcs['COORD_REF_SYS_CODE'] == epsg_code].values[0]
+            self.projEdit.setText(name)
+        except:
+            self.projEdit.setText(epsgVal)
+
+    def setLocalImportUI(self, visible, enabled=False):
+        self.localCheck.setVisible(visible)
+        self.localCheck.setChecked(False)
+        self.localCheck.setEnabled(enabled)
+        self.gcpImportBtn.setVisible(visible)
+        self.gcpImportBtn.setEnabled(enabled)
+        self.gcpStatusLabel.setVisible(visible)
+        self.gcpStatusLabel.setText('')
     
     def projBtnFunc(self):
         if self.projEdit.text() == '':
             self.errorDump('Define CRS first')
         else:
             # try:
+            if self.localCheck.isChecked():
+                self.localCheck.setChecked(False)
+                self.problem.setLocalCoords(use_local=False)
             self.setProjection()
             self.problem.convertFromCoord(targetProjection=self.problem.projection)
             self.writeLog('k.convertFromCoord(targetProjection="{:s}")'.format(self.problem.projection))
@@ -2416,6 +2497,8 @@ the ERT calibration will account for it.</p>
                 
     def processFname(self, fnames, merged=False):
         self.problem.surveys = [] # empty the list of current survey
+        is_emi_import = all(f.upper().endswith('.EMI') for f in fnames)
+        self.setLocalImportUI(is_emi_import)
         if len(fnames) == 1:
             fname = fnames[0]
             self.importBtn.setText(os.path.basename(fname))
@@ -2510,6 +2593,9 @@ the ERT calibration will account for it.</p>
                 #self.projBtnFunc() # automatically convert NMEA string
             self.projBtn.setEnabled(True)
             # self.projEdit.setEnabled(True)
+        if any(getattr(s, 'has_local_coords', False) for s in self.problem.surveys):
+            self.localCheck.setEnabled(True)
+            self.gcpImportBtn.setEnabled(True)
         self.keepApplyBtn.setEnabled(True)
         self.rollingBtn.setEnabled(True)
         self.ptsKillerBtn.setEnabled(True)
