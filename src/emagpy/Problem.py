@@ -339,7 +339,7 @@ class Problem(object):
         xcommon = x0[icommon]
         for df in dfs2:
             x = cols2str(df[['x','y']].values.astype(float))
-            indexes.append(np.in1d(x, xcommon))
+            indexes.append(np.isin(x, xcommon))
 
         print('done in {:.3}s'.format(time.time()-t0))
 
