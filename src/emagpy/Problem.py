@@ -330,7 +330,7 @@ class Problem(object):
         icommon = np.ones(len(x0), dtype=bool)
         for df in dfs2[1:]:
             x = cols2str(df[['x','y']].values.astype(float))
-            ie = np.in1d(x0, x)
+            ie = np.isin(x0, x)
             icommon = icommon & ie
         print(np.sum(icommon), 'in common...', end='')
 
