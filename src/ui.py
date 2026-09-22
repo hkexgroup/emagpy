@@ -2533,7 +2533,7 @@ the ERT calibration will account for it.</p>
                 self.writeLog('k.createTimeLapseSurvey({:s})'.format(str(fnames)))
         # check if coils configuration seem to match GF instruments
         coils = ['{:s}{:.2f}'.format(a.upper(), b) for a, b in zip(self.problem.cpos, self.problem.cspacing)]
-        if np.sum(np.in1d(coils, ['VCP0.32', 'HCP0.32', 'VCP1.48', 'HCP1.48'])) > 0:
+        if np.sum(np.isin(coils, ['VCP0.32', 'HCP0.32', 'VCP1.48', 'HCP1.48'])) > 0:
             self.gfCorrectionBtn.setVisible(True)
             self.gfCalibCombo.setVisible(True)
             self.infoDump('Files well imported. GF instrument suspected. Check if you need to apply the GF correction.')
