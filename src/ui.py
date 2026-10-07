@@ -2603,6 +2603,10 @@ the ERT calibration will account for it.</p>
         if any(getattr(s, 'has_local_coords', False) for s in self.problem.surveys):
             self.localCheck.setEnabled(True)
             self.gcpImportBtn.setEnabled(True)
+            if any(getattr(s, '_using_local_coords', False) for s in self.problem.surveys):
+                self.localCheck.setChecked(True)
+                self.projBtn.setEnabled(False)
+                self.psMapExpBtn.setEnabled(False)
         self.keepApplyBtn.setEnabled(True)
         self.rollingBtn.setEnabled(True)
         self.ptsKillerBtn.setEnabled(True)
