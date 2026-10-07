@@ -1480,7 +1480,9 @@ class Survey(object):
         fname : str
             Name (path) of the file.
         targetProjection : str, optional
-            If not supplied, UTM zone projection will be searched and applied. 
+            If not supplied, UTM zone projection will be searched and applied.
+            If Lat/Long are 0, NaN or outside geographic bounds, local
+            XCoord/YCoord are used instead.
         """
         
         if fname is None:
@@ -1580,9 +1582,18 @@ class Survey(object):
             for col in ["Latitude", "Longitude", "elevation"]:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
             
-            if targetProjection is None:
+            lat = df['Latitude']
+            lon = df['Longitude']
+            valid_ll = (lat.notna() & lon.notna()
+                        & lat.between(-90, 90) & lon.between(-180, 180)
+                        & ~((lat == 0) & (lon == 0)))
+            if not valid_ll.any():
+                print('No valid Lat/Long; using local XCoord/YCoord.')
+                targetProjection = None
+            elif targetProjection is None:
+                i = valid_ll.idxmax()
                 targetProjection = _utm_epsg_from_latlon(
-                    lat=df.loc[0,'Latitude'], lon=df.loc[0,'Longitude'])
+                    lat=df.loc[i, 'Latitude'], lon=df.loc[i, 'Longitude'])
             
             sensor='GSSI'
             self.readDF(df, name, sensor, targetProjection)
@@ -1592,9 +1603,14 @@ class Survey(object):
                 self.has_local_coords = True
             else:
                 self.has_local_coords = False
-            self._using_local_coords = False
-            self._proj_x = self.df['x'].values.copy()
-            self._proj_y = self.df['y'].values.copy()
+            if not valid_ll.any():
+                if not self.has_local_coords:
+                    raise ValueError('No valid Lat/Long and no XCoord/YCoord in .EMI file.')
+                self.setPlotLocalCoords(use_local=True)
+            else:
+                self._using_local_coords = False
+                self._proj_x = self.df['x'].values.copy()
+                self._proj_y = self.df['y'].values.copy()
             self.source_fname = fname
     ### jamyd91 contribution edited by jkl ### 
     def computeStat(self, timef=None):
