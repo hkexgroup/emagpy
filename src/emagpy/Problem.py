@@ -1396,6 +1396,8 @@ class Problem(object):
             del self.coils[icoil]
             del self.cpos[icoil]
             del self.cspacing[icoil]
+            self.hx = list(self.hx)
+            self.freqs = list(self.freqs)
             del self.hx[icoil]
             del self.freqs[icoil]
             for s in self.surveys:

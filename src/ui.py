@@ -333,6 +333,7 @@ class App(QMainWindow):
                 
             def setLayer(self, nlayer):
                 self.nlayer = nlayer
+                self.setHorizontalHeaderLabels(self.headers)
                 self.nrow = nlayer + nlayer - 1
                 self.clear()
                 self.setRowCount(self.nrow)
@@ -399,6 +400,7 @@ class App(QMainWindow):
                 
             def setTable(self, nrow):
                 self.clear()
+                self.setHorizontalHeaderLabels(self.headers)
                 self.nrow = nrow
                 self.setRowCount(self.nrow)
                 a = ['HCP','HCP','HCP','VCP','VCP','VCP']
