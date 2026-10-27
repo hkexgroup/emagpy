@@ -332,10 +332,10 @@ class App(QMainWindow):
                 self.setLayer(nlayer)
                 
             def setLayer(self, nlayer):
+                self.clear()  # erase the headers too
                 self.nlayer = nlayer
                 self.setHorizontalHeaderLabels(self.headers)
                 self.nrow = nlayer + nlayer - 1
-                self.clear()
                 self.setRowCount(self.nrow)
                 for i in range(nlayer):
                     val = (i+1)*5
